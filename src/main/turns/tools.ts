@@ -4,16 +4,16 @@ import { z } from "zod";
 import { awaitRuling, forget } from "./decisions";
 import { appendEntry } from "../storage/conversationFile";
 import { attemptCall } from "../tools/attempt";
-import { builtinTools, type BuiltinToolImplementation } from "../tools/builtin";
+import { builtinTools } from "../tools/builtin";
+import type { BuiltinToolImplementation, ToolContext } from "../tools/define";
 import type { Agent, ToolCall } from "../../shared/types";
 import type { EntrySink } from "./run";
 
 const serverName = "agentos";
 const reason = z.string().describe("Why you are making this call, in one short sentence.");
 
-export interface CallContext {
+export interface CallContext extends ToolContext {
 	file: string;
-	sandbox: string;
 	agentId: string;
 	turnId: string;
 	emit: EntrySink;
@@ -93,7 +93,7 @@ async function record(
 
 	// Shown as running so the user can cancel it, which is a race the call itself has to run.
 	const stopping = awaitRuling(call.id, context.turnId);
-	const attempt = attemptCall(builtin, input, context.sandbox);
+	const attempt = attemptCall(builtin, input, context);
 	context.emit({ ...call });
 
 	const stopped = await Promise.race([attempt.then(() => false), stopping.then(() => true)]);

@@ -1,39 +1,14 @@
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative } from "node:path";
 import { z } from "zod";
+import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
+import { mountTools } from "./mounts";
 import { resolveInSandbox } from "./sandbox";
 import type { BuiltinTool } from "../../shared/types";
 
-export interface BuiltinToolImplementation extends BuiltinTool {
-	/** What the agent is given to call with, and what a user-invoked call is parsed against. */
-	input: z.ZodObject;
-	run(input: Record<string, unknown>, sandbox: string): Promise<Record<string, unknown>>;
-}
-
-const sandboxPath = z.string().describe("Path relative to the sandbox");
 const searchLimit = 100;
 
-function define<Input extends z.ZodObject>(definition: {
-	id: string;
-	description: string;
-	input: Input;
-	outputSchema: Record<string, unknown>;
-	run(input: z.infer<Input>, sandbox: string): Promise<Record<string, unknown>>;
-}): BuiltinToolImplementation {
-	return {
-		type: "builtin",
-		id: definition.id,
-		name: definition.id,
-		description: definition.description,
-		// The input side: a defaulted argument is one the caller may leave out.
-		inputSchema: z.toJSONSchema(definition.input, { io: "input" }),
-		outputSchema: definition.outputSchema,
-		input: definition.input,
-		run: (input, sandbox) => definition.run(definition.input.parse(input), sandbox),
-	};
-}
-
-export const builtinTools: BuiltinToolImplementation[] = [
+const fileTools: BuiltinToolImplementation[] = [
 	define({
 		id: "write_file",
 		description: "Create a file, replacing it if it already exists.",
@@ -43,7 +18,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 			properties: { path: { type: "string" }, bytes: { type: "number" } },
 			required: ["path", "bytes"],
 		},
-		async run({ path, content }, sandbox) {
+		async run({ path, content }, { sandbox }) {
 			const file = resolveInSandbox(sandbox, path);
 
 			await mkdir(dirname(file), { recursive: true });
@@ -61,7 +36,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 			properties: { path: { type: "string" }, content: { type: "string" } },
 			required: ["path", "content"],
 		},
-		async run({ path }, sandbox) {
+		async run({ path }, { sandbox }) {
 			return { path, content: await readFile(resolveInSandbox(sandbox, path), "utf8") };
 		},
 	}),
@@ -84,7 +59,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 			},
 			required: ["path", "entries"],
 		},
-		async run({ path }, sandbox) {
+		async run({ path }, { sandbox }) {
 			const found = await readdir(resolveInSandbox(sandbox, path), { withFileTypes: true });
 
 			return {
@@ -105,7 +80,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 			properties: { path: { type: "string" }, bytes: { type: "number" } },
 			required: ["path", "bytes"],
 		},
-		async run({ path, find, replace }, sandbox) {
+		async run({ path, find, replace }, { sandbox }) {
 			const file = resolveInSandbox(sandbox, path);
 			const before = await readFile(file, "utf8");
 
@@ -127,7 +102,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 			properties: { from: { type: "string" }, to: { type: "string" } },
 			required: ["from", "to"],
 		},
-		async run({ from, to }, sandbox) {
+		async run({ from, to }, { sandbox }) {
 			const target = resolveInSandbox(sandbox, to);
 
 			if (await exists(target)) throw new Error(`${to} already exists`);
@@ -143,7 +118,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 		description: "Remove a file. Directories are refused.",
 		input: z.object({ path: sandboxPath }),
 		outputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
-		async run({ path }, sandbox) {
+		async run({ path }, { sandbox }) {
 			const file = resolveInSandbox(sandbox, path);
 
 			if ((await stat(file)).isDirectory()) throw new Error(`${path} is a directory`);
@@ -176,7 +151,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 			},
 			required: ["pattern", "matches", "truncated"],
 		},
-		async run(input, sandbox) {
+		async run(input, { sandbox }) {
 			const pattern = new RegExp(input.pattern);
 			const root = resolveInSandbox(sandbox, input.path);
 			const matches: { path: string; line: number; text: string }[] = [];
@@ -197,6 +172,8 @@ export const builtinTools: BuiltinToolImplementation[] = [
 		},
 	}),
 ];
+
+export const builtinTools: BuiltinToolImplementation[] = [...fileTools, ...mountTools];
 
 /** The metadata alone, since run and input carry functions and IPC cannot carry one. */
 export function builtinToolMetadata(): BuiltinTool[] {

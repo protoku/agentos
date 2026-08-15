@@ -28,6 +28,15 @@ describe("createSource", () => {
 		expect(await listSources(root, workspaceId)).toEqual([source]);
 	});
 
+	it("refuses a name the workspace already uses, since a mount resolves it to one source", async () => {
+		await createSource(root, workspaceId, notes);
+
+		await expect(createSource(root, workspaceId, { ...notes, config: { path: "/elsewhere" } })).rejects.toThrow(
+			"A source named notes already exists",
+		);
+		expect(await listSources(root, workspaceId)).toHaveLength(1);
+	});
+
 	it("keeps sources in the order they were added", async () => {
 		await createSource(root, workspaceId, notes);
 		await createSource(root, workspaceId, { name: "docs", type: "directory", config: { path: "/srv/docs" } });

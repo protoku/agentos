@@ -1,4 +1,4 @@
-import type { BuiltinToolImplementation } from "./builtin";
+import type { BuiltinToolImplementation, ToolContext } from "./define";
 
 export interface Attempt {
 	output?: Record<string, unknown>;
@@ -9,9 +9,9 @@ export interface Attempt {
 export function attemptCall(
 	builtin: BuiltinToolImplementation,
 	input: Record<string, unknown>,
-	sandbox: string,
+	context: ToolContext,
 ): Promise<Attempt> {
-	return builtin.run(input, sandbox).then(
+	return builtin.run(input, context).then(
 		(output) => ({ output }),
 		(failure: unknown) => ({ failure: failure instanceof Error ? failure.message : String(failure) }),
 	);

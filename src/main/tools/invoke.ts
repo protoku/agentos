@@ -34,7 +34,7 @@ export async function invokeTool(
 	try {
 		const sandbox = await ensureSandbox(root, workspaceId, conversationId);
 		const stopping = awaitRuling(call.id, conversationId);
-		const attempt = attemptCall(builtinTool(toolId), input, sandbox);
+		const attempt = attemptCall(builtinTool(toolId), input, { root, workspaceId, conversationId, sandbox });
 		emit({ ...call });
 
 		const stopped = await Promise.race([attempt.then(() => false), stopping.then(() => true)]);

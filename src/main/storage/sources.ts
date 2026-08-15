@@ -10,6 +10,11 @@ export async function listSources(root: string, workspaceId: string): Promise<Mo
 
 export async function createSource(root: string, workspaceId: string, draft: SourceDraft): Promise<MountSource> {
 	const workspace = await loadWorkspace(root, workspaceId);
+	// A mount asks for its source by name, so a name points at one source or none.
+	if (workspace.sources.some((source) => source.name === draft.name)) {
+		throw new Error(`A source named ${draft.name} already exists`);
+	}
+
 	const source: MountSource = {
 		id: randomUUID(),
 		name: draft.name,

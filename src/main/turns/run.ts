@@ -83,8 +83,11 @@ async function runTurn(
 		const sandbox = await ensureSandbox(root, workspaceId, conversationId);
 		const prompt = transcript(await readEntries(file), workspace.agents, agent);
 		const granted = grantedTools(agent, {
-			file,
+			root,
+			workspaceId,
+			conversationId,
 			sandbox,
+			file,
 			agentId,
 			turnId: start.id,
 			emit,

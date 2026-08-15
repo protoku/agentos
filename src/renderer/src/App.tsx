@@ -10,7 +10,7 @@ import { Sources } from "./Sources";
 import { Thread } from "./Thread";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary } from "../../shared/api";
-import type { Agent, BuiltinTool, Entry, Workspace } from "../../shared/types";
+import type { Agent, BuiltinTool, Entry, Mount, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "sources", "env"] as const;
 
@@ -259,14 +259,14 @@ export function App() {
 						onCancel={cancel}
 						onArchive={openConversation ? archive : undefined}
 					/>
-					<ContextPanel sandbox={openConversation?.sandbox} present={present} />
+					<ContextPanel sandbox={openConversation?.sandbox} mounts={openConversation?.mounts ?? []} present={present} />
 				</>
 			) : (
 				<>
 					<main className="grid flex-1 place-items-center text-sm text-muted-foreground">
 						No conversation selected
 					</main>
-					<ContextPanel present={[]} />
+					<ContextPanel mounts={[]} present={[]} />
 				</>
 			)}
 		</div>
@@ -298,10 +298,14 @@ function SidebarItem({
 	);
 }
 
-function ContextPanel({ sandbox, present }: { sandbox?: string; present: Agent[] }) {
+function ContextPanel({ sandbox, mounts, present }: { sandbox?: string; mounts: Mount[]; present: Agent[] }) {
 	return (
 		<aside className="flex w-72 shrink-0 flex-col gap-6 border-l border-border bg-surface p-4">
-			<ContextSection title="Mounts">Nothing mounted</ContextSection>
+			<ContextSection title="Mounts">
+				{mounts.length === 0
+					? "Nothing mounted"
+					: mounts.map((mount) => `${mount.path}${mount.readOnly ? " (read-only)" : ""}`).join(", ")}
+			</ContextSection>
 			<ContextSection title="Sandbox">{sandbox ?? "Not created yet"}</ContextSection>
 			<ContextSection title="Agents">
 				{present.length === 0 ? "Nobody in the thread" : present.map((agent) => `@${agent.name}`).join(", ")}
