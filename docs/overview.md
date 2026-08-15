@@ -273,6 +273,8 @@ Built-in tools act on the conversation's sandbox and respect read-only mounts; t
 Features of the app around the model above.
 
 - Messages and tool calls offer copy to clipboard: a message copies its text, a tool call its input and output as JSON. Turn entries have nothing to copy.
+- A pending call is decided in the entry itself: approve it, or deny it with a message for the agent alongside.
+- While a turn runs the composer sends nothing, and its send button becomes a stop that cancels the turn.
 - The window carries no application menu: everything AgentOS does is reachable in the interface itself.
 - The sidebar header holds the workspace picker: it names the workspace in view and switches to any other.
 - The window is three panes: the sidebar with the workspace picker and the conversation list, the thread in the middle, and the conversation's mounts, sandbox and agents on the right.
