@@ -135,6 +135,13 @@ describe("invokeTool", () => {
 		});
 	});
 
+	it("records a call whose input does not match the tool's schema as failed", async () => {
+		const call = await invokeTool(root, workspaceId, conversationId, "write_file", { path: "a.txt" });
+
+		expect(call.status).toBe("error");
+		expect(call.output).toBeUndefined();
+	});
+
 	it("records an unknown tool as a failed call", async () => {
 		const call = await invokeTool(root, workspaceId, conversationId, "fly_to_moon", {});
 
