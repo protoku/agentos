@@ -46,6 +46,13 @@ export async function saveWorkspace(root: string, workspace: Workspace): Promise
 	await rename(temporary, target);
 }
 
+export async function loadWorkspace(root: string, workspaceId: string): Promise<Workspace> {
+	const text = await readIfPresent(join(workspaceDirectory(root, workspaceId), "workspace.json"));
+	if (text === undefined) throw new Error(`No workspace ${workspaceId}`);
+
+	return JSON.parse(text) as Workspace;
+}
+
 export async function loadWorkspaces(root: string): Promise<Workspace[]> {
 	const workspaces: Workspace[] = [];
 
