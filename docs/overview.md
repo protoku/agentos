@@ -197,7 +197,7 @@ A read-only mount lets agents read the data without changing it, with the same t
 
 Work leaves an isolated mount the ordinary git way, by committing and pushing its branch through tools; archiving a conversation removes its sandbox and its checkouts, so work that was never pushed is gone with it.
 
-How a mount materializes depends on the source. A directory mount is a symlink to the directory itself: nothing is copied, what an agent writes appears in the real directory at once, and outside changes appear in every conversation that mounts it. That is also why directory sources are always shared: a plain directory has no branching to build isolation from. readOnly is enforced by the built-in tools and honored on trust by script tools.
+How a mount materializes depends on the source. A directory mount is a symlink to the directory itself: nothing is copied, what an agent writes appears in the real directory at once, and outside changes appear in every conversation that mounts it. That is also why directory sources are always shared: a plain directory has no branching to build isolation from. Mounting a directory that is not there is refused, since a link to a missing target fails nowhere near the mistake, at the first read instead. readOnly is enforced by the built-in tools and honored on trust by script tools.
 
 A conversations mount materializes like a directory mount: a symlink, pointing at the workspace's folder of thread files. Its mode and readOnly are not choices but constraints: the mount tool forces shared and read-only for this source type and rejects anything else, just as it rejects isolated mode for any non-git source.
 
@@ -219,7 +219,7 @@ interface Mount {
 
 ## MountSource
 
-A mount source is a data location the workspace makes available for mounting: a git repository, a plain directory, or the workspace's own conversations. Its config holds the per-type details, such as the remote and default branch of a repository, or the path of a directory. Sources define what can be mounted; conversations decide what they actually mount.
+A mount source is a data location the workspace makes available for mounting: a git repository, a plain directory, or the workspace's own conversations. Its config holds the per-type details, such as the remote and default branch of a repository, or the path of a directory. Sources define what can be mounted; conversations decide what they actually mount. A source is named uniquely within its workspace, since a mount asks for the source by name: creating one under a name already taken is refused.
 
 The conversations source exists because conversations are files: mounting it gives read-only access to the workspace's thread files, archived ones included, so an agent can be asked about anything that ever happened in the workspace. It is always shared, always read-only, and always the workspace's own conversations, so the workspace boundary holds.
 
