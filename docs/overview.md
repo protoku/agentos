@@ -289,6 +289,6 @@ A neutral dark theme: near-black background, elevation expressed as slightly lig
 The stack, for orientation; the sections above define behavior, this section never does.
 
 - An Electron app, TypeScript throughout; the UI is React with shadcn/ui components. Everything runs and is stored locally, which is why each machine carries its own workspaces and tools.
-- Agents run on the Claude Agent SDK: a turn is a query() run with the agent's model and systemPrompt, tools are exposed through an in-process MCP server built with tool() and createSdkMcpServer(), allow maps to allowedTools, ask is decided in the canUseTool callback, and hooks record every tool call into the thread.
+- Agents run on the Claude Agent SDK: a turn is a query() run with the agent's model and systemPrompt, tools are exposed through an in-process MCP server built with tool() and createSdkMcpServer(), allow maps to allowedTools, ask is decided in the canUseTool callback, and each tool records its own call into the thread. The SDK's own tools are switched off, so an agent has nothing but what the workspace grants it.
 - Script tool functions execute in Node with the sandbox as their working directory.
 - Conversations are JSONL files, one entry per line, written only once an entry is final: messages when sent, turn starts and ends the moment they happen, tool calls when they reach a terminal status. Lines are immutable and land in write order, with createdAt carrying thread order and file order breaking ties. Mounts are symlinks and git worktrees, as described under Mount.
