@@ -62,8 +62,10 @@ export function Thread({
 	function accept(candidate: Candidate) {
 		if (completion === undefined) return;
 
-		const caretAfter = completion.start + candidate.name.length + 1;
-		setDraft(`${draft.slice(0, completion.start)}${candidate.name} ${draft.slice(completion.end)}`);
+		const caretAfter = completion.start + candidate.name.length + completion.suffix.length;
+		setDraft(
+			`${draft.slice(0, completion.start)}${candidate.name}${completion.suffix}${draft.slice(completion.end)}`,
+		);
 		setCaret(caretAfter);
 		composer.current?.focus();
 		// The value lands on the element after this render, so the caret is placed once it has.
@@ -181,6 +183,7 @@ export function Thread({
 								setDraft(event.target.value);
 								setCaret(event.target.selectionStart);
 								setDismissed(false);
+								setRefused(undefined);
 							}}
 							onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
 							onKeyDown={onKeyDown}

@@ -142,11 +142,17 @@ describe("invokeTool", () => {
 		});
 	});
 
-	it("records a call whose input does not match the tool's schema as failed", async () => {
+	it("records a call whose input does not match the tool's schema as failed, in words", async () => {
 		const call = await invoke("write_file", { path: "a.txt" });
 
-		expect(call.status).toBe("error");
+		expect(call).toMatchObject({ status: "error", error: "write_file was called with content is required" });
 		expect(call.output).toBeUndefined();
+	});
+
+	it("says what a call typed without its arguments is missing", async () => {
+		const call = await invoke("mount", {});
+
+		expect(call.error).toBe("mount was called with source is required, path is required");
 	});
 
 	it("shows the call while it runs, and again once it is final", async () => {

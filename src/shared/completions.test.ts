@@ -1,9 +1,31 @@
 import { describe, expect, it } from "vitest";
 import { completionAt } from "./completions";
+import type { BuiltinTool } from "./types";
 
-const tools = [
-	{ id: "write_file", name: "write_file", description: "Create a file." },
-	{ id: "read_file", name: "read_file", description: "Read a file." },
+const tools: BuiltinTool[] = [
+	{
+		type: "builtin",
+		id: "write_file",
+		name: "write_file",
+		description: "Create a file.",
+		inputSchema: {
+			type: "object",
+			properties: {
+				path: { type: "string", description: "Path relative to the sandbox" },
+				content: { type: "string" },
+			},
+			required: ["path", "content"],
+		},
+		outputSchema: {},
+	},
+	{
+		type: "builtin",
+		id: "read_file",
+		name: "read_file",
+		description: "Read a file.",
+		inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+		outputSchema: {},
+	},
 ];
 
 const agents = [
@@ -25,8 +47,21 @@ describe("completionAt", () => {
 		expect(at("/read_file", 3)).toMatchObject({ start: 1, end: 10 });
 	});
 
-	it("offers nothing once the caret leaves the first token, where the arguments start", () => {
+	it("offers the tool's arguments once it is named, each taking a value", () => {
+		expect(at("/write_file ")).toMatchObject({
+			suffix: "=",
+			candidates: [{ name: "path", description: "Path relative to the sandbox" }, { name: "content" }],
+		});
+		expect(at("/write_file co")?.candidates.map((candidate) => candidate.name)).toEqual(["content"]);
+		expect(at("/write_file co")).toMatchObject({ start: 12, end: 14 });
+	});
+
+	it("offers nothing inside an argument's value, which is the caller's to write", () => {
 		expect(at("/read_file path=a.txt")).toBeUndefined();
+	});
+
+	it("offers no arguments for a tool it does not know", () => {
+		expect(at("/fly_to_moon ")).toBeUndefined();
 	});
 
 	it("offers agents on an @ anywhere in a message", () => {

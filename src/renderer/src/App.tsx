@@ -249,6 +249,8 @@ export function App() {
 			) : drafting || openConversation ? (
 				<>
 					<Thread
+						// Each conversation composes on its own: a draft here never follows you to another.
+						key={conversationId ?? "draft"}
 						title={openConversation?.title ?? "New conversation"}
 						entries={entries}
 						agents={agents}

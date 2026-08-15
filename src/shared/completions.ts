@@ -10,27 +10,30 @@ export interface Candidate {
 export interface Completion {
 	start: number;
 	end: number;
+	/** What follows an accepted name: a space for a tool or an agent, = for an argument. */
+	suffix: string;
 	candidates: Candidate[];
 }
 
 export function completionAt(
 	draft: string,
 	caret: number,
-	tools: Pick<BuiltinTool, "id" | "name" | "description">[],
+	tools: BuiltinTool[],
 	agents: Pick<Agent, "id" | "name">[],
 ): Completion | undefined {
-	// A slash command names its tool in the first token, and carries no mentions anywhere.
+	// A slash command names its tool in the first token, then its arguments, and carries no mentions.
 	if (draft.startsWith("/")) {
-		if (!isName(draft.slice(1, caret)) || caret === 0) return undefined;
+		const name = draft.slice(1).split(/\s/)[0];
+		if (caret <= name.length + 1) return matching(tools, draft.slice(1, caret), 1, nameEnd(draft, caret), " ");
 
-		return matching(tools, draft.slice(1, caret), 1, nameEnd(draft, caret));
+		return argumentsOf(draft, caret, tools.find((tool) => tool.name === name));
 	}
 
 	for (let index = caret - 1; index >= 0; index--) {
 		if (draft[index] === "@") {
 			if (isNameCharacter(draft[index - 1])) return undefined;
 
-			return matching(agents, draft.slice(index + 1, caret), index + 1, nameEnd(draft, caret));
+			return matching(agents, draft.slice(index + 1, caret), index + 1, nameEnd(draft, caret), " ");
 		}
 		if (!isNameCharacter(draft[index])) return undefined;
 	}
@@ -38,12 +41,38 @@ export function completionAt(
 	return undefined;
 }
 
-function matching(named: Candidate[], prefix: string, start: number, end: number): Completion | undefined {
+/** The arguments a tool takes, each accepted as name=, since a value follows it. */
+function argumentsOf(draft: string, caret: number, tool: BuiltinTool | undefined): Completion | undefined {
+	if (tool === undefined) return undefined;
+
+	const properties = tool.inputSchema.properties;
+	if (typeof properties !== "object" || properties === null) return undefined;
+
+	const start = draft.lastIndexOf(" ", caret - 1) + 1;
+	const typed = draft.slice(start, caret);
+	if (typed.includes("=")) return undefined;
+
+	const named = Object.entries(properties as Record<string, { description?: string }>).map(([name, property]) => ({
+		id: name,
+		name,
+		description: property.description,
+	}));
+
+	return matching(named, typed, start, nameEnd(draft, caret), "=");
+}
+
+function matching(
+	named: Candidate[],
+	prefix: string,
+	start: number,
+	end: number,
+	suffix: string,
+): Completion | undefined {
 	if (!isName(prefix)) return undefined;
 
 	const candidates = named.filter((candidate) => candidate.name.toLowerCase().startsWith(prefix.toLowerCase()));
 
-	return candidates.length === 0 ? undefined : { start, end, candidates };
+	return candidates.length === 0 ? undefined : { start, end, suffix, candidates };
 }
 
 /** The name being completed runs past the caret, so accepting replaces all of it. */

@@ -275,7 +275,7 @@ Features of the app around the model above.
 - Messages and tool calls offer copy to clipboard: a message copies its text, a tool call its input and output as JSON. Turn entries have nothing to copy.
 - A pending call is decided in the entry itself: approve it, or deny it with a message for the agent alongside.
 - The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn.
-- The composer completes what can be named in it: / at the start of a message lists the tools, @ anywhere lists the agents, both narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
+- The composer completes what can be named in it: / at the start of a message lists the tools, the arguments of that tool once it is named, and @ anywhere lists the agents, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
 - The window carries no application menu: everything AgentOS does is reachable in the interface itself.
 - The sidebar header holds the workspace picker: it names the workspace in view and switches to any other.
 - The window is three panes: the sidebar with the workspace picker and the conversation list, the thread in the middle, and the conversation's mounts, sandbox and agents on the right.
