@@ -12,4 +12,5 @@ export interface AgentOSApi {
 	readConversation(workspaceId: string, conversationId: string): Promise<Entry[]>;
 	startConversation(workspaceId: string, content: string): Promise<{ conversation: Conversation; message: UserMessage }>;
 	sendMessage(workspaceId: string, conversationId: string, content: string): Promise<UserMessage>;
+	archiveConversation(workspaceId: string, conversationId: string): Promise<Conversation>;
 }

@@ -1,7 +1,13 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme } from "electron";
 import { join } from "node:path";
 import { createWorkspace, loadWorkspaces, recoverAllInterruptedTurns } from "./storage/workspaceStore";
-import { listConversations, readConversation, sendMessage, startConversation } from "./storage/conversations";
+import {
+	archiveConversation,
+	listConversations,
+	readConversation,
+	sendMessage,
+	startConversation,
+} from "./storage/conversations";
 
 const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
 
@@ -43,6 +49,9 @@ void app.whenReady().then(async () => {
 	);
 	ipcMain.handle("conversations:send", (_event, workspaceId: string, conversationId: string, content: string) =>
 		sendMessage(root, workspaceId, conversationId, content),
+	);
+	ipcMain.handle("conversations:archive", (_event, workspaceId: string, conversationId: string) =>
+		archiveConversation(root, workspaceId, conversationId),
 	);
 
 	await recoverAllInterruptedTurns(root);

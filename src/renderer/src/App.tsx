@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { Conversations } from "./Conversations";
 import { Thread } from "./Thread";
 import type { ConversationSummary } from "../../shared/api";
 import type { Entry, Workspace } from "../../shared/types";
@@ -75,6 +76,13 @@ export function App() {
 		setSection(undefined);
 		setConversationId(undefined);
 		setEntries([]);
+	}
+
+	async function archive() {
+		if (workspaceId === undefined || conversationId === undefined) return;
+
+		await window.agentOS.archiveConversation(workspaceId, conversationId);
+		setConversations(await window.agentOS.listConversations(workspaceId));
 	}
 
 	async function send(content: string) {
@@ -183,6 +191,8 @@ export function App() {
 				<main className="grid flex-1 place-items-center text-sm text-muted-foreground">
 					No workspace selected
 				</main>
+			) : section === "conversations" ? (
+				<Conversations conversations={conversations} onOpen={(id) => void openThread(id)} />
 			) : section ? (
 				<main className="flex-1">
 					<header className="border-b border-border px-6 py-3 text-sm font-medium">
@@ -191,7 +201,13 @@ export function App() {
 				</main>
 			) : drafting || openConversation ? (
 				<>
-					<Thread title={openConversation?.title ?? "New conversation"} entries={entries} onSend={send} />
+					<Thread
+						title={openConversation?.title ?? "New conversation"}
+						entries={entries}
+						archivedAt={openConversation?.archivedAt}
+						onSend={send}
+						onArchive={openConversation ? archive : undefined}
+					/>
 					<ContextPanel />
 				</>
 			) : (

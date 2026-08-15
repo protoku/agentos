@@ -45,6 +45,22 @@ export async function sendMessage(
 	return message;
 }
 
+/** Closing a conversation for good: there is no unarchive, and the thread stays readable. */
+export async function archiveConversation(
+	root: string,
+	workspaceId: string,
+	conversationId: string,
+): Promise<Conversation> {
+	const workspace = await loadWorkspace(root, workspaceId);
+	const conversation = workspace.conversations.find((candidate) => candidate.id === conversationId);
+	if (conversation === undefined) throw new Error(`No conversation ${conversationId}`);
+
+	conversation.archivedAt = new Date().toISOString();
+	await saveWorkspace(root, workspace);
+
+	return conversation;
+}
+
 export async function readConversation(
 	root: string,
 	workspaceId: string,

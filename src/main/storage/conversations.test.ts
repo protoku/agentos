@@ -2,7 +2,13 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { listConversations, readConversation, sendMessage, startConversation } from "./conversations";
+import {
+	archiveConversation,
+	listConversations,
+	readConversation,
+	sendMessage,
+	startConversation,
+} from "./conversations";
 import { createWorkspace, loadWorkspace } from "./workspaceStore";
 
 let root: string;
@@ -51,7 +57,33 @@ describe("sendMessage", () => {
 	});
 });
 
+describe("archiveConversation", () => {
+	it("stamps archivedAt on the record and keeps the thread readable", async () => {
+		const { conversation, message } = await startConversation(root, workspaceId, "Deploy the API");
+
+		const archived = await archiveConversation(root, workspaceId, conversation.id);
+
+		expect(archived.archivedAt).toEqual(expect.any(String));
+		expect((await loadWorkspace(root, workspaceId)).conversations[0].archivedAt).toBe(archived.archivedAt);
+		expect(await readConversation(root, workspaceId, conversation.id)).toEqual([message]);
+	});
+
+	it("refuses a conversation the workspace does not have", async () => {
+		await expect(archiveConversation(root, workspaceId, "nope")).rejects.toThrow("No conversation nope");
+	});
+});
+
 describe("listConversations", () => {
+	it("keeps archived conversations in the list", async () => {
+		const { conversation } = await startConversation(root, workspaceId, "Deploy the API");
+		await archiveConversation(root, workspaceId, conversation.id);
+
+		const summaries = await listConversations(root, workspaceId);
+
+		expect(summaries).toHaveLength(1);
+		expect(summaries[0].archivedAt).toEqual(expect.any(String));
+	});
+
 	it("returns nothing for a workspace nobody has written in", async () => {
 		expect(await listConversations(root, workspaceId)).toEqual([]);
 	});

@@ -10,6 +10,8 @@ const api: AgentOSApi = {
 	startConversation: (workspaceId, content) => ipcRenderer.invoke("conversations:start", workspaceId, content),
 	sendMessage: (workspaceId, conversationId, content) =>
 		ipcRenderer.invoke("conversations:send", workspaceId, conversationId, content),
+	archiveConversation: (workspaceId, conversationId) =>
+		ipcRenderer.invoke("conversations:archive", workspaceId, conversationId),
 };
 
 contextBridge.exposeInMainWorld("agentOS", api);
