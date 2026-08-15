@@ -51,7 +51,7 @@ interface Conversation {
 
 ## Message
 
-A message is a single contribution to the conversation and comes in two kinds. An agent message carries agentId, so a thread with multiple agents stays attributable. A user message carries mentions, the ids of the @-mentioned agents in mention order: the @names in the content are presentation, and the ids are resolved when the message is sent, so renaming an agent never changes history. A user message without mentions is allowed: it adds to the thread and triggers no turns.
+A message is a single contribution to the conversation and comes in two kinds. An agent message carries agentId, so a thread with multiple agents stays attributable. A user message carries mentions, the ids of the @-mentioned agents in mention order: the @names in the content are presentation, and the ids are resolved when the message is sent, so renaming an agent never changes history. A user message without mentions is allowed: it adds to the thread and triggers no turns, and an @name matching no agent of the workspace is ordinary text that resolves to nothing.
 
 Every entry in a conversation names its kind in a type field, which is how the entry kinds are told apart. Tool activity is never embedded in a message: tool calls are their own entries.
 

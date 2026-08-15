@@ -2,17 +2,20 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { moment } from "./Conversations";
-import type { Entry } from "../../shared/types";
+import { findMentions } from "../../shared/mentions";
+import type { Agent, Entry } from "../../shared/types";
 
 export function Thread({
 	title,
 	entries,
+	agents,
 	archivedAt,
 	onSend,
 	onArchive,
 }: {
 	title: string;
 	entries: Entry[];
+	agents: Agent[];
 	archivedAt?: string;
 	onSend: (content: string) => Promise<void>;
 	onArchive?: () => Promise<void>;
@@ -40,7 +43,7 @@ export function Thread({
 
 			<div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
 				{entries.map((entry) => (
-					<EntryView key={entry.id} entry={entry} />
+					<EntryView key={entry.id} entry={entry} agents={agents} />
 				))}
 			</div>
 
@@ -70,7 +73,7 @@ export function Thread({
 	);
 }
 
-function EntryView({ entry }: { entry: Entry }) {
+function EntryView({ entry, agents }: { entry: Entry; agents: Agent[] }) {
 	// Threads hold nothing but user messages until agents and tools arrive.
 	if (entry.type !== "userMessage") return null;
 
@@ -80,9 +83,29 @@ function EntryView({ entry }: { entry: Entry }) {
 				<span className="font-medium text-foreground">You</span>
 				<time dateTime={entry.createdAt}>{time(entry.createdAt)}</time>
 			</div>
-			<p className="text-sm whitespace-pre-wrap">{entry.content}</p>
+			<p className="text-sm whitespace-pre-wrap">{withMentions(entry.content, agents)}</p>
 		</article>
 	);
+}
+
+/** The @names are presentation: they are highlighted only where they resolved to an agent. */
+function withMentions(content: string, agents: Agent[]) {
+	const parts = [];
+	let cursor = 0;
+
+	for (const [index, mention] of findMentions(content, agents).entries()) {
+		parts.push(content.slice(cursor, mention.start));
+		parts.push(
+			<span key={index} className="font-medium text-foreground">
+				{content.slice(mention.start, mention.end)}
+			</span>,
+		);
+		cursor = mention.end;
+	}
+
+	parts.push(content.slice(cursor));
+
+	return parts;
 }
 
 function time(iso: string): string {

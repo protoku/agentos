@@ -10,6 +10,7 @@ import {
 	startConversation,
 } from "./conversations";
 import { createWorkspace, loadWorkspace } from "./workspaceStore";
+import { createAgent } from "./agents";
 
 let root: string;
 let workspaceId: string;
@@ -44,6 +45,22 @@ describe("startConversation", () => {
 		const { conversation } = await startConversation(root, workspaceId, content);
 
 		expect(conversation.title).toBe("Deploy the API and then check that every worker picked up…");
+	});
+});
+
+describe("mentions", () => {
+	it("resolves @names to agent ids when the message is sent", async () => {
+		const ops = await createAgent(root, workspaceId, { name: "ops", model: "m", systemPrompt: "" });
+
+		const { message } = await startConversation(root, workspaceId, "@ops deploy please");
+
+		expect(message.mentions).toEqual([ops.id]);
+	});
+
+	it("leaves a message without resolvable mentions unmarked", async () => {
+		const { message } = await startConversation(root, workspaceId, "@nobody deploy please");
+
+		expect(message.mentions).toBeUndefined();
 	});
 });
 

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { appendEntry, readEntries } from "./conversationFile";
 import { conversationFile, loadWorkspace, saveWorkspace } from "./workspaceStore";
 import type { ConversationSummary } from "../../shared/api";
+import { findMentions } from "../../shared/mentions";
 import type { Conversation, Entry, UserMessage } from "../../shared/types";
 
 const titleLength = 60;
@@ -33,9 +34,13 @@ export async function sendMessage(
 	conversationId: string,
 	content: string,
 ): Promise<UserMessage> {
+	const workspace = await loadWorkspace(root, workspaceId);
+	const mentions = findMentions(content, workspace.agents).map((mention) => mention.agentId);
+
 	const message: UserMessage = {
 		type: "userMessage",
 		id: randomUUID(),
+		...(mentions.length > 0 && { mentions }),
 		content,
 		createdAt: new Date().toISOString(),
 	};

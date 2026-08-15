@@ -8,7 +8,7 @@ import { Agents } from "./Agents";
 import { Conversations } from "./Conversations";
 import { Thread } from "./Thread";
 import type { ConversationSummary } from "../../shared/api";
-import type { Entry, Workspace } from "../../shared/types";
+import type { Agent, Entry, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "sources", "env"] as const;
 
@@ -30,6 +30,7 @@ export function App() {
 	const [conversations, setConversations] = useState<ConversationSummary[]>([]);
 	const [conversationId, setConversationId] = useState<string>();
 	const [entries, setEntries] = useState<Entry[]>([]);
+	const [agents, setAgents] = useState<Agent[]>([]);
 	const [drafting, setDrafting] = useState(false);
 	const [section, setSection] = useState<Section>();
 	const [name, setName] = useState("");
@@ -43,9 +44,13 @@ export function App() {
 		setConversationId(undefined);
 		setDrafting(false);
 		setEntries([]);
-		if (workspaceId === undefined) return setConversations([]);
+		if (workspaceId === undefined) {
+			setAgents([]);
+			return setConversations([]);
+		}
 
 		void window.agentOS.listConversations(workspaceId).then(setConversations);
+		void window.agentOS.listAgents(workspaceId).then(setAgents);
 	}, [workspaceId]);
 
 	function stopNaming() {
@@ -207,6 +212,7 @@ export function App() {
 					<Thread
 						title={openConversation?.title ?? "New conversation"}
 						entries={entries}
+						agents={agents}
 						archivedAt={openConversation?.archivedAt}
 						onSend={send}
 						onArchive={openConversation ? archive : undefined}
