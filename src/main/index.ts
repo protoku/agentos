@@ -9,6 +9,7 @@ import {
 	startConversation,
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent } from "./storage/agents";
+import { invokeTool } from "./tools/invoke";
 import type { Agent } from "../shared/types";
 
 const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
@@ -61,6 +62,11 @@ void app.whenReady().then(async () => {
 	);
 	ipcMain.handle("agents:update", (_event, workspaceId: string, agent: Agent) =>
 		updateAgent(root, workspaceId, agent),
+	);
+	ipcMain.handle(
+		"tools:invoke",
+		(_event, workspaceId: string, conversationId: string, toolId: string, input: Record<string, unknown>) =>
+			invokeTool(root, workspaceId, conversationId, toolId, input),
 	);
 
 	await recoverAllInterruptedTurns(root);

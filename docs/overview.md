@@ -275,6 +275,7 @@ Features of the app around the model above.
 - The sidebar header holds the workspace picker: it names the workspace in view and switches to any other.
 - The window is three panes: the sidebar with the workspace picker and the conversation list, the thread in the middle, and the conversation's mounts, sandbox and agents on the right.
 - Conversations, agents, script tools, mount sources and env each open in a pane that replaces the thread.
+- A tool is invoked in the composer as a slash command with key=value arguments, quoting any value that contains spaces: /write_file path=notes/todo.md content="Ship it". A draft has no thread to record the call in, so a tool call there is refused until a message is sent.
 - The sidebar lists the twenty conversations with the most recent activity, archived ones left out; a conversation's activity is the time of its last entry. The conversations pane lists every conversation, archived included, in that same order.
 
 ## Design

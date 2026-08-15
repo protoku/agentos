@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Agents } from "./Agents";
 import { Conversations } from "./Conversations";
 import { Thread } from "./Thread";
+import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary } from "../../shared/api";
 import type { Agent, Entry, Workspace } from "../../shared/types";
 
@@ -93,6 +94,13 @@ export function App() {
 
 	async function send(content: string) {
 		if (workspaceId === undefined) return;
+
+		const command = parseSlashCommand(content);
+		if (command && conversationId !== undefined) {
+			const call = await window.agentOS.invokeTool(workspaceId, conversationId, command.toolId, command.input);
+			setEntries((current) => [...current, call]);
+			return setConversations(await window.agentOS.listConversations(workspaceId));
+		}
 
 		if (conversationId === undefined) {
 			const { conversation, message } = await window.agentOS.startConversation(workspaceId, content);
@@ -213,11 +221,12 @@ export function App() {
 						title={openConversation?.title ?? "New conversation"}
 						entries={entries}
 						agents={agents}
+						toolsEnabled={openConversation !== undefined}
 						archivedAt={openConversation?.archivedAt}
 						onSend={send}
 						onArchive={openConversation ? archive : undefined}
 					/>
-					<ContextPanel />
+					<ContextPanel sandbox={openConversation?.sandbox} />
 				</>
 			) : (
 				<>
@@ -256,11 +265,11 @@ function SidebarItem({
 	);
 }
 
-function ContextPanel() {
+function ContextPanel({ sandbox }: { sandbox?: string }) {
 	return (
 		<aside className="flex w-72 shrink-0 flex-col gap-6 border-l border-border bg-surface p-4">
 			<ContextSection title="Mounts">Nothing mounted</ContextSection>
-			<ContextSection title="Sandbox">Not created yet</ContextSection>
+			<ContextSection title="Sandbox">{sandbox ?? "Not created yet"}</ContextSection>
 			<ContextSection title="Agents">Nobody in the thread</ContextSection>
 		</aside>
 	);
@@ -270,7 +279,7 @@ function ContextSection({ title, children }: { title: string; children: string }
 	return (
 		<section className="flex flex-col gap-1.5">
 			<h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h2>
-			<p className="text-sm text-muted-foreground">{children}</p>
+			<p className="text-sm break-all text-muted-foreground">{children}</p>
 		</section>
 	);
 }

@@ -3,12 +3,13 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { moment } from "./Conversations";
 import { findMentions } from "../../shared/mentions";
-import type { Agent, Entry } from "../../shared/types";
+import type { Agent, Entry, ToolCall } from "../../shared/types";
 
 export function Thread({
 	title,
 	entries,
 	agents,
+	toolsEnabled,
 	archivedAt,
 	onSend,
 	onArchive,
@@ -16,16 +17,23 @@ export function Thread({
 	title: string;
 	entries: Entry[];
 	agents: Agent[];
+	toolsEnabled: boolean;
 	archivedAt?: string;
 	onSend: (content: string) => Promise<void>;
 	onArchive?: () => Promise<void>;
 }) {
 	const [draft, setDraft] = useState("");
+	const [refused, setRefused] = useState<string>();
 
 	async function send() {
 		const content = draft.trim();
 		if (content.length === 0) return;
 
+		if (content.startsWith("/") && !toolsEnabled) {
+			return setRefused("A tool call needs a conversation. Send a message first.");
+		}
+
+		setRefused(undefined);
 		setDraft("");
 		await onSend(content);
 	}
@@ -69,12 +77,15 @@ export function Thread({
 					<Button onClick={() => void send()}>Send</Button>
 				</div>
 			)}
+
+			{refused && <p className="px-4 pb-3 text-sm text-destructive">{refused}</p>}
 		</main>
 	);
 }
 
 function EntryView({ entry, agents }: { entry: Entry; agents: Agent[] }) {
-	// Threads hold nothing but user messages until agents and tools arrive.
+	if (entry.type === "toolCall") return <ToolCallView call={entry} />;
+	// Turn markers and agent messages arrive with the Agent SDK.
 	if (entry.type !== "userMessage") return null;
 
 	return (
@@ -85,6 +96,42 @@ function EntryView({ entry, agents }: { entry: Entry; agents: Agent[] }) {
 			</div>
 			<p className="text-sm whitespace-pre-wrap">{withMentions(entry.content, agents)}</p>
 		</article>
+	);
+}
+
+const statusColors: Record<ToolCall["status"], string> = {
+	pending: "text-pending",
+	running: "text-muted-foreground",
+	success: "text-success",
+	error: "text-destructive",
+	denied: "text-destructive",
+	canceled: "text-muted-foreground",
+};
+
+function ToolCallView({ call }: { call: ToolCall }) {
+	return (
+		<article className="flex flex-col gap-2 rounded-lg border border-border p-3">
+			<div className="flex items-baseline gap-2 text-xs">
+				<span className="font-medium">{call.toolId}</span>
+				<span className={statusColors[call.status]}>{call.status}</span>
+				<time className="text-muted-foreground" dateTime={call.createdAt}>
+					{time(call.createdAt)}
+				</time>
+			</div>
+
+			<Payload label="Input" value={call.input} />
+			{call.output && <Payload label="Output" value={call.output} />}
+			{call.error && <p className="text-sm text-destructive">{call.error}</p>}
+		</article>
+	);
+}
+
+function Payload({ label, value }: { label: string; value: Record<string, unknown> }) {
+	return (
+		<div className="flex flex-col gap-1">
+			<span className="text-xs tracking-wide text-muted-foreground uppercase">{label}</span>
+			<pre className="overflow-x-auto rounded-md bg-elevated p-2 text-xs">{JSON.stringify(value, null, 2)}</pre>
+		</div>
 	);
 }
 

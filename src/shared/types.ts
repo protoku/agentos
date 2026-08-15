@@ -28,6 +28,17 @@ export interface Agent {
 	tools: Record<string, "allow" | "ask" | "deny">;
 }
 
+export type Tool = BuiltinTool | ScriptTool;
+
+export interface BuiltinTool {
+	type: "builtin";
+	id: string;
+	name: string;
+	description: string;
+	inputSchema: Record<string, unknown>;
+	outputSchema: Record<string, unknown>;
+}
+
 export interface ScriptTool {
 	type: "script";
 	id: string;
