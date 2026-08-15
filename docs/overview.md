@@ -109,7 +109,7 @@ A turn is bracketed by two entries. Its start appears the moment a mentioned age
 
 The end closes it: finished when the agent has nothing further to do, failed when its model or network errors, with the error recorded, or canceled when the user stops it. Failed and canceled turns end the mention chain, and everything produced before the end stays in the thread, so a stopped turn is never mistaken for a finished one.
 
-A crash cannot strand the thread: a start without an end is either running right now or interrupted, and on restart AgentOS appends the failed end for the interrupted turn, with its error noting the interruption. A call in flight at the crash was never persisted and never reaches the thread: the failed end is the whole record, consistent with a thread that only ever contains settled facts.
+A crash cannot strand the thread: a start without an end is either running right now or interrupted, and on restart AgentOS appends the failed end for the interrupted turn, with its error noting the interruption: Interrupted by an AgentOS restart. A call in flight at the crash was never persisted and never reaches the thread: the failed end is the whole record, consistent with a thread that only ever contains settled facts.
 
 ```ts
 interface TurnStart {
