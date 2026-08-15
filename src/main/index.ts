@@ -9,6 +9,7 @@ import {
 	startConversation,
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
+import { createSource, listSources, type SourceDraft } from "./storage/sources";
 import { builtinToolMetadata } from "./tools/builtin";
 import { invokeTool, isCallRunning } from "./tools/invoke";
 import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
@@ -76,6 +77,10 @@ void app.whenReady().then(async () => {
 	);
 	ipcMain.handle("agents:update", (_event, workspaceId: string, agent: Agent) =>
 		updateAgent(root, workspaceId, agent),
+	);
+	ipcMain.handle("sources:list", (_event, workspaceId: string) => listSources(root, workspaceId));
+	ipcMain.handle("sources:create", (_event, workspaceId: string, draft: SourceDraft) =>
+		createSource(root, workspaceId, draft),
 	);
 	ipcMain.handle("tools:list", () => builtinToolMetadata());
 	ipcMain.handle("tools:decide", (_event, callId: string, decision: { allowed: boolean; denyMessage?: string }) =>
