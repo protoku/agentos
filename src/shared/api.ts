@@ -17,6 +17,8 @@ export interface AgentOSApi {
 	createAgent(workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt" | "tools">): Promise<Agent>;
 	updateAgent(workspaceId: string, agent: Agent): Promise<Agent>;
 	listTools(): Promise<BuiltinTool[]>;
+	/** Rules on a pending call, which is what an ask tool waits for. */
+	decideToolCall(callId: string, decision: { allowed: boolean; denyMessage?: string }): Promise<void>;
 	invokeTool(
 		workspaceId: string,
 		conversationId: string,

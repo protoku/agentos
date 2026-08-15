@@ -46,7 +46,12 @@ export function App() {
 		return window.agentOS.onThreadEntry((forWorkspace, forConversation, entry) => {
 			if (forWorkspace !== workspaceId || forConversation !== conversationId) return;
 
-			setEntries((current) => [...current, entry]);
+			// A pending call settles in place: the same id arrives again, decided.
+			setEntries((current) =>
+				current.some((existing) => existing.id === entry.id)
+					? current.map((existing) => (existing.id === entry.id ? entry : existing))
+					: [...current, entry],
+			);
 			if (entry.type === "turnEnd") void window.agentOS.listConversations(forWorkspace).then(setConversations);
 		});
 	}, [workspaceId, conversationId]);

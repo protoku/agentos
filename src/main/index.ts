@@ -11,6 +11,7 @@ import {
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
 import { builtinToolMetadata } from "./tools/builtin";
 import { invokeTool } from "./tools/invoke";
+import { decide, type Decision } from "./turns/decisions";
 import { isTurnRunning, runMentionedTurns } from "./turns/run";
 import type { Entry } from "../shared/types";
 import type { Agent } from "../shared/types";
@@ -72,6 +73,7 @@ void app.whenReady().then(async () => {
 		updateAgent(root, workspaceId, agent),
 	);
 	ipcMain.handle("tools:list", () => builtinToolMetadata());
+	ipcMain.handle("tools:decide", (_event, callId: string, decision: Decision) => decide(callId, decision));
 	ipcMain.handle(
 		"tools:invoke",
 		(_event, workspaceId: string, conversationId: string, toolId: string, input: Record<string, unknown>) => {

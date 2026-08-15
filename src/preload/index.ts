@@ -17,6 +17,7 @@ const api: AgentOSApi = {
 	createAgent: (workspaceId, draft) => ipcRenderer.invoke("agents:create", workspaceId, draft),
 	updateAgent: (workspaceId, agent) => ipcRenderer.invoke("agents:update", workspaceId, agent),
 	listTools: () => ipcRenderer.invoke("tools:list"),
+	decideToolCall: (callId, decision) => ipcRenderer.invoke("tools:decide", callId, decision),
 	invokeTool: (workspaceId, conversationId, toolId, input) =>
 		ipcRenderer.invoke("tools:invoke", workspaceId, conversationId, toolId, input),
 	onThreadEntry: (listener) => {

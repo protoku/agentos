@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { moment } from "./Conversations";
 import { findMentions } from "../../shared/mentions";
@@ -151,6 +152,17 @@ const statusColors: Record<ToolCall["status"], string> = {
 };
 
 function ToolCallView({ call, agents }: { call: ToolCall; agents: Agent[] }) {
+	const [denyMessage, setDenyMessage] = useState("");
+
+	function decide(allowed: boolean) {
+		const message = denyMessage.trim();
+
+		void window.agentOS.decideToolCall(call.id, {
+			allowed,
+			...(!allowed && message.length > 0 && { denyMessage: message }),
+		});
+	}
+
 	return (
 		<article className="flex flex-col gap-2 rounded-lg border border-border p-3">
 			<div className="flex items-baseline gap-2 text-xs">
@@ -169,6 +181,34 @@ function ToolCallView({ call, agents }: { call: ToolCall; agents: Agent[] }) {
 			<Payload label="Input" value={call.input} />
 			{call.output && <Payload label="Output" value={call.output} />}
 			{call.error && <p className="text-sm text-destructive">{call.error}</p>}
+			{call.denyMessage && <p className="text-sm text-destructive">{call.denyMessage}</p>}
+
+			{call.status === "pending" && (
+				<div className="flex items-center gap-2">
+					<Input
+						value={denyMessage}
+						placeholder="Why not, if you deny"
+						className="h-8 flex-1 text-xs"
+						onChange={(event) => setDenyMessage(event.target.value)}
+					/>
+					<Button
+						size="sm"
+						variant="outline"
+						className="border-success text-success"
+						onClick={() => decide(true)}
+					>
+						Approve
+					</Button>
+					<Button
+						size="sm"
+						variant="outline"
+						className="border-destructive text-destructive"
+						onClick={() => decide(false)}
+					>
+						Deny
+					</Button>
+				</div>
+			)}
 		</article>
 	);
 }

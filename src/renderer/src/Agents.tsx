@@ -9,7 +9,7 @@ import { defaultModel, models } from "../../shared/models";
 import type { Agent, BuiltinTool } from "../../shared/types";
 
 type Draft = Pick<Agent, "name" | "model" | "systemPrompt" | "tools">;
-type Permission = "allow" | "deny";
+type Permission = "allow" | "ask" | "deny";
 
 const emptyDraft: Draft = { name: "", model: defaultModel, systemPrompt: "", tools: {} };
 
@@ -133,7 +133,7 @@ export function Agents({ workspaceId }: { workspaceId: string }) {
 											<p className="truncate text-xs text-muted-foreground">{tool.description}</p>
 										</div>
 										<PermissionPicker
-											value={draft.tools[tool.id] === "allow" ? "allow" : "deny"}
+											value={draft.tools[tool.id] ?? "deny"}
 											onPick={(permission) =>
 												setDraft({ ...draft, tools: withPermission(draft.tools, tool.id, permission) })
 											}
@@ -155,13 +155,14 @@ export function Agents({ workspaceId }: { workspaceId: string }) {
 
 const permissionColors: Record<Permission, string> = {
 	allow: "border-success text-success",
+	ask: "border-pending text-pending",
 	deny: "border-destructive text-destructive",
 };
 
 function PermissionPicker({ value, onPick }: { value: Permission; onPick: (permission: Permission) => void }) {
 	return (
 		<div className="flex shrink-0 gap-1">
-			{(["allow", "deny"] as const).map((permission) => (
+			{(["allow", "ask", "deny"] as const).map((permission) => (
 				<button
 					key={permission}
 					type="button"
