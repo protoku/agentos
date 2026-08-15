@@ -118,8 +118,8 @@ export function App() {
 
 		const command = parseSlashCommand(content);
 		if (command && conversationId !== undefined) {
-			const call = await window.agentOS.invokeTool(workspaceId, conversationId, command.toolId, command.input);
-			setEntries((current) => [...current, call]);
+			// The call reaches the thread as it runs and again once final, so it is not added here.
+			await window.agentOS.invokeTool(workspaceId, conversationId, command.toolId, command.input);
 			return setConversations(await window.agentOS.listConversations(workspaceId));
 		}
 

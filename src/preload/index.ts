@@ -19,6 +19,7 @@ const api: AgentOSApi = {
 	listTools: () => ipcRenderer.invoke("tools:list"),
 	decideToolCall: (callId, decision) => ipcRenderer.invoke("tools:decide", callId, decision),
 	cancelTurn: (conversationId) => ipcRenderer.invoke("turns:cancel", conversationId),
+	cancelToolCall: (callId) => ipcRenderer.invoke("tools:cancel", callId),
 	invokeTool: (workspaceId, conversationId, toolId, input) =>
 		ipcRenderer.invoke("tools:invoke", workspaceId, conversationId, toolId, input),
 	onThreadEntry: (listener) => {

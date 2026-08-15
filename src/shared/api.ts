@@ -21,6 +21,8 @@ export interface AgentOSApi {
 	decideToolCall(callId: string, decision: { allowed: boolean; denyMessage?: string }): Promise<void>;
 	/** Stops the acting agent and skips every mention after it. */
 	cancelTurn(conversationId: string): Promise<void>;
+	/** Stops one running call; the agent that made it hears so and carries on. */
+	cancelToolCall(callId: string): Promise<void>;
 	invokeTool(
 		workspaceId: string,
 		conversationId: string,

@@ -33,6 +33,11 @@ export function Thread({
 	// A start with no end is a turn running right now, and the thread belongs to that agent.
 	const endedTurns = new Set(entries.filter((entry) => entry.type === "turnEnd").map((entry) => entry.turnId));
 	const acting = entries.some((entry) => entry.type === "turnStart" && !endedTurns.has(entry.id));
+	// A call of the user's own occupies the thread the same way, and is canceled on its entry.
+	const calling = entries.some(
+		(entry) => entry.type === "toolCall" && (entry.status === "running" || entry.status === "pending"),
+	);
+	const busy = acting || calling;
 
 	// The thread follows the newest entry, so a sent message or a tool call is never below the fold.
 	useEffect(() => {
@@ -43,7 +48,7 @@ export function Thread({
 		const content = draft.trim();
 		if (content.length === 0) return;
 
-		if (acting) return;
+		if (busy) return;
 
 		if (content.startsWith("/") && !toolsEnabled) {
 			return setRefused("A tool call needs a conversation. Send a message first.");
@@ -81,8 +86,14 @@ export function Thread({
 					<Textarea
 						autoFocus
 						value={draft}
-						disabled={acting}
-						placeholder={acting ? "An agent is acting in this conversation" : "Message"}
+						disabled={busy}
+						placeholder={
+							acting
+								? "An agent is acting in this conversation"
+								: calling
+									? "A tool call is running in this conversation"
+									: "Message"
+						}
 						className="max-h-48 min-h-16 flex-1 resize-none"
 						onChange={(event) => setDraft(event.target.value)}
 						onKeyDown={(event) => {
@@ -97,7 +108,9 @@ export function Thread({
 							<Square className="fill-current" />
 						</Button>
 					) : (
-						<Button onClick={() => void send()}>Send</Button>
+						<Button disabled={busy} onClick={() => void send()}>
+							Send
+						</Button>
 					)}
 				</div>
 			)}
@@ -189,6 +202,14 @@ function ToolCallView({ call, agents }: { call: ToolCall; agents: Agent[] }) {
 			{call.output && <Payload label="Output" value={call.output} />}
 			{call.error && <p className="text-sm text-destructive">{call.error}</p>}
 			{call.denyMessage && <p className="text-sm text-destructive">{call.denyMessage}</p>}
+
+			{call.status === "running" && (
+				<div>
+					<Button size="sm" variant="outline" onClick={() => void window.agentOS.cancelToolCall(call.id)}>
+						Cancel
+					</Button>
+				</div>
+			)}
 
 			{call.status === "pending" && (
 				<div className="flex items-center gap-2">

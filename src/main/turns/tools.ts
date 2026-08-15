@@ -1,8 +1,9 @@
 import { randomUUID } from "node:crypto";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
-import { awaitRuling } from "./decisions";
+import { awaitRuling, forget } from "./decisions";
 import { appendEntry } from "../storage/conversationFile";
+import { attemptCall } from "../tools/attempt";
 import { builtinTools, type BuiltinToolImplementation } from "../tools/builtin";
 import type { Agent, ToolCall } from "../../shared/types";
 import type { EntrySink } from "./run";
@@ -69,7 +70,7 @@ async function record(
 	if (asks) {
 		// Waiting starts before the call is shown, so a decision can never arrive before it is heard.
 		const waiting = awaitRuling(call.id, context.turnId);
-		context.emit(call);
+		context.emit({ ...call });
 
 		const ruling = await waiting;
 		if (ruling.type === "canceled") {
@@ -90,11 +91,26 @@ async function record(
 		call.status = "running";
 	}
 
-	try {
-		call.output = await builtin.run(input, context.sandbox);
+	// Shown as running so the user can cancel it, which is a race the call itself has to run.
+	const stopping = awaitRuling(call.id, context.turnId);
+	const attempt = attemptCall(builtin, input, context.sandbox);
+	context.emit({ ...call });
+
+	const stopped = await Promise.race([attempt.then(() => false), stopping.then(() => true)]);
+	forget(call.id);
+
+	if (stopped) {
+		call.status = "canceled";
+
+		return settle(call, context, "This call was canceled by the user. Carry on without it.");
+	}
+
+	const { output, failure } = await attempt;
+	if (failure === undefined) {
+		call.output = output;
 		call.status = "success";
-	} catch (failure) {
-		call.error = failure instanceof Error ? failure.message : String(failure);
+	} else {
+		call.error = failure;
 		call.status = "error";
 	}
 
@@ -109,7 +125,7 @@ async function settle(
 ): Promise<{ content: [{ type: "text"; text: string }]; isError: boolean }> {
 	call.completedAt = new Date().toISOString();
 	await appendEntry(context.file, call);
-	context.emit(call);
+	context.emit({ ...call });
 
 	return { content: [{ type: "text", text }], isError: call.status !== "success" };
 }

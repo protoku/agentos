@@ -10,8 +10,8 @@ import {
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
 import { builtinToolMetadata } from "./tools/builtin";
-import { invokeTool } from "./tools/invoke";
-import { rule } from "./turns/decisions";
+import { invokeTool, isCallRunning } from "./tools/invoke";
+import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
 import { cancelTurn, isTurnRunning, runMentionedTurns } from "./turns/run";
 import type { Entry } from "../shared/types";
 import type { Agent } from "../shared/types";
@@ -57,7 +57,7 @@ void app.whenReady().then(async () => {
 		return started;
 	});
 	ipcMain.handle("conversations:send", async (_event, workspaceId: string, conversationId: string, content: string) => {
-		refuseWhileTurnRuns(conversationId);
+		refuseWhileBusy(conversationId);
 		const message = await sendMessage(root, workspaceId, conversationId, content);
 		startTurns(root, workspaceId, conversationId, message.mentions);
 		return message;
@@ -65,9 +65,11 @@ void app.whenReady().then(async () => {
 	ipcMain.handle("conversations:archive", (_event, workspaceId: string, conversationId: string) => {
 		// Archiving is never blocked: it cancels whatever is in flight, as canceling the turn would.
 		cancelTurn(conversationId);
+		cancelRulings(conversationId);
 		return archiveConversation(root, workspaceId, conversationId);
 	});
 	ipcMain.handle("turns:cancel", (_event, conversationId: string) => cancelTurn(conversationId));
+	ipcMain.handle("tools:cancel", (_event, callId: string) => cancelRuling(callId));
 	ipcMain.handle("agents:list", (_event, workspaceId: string) => listAgents(root, workspaceId));
 	ipcMain.handle("agents:create", (_event, workspaceId: string, draft: AgentDraft) =>
 		createAgent(root, workspaceId, draft),
@@ -82,8 +84,8 @@ void app.whenReady().then(async () => {
 	ipcMain.handle(
 		"tools:invoke",
 		(_event, workspaceId: string, conversationId: string, toolId: string, input: Record<string, unknown>) => {
-			refuseWhileTurnRuns(conversationId);
-			return invokeTool(root, workspaceId, conversationId, toolId, input);
+			refuseWhileBusy(conversationId);
+			return invokeTool(root, workspaceId, conversationId, toolId, input, broadcast(workspaceId, conversationId));
 		},
 	);
 
@@ -95,19 +97,24 @@ void app.whenReady().then(async () => {
 	});
 });
 
-/** The thread has one writer at a time: while an agent acts, the user cannot add to it. */
-function refuseWhileTurnRuns(conversationId: string): void {
+/** The thread has one writer at a time: a turn or a user call occupies it until it settles. */
+function refuseWhileBusy(conversationId: string): void {
 	if (isTurnRunning(conversationId)) throw new Error("An agent is acting in this conversation");
+	if (isCallRunning(conversationId)) throw new Error("A tool call is running in this conversation");
+}
+
+function broadcast(workspaceId: string, conversationId: string) {
+	return (entry: Entry) => {
+		for (const window of BrowserWindow.getAllWindows()) {
+			window.webContents.send("thread:entry", workspaceId, conversationId, entry);
+		}
+	};
 }
 
 function startTurns(root: string, workspaceId: string, conversationId: string, mentions?: string[]): void {
 	if (mentions === undefined || mentions.length === 0) return;
 
-	void runMentionedTurns(root, workspaceId, conversationId, mentions, (entry: Entry) => {
-		for (const window of BrowserWindow.getAllWindows()) {
-			window.webContents.send("thread:entry", workspaceId, conversationId, entry);
-		}
-	});
+	void runMentionedTurns(root, workspaceId, conversationId, mentions, broadcast(workspaceId, conversationId));
 }
 
 app.on("window-all-closed", () => {
