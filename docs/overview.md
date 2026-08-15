@@ -80,6 +80,8 @@ interface AgentMessage {
 
 A tool call is one action performed through a tool, by an agent or by the user invoking the tool directly as a slash command, recorded as its own entry in the conversation. It captures the reason the agent gives for the call, the full input, and the output; because the output follows the tool's outputSchema, it can be rendered natively instead of as text.
 
+The reason is asked of the agent as part of calling: every tool an agent sees takes a required reason argument beside the arguments its inputSchema defines, one short sentence saying why it is making this call. It lands in reason and never in input, so the input stays exactly what the tool received.
+
 A call on an ask tool starts as pending until the user decides; allowed calls start as running and end as success or error, with failures kept in error rather than output. A denied call never runs: its status becomes denied, and the agent receives a standard denial notice, extended with the denyMessage when the user gives one. A running call can be canceled by the user: the work behind it is stopped and its status becomes canceled; when an agent made the call, it receives a cancellation notice and continues its turn, unless the user canceled the whole turn with it. A pending call can also end canceled, when its turn is canceled or the conversation is archived; cancellation sets completedAt but never decidedAt, which is reserved for allow and deny.
 
 The decision itself is part of the record: decidedAt is set the moment the user allows or denies a pending call, so an approved ask call stays distinguishable from a call that ran on a standing allow. Because permissions are invisible to the agent, a pending call looks to it like a call that is still running.
