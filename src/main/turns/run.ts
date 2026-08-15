@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { query } from "@anthropic-ai/claude-agent-sdk";
+import { grantedTools } from "./tools";
 import { transcript } from "./transcript";
 import { appendEntry, readEntries } from "../storage/conversationFile";
 import { conversationFile, loadWorkspace } from "../storage/workspaceStore";
@@ -56,6 +57,7 @@ async function runTurn(
 
 		const sandbox = await ensureSandbox(root, workspaceId, conversationId);
 		const prompt = transcript(await readEntries(file), workspace.agents, agent);
+		const granted = grantedTools(agent, { file, sandbox, agentId, turnId: start.id, emit });
 
 		for await (const message of query({
 			prompt,
@@ -64,7 +66,10 @@ async function runTurn(
 				systemPrompt: agent.systemPrompt,
 				cwd: sandbox,
 				settingSources: [],
-				allowedTools: [],
+				// Nothing but what the workspace grants: no editor tools of its own, no command runner.
+				tools: [],
+				mcpServers: { agentos: granted.server },
+				allowedTools: granted.allowedTools,
 			},
 		})) {
 			if (message.type !== "assistant") continue;

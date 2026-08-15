@@ -110,7 +110,7 @@ function EntryView({
 }) {
 	switch (entry.type) {
 		case "toolCall":
-			return <ToolCallView call={entry} />;
+			return <ToolCallView call={entry} agents={agents} />;
 		case "turnStart":
 			return endedTurns.has(entry.id) ? null : (
 				<p className="text-sm text-muted-foreground">@{agentName(agents, entry.agentId)} is working…</p>
@@ -150,16 +150,21 @@ const statusColors: Record<ToolCall["status"], string> = {
 	canceled: "text-muted-foreground",
 };
 
-function ToolCallView({ call }: { call: ToolCall }) {
+function ToolCallView({ call, agents }: { call: ToolCall; agents: Agent[] }) {
 	return (
 		<article className="flex flex-col gap-2 rounded-lg border border-border p-3">
 			<div className="flex items-baseline gap-2 text-xs">
+				<span className="font-medium">
+					{call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`}
+				</span>
 				<span className="font-medium">{call.toolId}</span>
 				<span className={statusColors[call.status]}>{call.status}</span>
 				<time className="text-muted-foreground" dateTime={call.createdAt}>
 					{time(call.createdAt)}
 				</time>
 			</div>
+
+			{call.reason && <p className="text-xs text-muted-foreground">{call.reason}</p>}
 
 			<Payload label="Input" value={call.input} />
 			{call.output && <Payload label="Output" value={call.output} />}
