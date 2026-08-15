@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { moment } from "./Conversations";
@@ -24,6 +24,12 @@ export function Thread({
 }) {
 	const [draft, setDraft] = useState("");
 	const [refused, setRefused] = useState<string>();
+	const newest = useRef<HTMLDivElement>(null);
+
+	// The thread follows the newest entry, so a sent message or a tool call is never below the fold.
+	useEffect(() => {
+		newest.current?.scrollIntoView({ block: "end" });
+	}, [entries]);
 
 	async function send() {
 		const content = draft.trim();
@@ -53,6 +59,7 @@ export function Thread({
 				{entries.map((entry) => (
 					<EntryView key={entry.id} entry={entry} agents={agents} />
 				))}
+				<div ref={newest} />
 			</div>
 
 			{archivedAt ? (

@@ -70,6 +70,71 @@ describe("invokeTool", () => {
 		expect((await readConversation(root, workspaceId, conversationId)).at(-1)).toEqual(call);
 	});
 
+	it("edits a file where the snippet appears once", async () => {
+		await invokeTool(root, workspaceId, conversationId, "write_file", { path: "a.txt", content: "one two three" });
+
+		const call = await invokeTool(root, workspaceId, conversationId, "edit_file", {
+			path: "a.txt",
+			find: "two",
+			replace: "TWO",
+		});
+
+		expect(call.status).toBe("success");
+		expect(await readFile(join(await sandboxOf(), "a.txt"), "utf8")).toBe("one TWO three");
+	});
+
+	it("refuses an edit whose snippet is not there exactly once", async () => {
+		await invokeTool(root, workspaceId, conversationId, "write_file", { path: "a.txt", content: "one one" });
+
+		const call = await invokeTool(root, workspaceId, conversationId, "edit_file", {
+			path: "a.txt",
+			find: "one",
+			replace: "1",
+		});
+
+		expect(call).toMatchObject({ status: "error", error: "Snippet appears 2 times in a.txt, expected once" });
+	});
+
+	it("moves a file, and refuses to overwrite one", async () => {
+		await invokeTool(root, workspaceId, conversationId, "write_file", { path: "a.txt", content: "a" });
+		await invokeTool(root, workspaceId, conversationId, "write_file", { path: "taken.txt", content: "b" });
+
+		const moved = await invokeTool(root, workspaceId, conversationId, "move_file", { from: "a.txt", to: "b/c.txt" });
+		const refused = await invokeTool(root, workspaceId, conversationId, "move_file", {
+			from: "b/c.txt",
+			to: "taken.txt",
+		});
+
+		expect(moved.output).toEqual({ from: "a.txt", to: "b/c.txt" });
+		expect(refused).toMatchObject({ status: "error", error: "taken.txt already exists" });
+	});
+
+	it("deletes a file but not a directory", async () => {
+		await invokeTool(root, workspaceId, conversationId, "write_file", { path: "dir/a.txt", content: "a" });
+
+		const deleted = await invokeTool(root, workspaceId, conversationId, "delete_file", { path: "dir/a.txt" });
+		const refused = await invokeTool(root, workspaceId, conversationId, "delete_file", { path: "dir" });
+
+		expect(deleted.output).toEqual({ path: "dir/a.txt" });
+		expect(refused).toMatchObject({ status: "error", error: "dir is a directory" });
+	});
+
+	it("searches file contents and reports where each match sits", async () => {
+		await invokeTool(root, workspaceId, conversationId, "write_file", { path: "a.txt", content: "alpha\nbeta" });
+		await invokeTool(root, workspaceId, conversationId, "write_file", { path: "sub/b.txt", content: "beta again" });
+
+		const call = await invokeTool(root, workspaceId, conversationId, "search_files", { pattern: "^beta" });
+
+		expect(call.output).toEqual({
+			pattern: "^beta",
+			truncated: false,
+			matches: [
+				{ path: "a.txt", line: 2, text: "beta" },
+				{ path: join("sub", "b.txt"), line: 1, text: "beta again" },
+			],
+		});
+	});
+
 	it("records an unknown tool as a failed call", async () => {
 		const call = await invokeTool(root, workspaceId, conversationId, "fly_to_moon", {});
 
