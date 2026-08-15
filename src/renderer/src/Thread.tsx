@@ -1,16 +1,19 @@
 import { useEffect, useRef, useState } from "react";
-import { Square } from "lucide-react";
+import { ArrowUp, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { cn } from "@/lib/utils";
 import { moment } from "./Conversations";
+import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
-import type { Agent, Entry, ToolCall } from "../../shared/types";
+import type { Agent, BuiltinTool, Entry, ToolCall } from "../../shared/types";
 
 export function Thread({
 	title,
 	entries,
 	agents,
+	tools,
 	toolsEnabled,
 	archivedAt,
 	onSend,
@@ -20,6 +23,7 @@ export function Thread({
 	title: string;
 	entries: Entry[];
 	agents: Agent[];
+	tools: BuiltinTool[];
 	toolsEnabled: boolean;
 	archivedAt?: string;
 	onSend: (content: string) => Promise<void>;
@@ -27,8 +31,12 @@ export function Thread({
 	onArchive?: () => Promise<void>;
 }) {
 	const [draft, setDraft] = useState("");
+	const [caret, setCaret] = useState(0);
+	const [highlight, setHighlight] = useState(0);
+	const [dismissed, setDismissed] = useState(false);
 	const [refused, setRefused] = useState<string>();
 	const newest = useRef<HTMLDivElement>(null);
+	const composer = useRef<HTMLTextAreaElement>(null);
 
 	// A start with no end is a turn running right now, and the thread belongs to that agent.
 	const endedTurns = new Set(entries.filter((entry) => entry.type === "turnEnd").map((entry) => entry.turnId));
@@ -39,10 +47,56 @@ export function Thread({
 	);
 	const busy = acting || calling;
 
+	const completion = dismissed ? undefined : completionAt(draft, caret, tools, agents);
+
 	// The thread follows the newest entry, so a sent message or a tool call is never below the fold.
 	useEffect(() => {
 		newest.current?.scrollIntoView({ block: "end" });
 	}, [entries]);
+
+	// A different list starts at its first name, never at wherever the last one was left.
+	useEffect(() => {
+		setHighlight(0);
+	}, [draft, caret]);
+
+	function accept(candidate: Candidate) {
+		if (completion === undefined) return;
+
+		const caretAfter = completion.start + candidate.name.length + 1;
+		setDraft(`${draft.slice(0, completion.start)}${candidate.name} ${draft.slice(completion.end)}`);
+		setCaret(caretAfter);
+		composer.current?.focus();
+		// The value lands on the element after this render, so the caret is placed once it has.
+		requestAnimationFrame(() => composer.current?.setSelectionRange(caretAfter, caretAfter));
+	}
+
+	function onKeyDown(event: React.KeyboardEvent<HTMLTextAreaElement>) {
+		const count = completion?.candidates.length ?? 0;
+
+		if (completion !== undefined) {
+			if (event.key === "ArrowDown") {
+				event.preventDefault();
+				return setHighlight((current) => (current + 1) % count);
+			}
+			if (event.key === "ArrowUp") {
+				event.preventDefault();
+				return setHighlight((current) => (current - 1 + count) % count);
+			}
+			if (event.key === "Enter" || event.key === "Tab") {
+				event.preventDefault();
+				return accept(completion.candidates[highlight]);
+			}
+			if (event.key === "Escape") {
+				event.preventDefault();
+				return setDismissed(true);
+			}
+		}
+
+		if (event.key === "Enter" && !event.shiftKey) {
+			event.preventDefault();
+			void send();
+		}
+	}
 
 	async function send() {
 		const content = draft.trim();
@@ -82,36 +136,80 @@ export function Thread({
 					Archived on {moment(archivedAt)}. This conversation is closed.
 				</p>
 			) : (
-				<div className="flex items-end gap-2 border-t border-border p-4">
-					<Textarea
-						autoFocus
-						value={draft}
-						disabled={busy}
-						placeholder={
-							acting
-								? "An agent is acting in this conversation"
-								: calling
-									? "A tool call is running in this conversation"
-									: "Message"
-						}
-						className="max-h-48 min-h-16 flex-1 resize-none"
-						onChange={(event) => setDraft(event.target.value)}
-						onKeyDown={(event) => {
-							if (event.key === "Enter" && !event.shiftKey) {
-								event.preventDefault();
-								void send();
-							}
-						}}
-					/>
-					{acting ? (
-						<Button size="icon" variant="outline" aria-label="Stop" onClick={() => void onCancel()}>
-							<Square className="fill-current" />
-						</Button>
-					) : (
-						<Button disabled={busy} onClick={() => void send()}>
-							Send
-						</Button>
+				<div className="relative border-t border-border p-4">
+					{completion && (
+						<ul className="absolute bottom-full left-4 mb-2 max-h-64 w-96 overflow-y-auto rounded-lg border border-border bg-popover p-1">
+							{completion.candidates.map((candidate, index) => (
+								<li key={candidate.id}>
+									<button
+										type="button"
+										// The composer keeps the focus, so the caret is still there when this accepts.
+										onMouseDown={(event) => event.preventDefault()}
+										onClick={() => accept(candidate)}
+										className={cn(
+											"w-full rounded-md px-2 py-1.5 text-left",
+											index === highlight ? "bg-muted" : "hover:bg-muted/50",
+										)}
+									>
+										<span className="text-sm">{candidate.name}</span>
+										{candidate.description && (
+											<span className="block truncate text-xs text-muted-foreground">
+												{candidate.description}
+											</span>
+										)}
+									</button>
+								</li>
+							))}
+						</ul>
 					)}
+
+					<div className="flex flex-col gap-1 rounded-xl border border-border p-2 focus-within:border-ring">
+						<Textarea
+							autoFocus
+							ref={composer}
+							value={draft}
+							disabled={busy}
+							placeholder={
+								acting
+									? "An agent is acting in this conversation"
+									: calling
+										? "A tool call is running in this conversation"
+										: "Message"
+							}
+							className="max-h-48 min-h-10 resize-none border-0 px-2 py-1.5 shadow-none focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
+							onChange={(event) => {
+								setDraft(event.target.value);
+								setCaret(event.target.selectionStart);
+								setDismissed(false);
+							}}
+							onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
+							onKeyDown={onKeyDown}
+						/>
+
+						<div className="flex justify-end">
+							{acting ? (
+								<Button
+									size="icon-sm"
+									variant="outline"
+									aria-label="Stop"
+									className="rounded-full"
+									onClick={() => void onCancel()}
+								>
+									<Square className="fill-current" />
+								</Button>
+							) : (
+								<Button
+									size="icon-sm"
+									aria-label="Send"
+									className="rounded-full"
+									disabled={busy}
+									onClick={() => void send()}
+								>
+									<ArrowUp />
+								</Button>
+							)}
+						</div>
+					</div>
 				</div>
 			)}
 
@@ -245,7 +343,7 @@ function Payload({ label, value }: { label: string; value: Record<string, unknow
 	return (
 		<div className="flex flex-col gap-1">
 			<span className="text-xs tracking-wide text-muted-foreground uppercase">{label}</span>
-			<pre className="overflow-x-auto rounded-md bg-elevated p-2 text-xs">{JSON.stringify(value, null, 2)}</pre>
+			<pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">{JSON.stringify(value, null, 2)}</pre>
 		</div>
 	);
 }

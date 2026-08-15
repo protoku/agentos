@@ -9,7 +9,7 @@ import { Conversations } from "./Conversations";
 import { Thread } from "./Thread";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary } from "../../shared/api";
-import type { Agent, Entry, Workspace } from "../../shared/types";
+import type { Agent, BuiltinTool, Entry, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "sources", "env"] as const;
 
@@ -32,6 +32,7 @@ export function App() {
 	const [conversationId, setConversationId] = useState<string>();
 	const [entries, setEntries] = useState<Entry[]>([]);
 	const [agents, setAgents] = useState<Agent[]>([]);
+	const [tools, setTools] = useState<BuiltinTool[]>([]);
 	const [drafting, setDrafting] = useState(false);
 	const [section, setSection] = useState<Section>();
 	const [name, setName] = useState("");
@@ -39,6 +40,7 @@ export function App() {
 
 	useEffect(() => {
 		void window.agentOS.listWorkspaces().then(setWorkspaces);
+		void window.agentOS.listTools().then(setTools);
 	}, []);
 
 	// Entries an acting agent adds arrive here, not from the call that started its turn.
@@ -247,6 +249,7 @@ export function App() {
 						title={openConversation?.title ?? "New conversation"}
 						entries={entries}
 						agents={agents}
+						tools={tools}
 						toolsEnabled={openConversation !== undefined}
 						archivedAt={openConversation?.archivedAt}
 						onSend={send}
