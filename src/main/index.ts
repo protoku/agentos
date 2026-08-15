@@ -8,6 +8,8 @@ import {
 	sendMessage,
 	startConversation,
 } from "./storage/conversations";
+import { createAgent, listAgents, updateAgent } from "./storage/agents";
+import type { Agent } from "../shared/types";
 
 const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
 
@@ -52,6 +54,13 @@ void app.whenReady().then(async () => {
 	);
 	ipcMain.handle("conversations:archive", (_event, workspaceId: string, conversationId: string) =>
 		archiveConversation(root, workspaceId, conversationId),
+	);
+	ipcMain.handle("agents:list", (_event, workspaceId: string) => listAgents(root, workspaceId));
+	ipcMain.handle("agents:create", (_event, workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt">) =>
+		createAgent(root, workspaceId, draft),
+	);
+	ipcMain.handle("agents:update", (_event, workspaceId: string, agent: Agent) =>
+		updateAgent(root, workspaceId, agent),
 	);
 
 	await recoverAllInterruptedTurns(root);

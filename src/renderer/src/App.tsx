@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { cn } from "@/lib/utils";
+import { Agents } from "./Agents";
 import { Conversations } from "./Conversations";
 import { Thread } from "./Thread";
 import type { ConversationSummary } from "../../shared/api";
@@ -193,6 +194,8 @@ export function App() {
 				</main>
 			) : section === "conversations" ? (
 				<Conversations conversations={conversations} onOpen={(id) => void openThread(id)} />
+			) : section === "agents" ? (
+				<Agents workspaceId={workspace.id} />
 			) : section ? (
 				<main className="flex-1">
 					<header className="border-b border-border px-6 py-3 text-sm font-medium">

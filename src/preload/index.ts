@@ -12,6 +12,9 @@ const api: AgentOSApi = {
 		ipcRenderer.invoke("conversations:send", workspaceId, conversationId, content),
 	archiveConversation: (workspaceId, conversationId) =>
 		ipcRenderer.invoke("conversations:archive", workspaceId, conversationId),
+	listAgents: (workspaceId) => ipcRenderer.invoke("agents:list", workspaceId),
+	createAgent: (workspaceId, draft) => ipcRenderer.invoke("agents:create", workspaceId, draft),
+	updateAgent: (workspaceId, agent) => ipcRenderer.invoke("agents:update", workspaceId, agent),
 };
 
 contextBridge.exposeInMainWorld("agentOS", api);
