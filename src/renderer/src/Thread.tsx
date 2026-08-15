@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -13,6 +14,7 @@ export function Thread({
 	toolsEnabled,
 	archivedAt,
 	onSend,
+	onCancel,
 	onArchive,
 }: {
 	title: string;
@@ -21,6 +23,7 @@ export function Thread({
 	toolsEnabled: boolean;
 	archivedAt?: string;
 	onSend: (content: string) => Promise<void>;
+	onCancel: () => Promise<void>;
 	onArchive?: () => Promise<void>;
 }) {
 	const [draft, setDraft] = useState("");
@@ -89,9 +92,13 @@ export function Thread({
 							}
 						}}
 					/>
-					<Button disabled={acting} onClick={() => void send()}>
-						Send
-					</Button>
+					{acting ? (
+						<Button size="icon" variant="outline" aria-label="Stop" onClick={() => void onCancel()}>
+							<Square className="fill-current" />
+						</Button>
+					) : (
+						<Button onClick={() => void send()}>Send</Button>
+					)}
 				</div>
 			)}
 

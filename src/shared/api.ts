@@ -19,6 +19,8 @@ export interface AgentOSApi {
 	listTools(): Promise<BuiltinTool[]>;
 	/** Rules on a pending call, which is what an ask tool waits for. */
 	decideToolCall(callId: string, decision: { allowed: boolean; denyMessage?: string }): Promise<void>;
+	/** Stops the acting agent and skips every mention after it. */
+	cancelTurn(conversationId: string): Promise<void>;
 	invokeTool(
 		workspaceId: string,
 		conversationId: string,

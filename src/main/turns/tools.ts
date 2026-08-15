@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
-import { awaitDecision } from "./decisions";
+import { awaitRuling } from "./decisions";
 import { appendEntry } from "../storage/conversationFile";
 import { builtinTools, type BuiltinToolImplementation } from "../tools/builtin";
 import type { Agent, ToolCall } from "../../shared/types";
@@ -16,6 +16,7 @@ export interface CallContext {
 	agentId: string;
 	turnId: string;
 	emit: EntrySink;
+	stopped: () => boolean;
 }
 
 /**
@@ -58,19 +59,32 @@ async function record(
 		createdAt: new Date().toISOString(),
 	};
 
+	// A turn stops the moment it is canceled, so a call it asks for after that never runs.
+	if (context.stopped()) {
+		call.status = "canceled";
+
+		return settle(call, context, "This call was canceled by the user.");
+	}
+
 	if (asks) {
 		// Waiting starts before the call is shown, so a decision can never arrive before it is heard.
-		const ruling = awaitDecision(call.id);
+		const waiting = awaitRuling(call.id, context.turnId);
 		context.emit(call);
 
-		const decision = await ruling;
+		const ruling = await waiting;
+		if (ruling.type === "canceled") {
+			call.status = "canceled";
+
+			return settle(call, context, "This call was canceled by the user.");
+		}
+
 		call.decidedAt = new Date().toISOString();
 
-		if (!decision.allowed) {
+		if (ruling.type === "denied") {
 			call.status = "denied";
-			if (decision.denyMessage !== undefined) call.denyMessage = decision.denyMessage;
+			if (ruling.denyMessage !== undefined) call.denyMessage = ruling.denyMessage;
 
-			return settle(call, context, denial(decision.denyMessage));
+			return settle(call, context, denial(ruling.denyMessage));
 		}
 
 		call.status = "running";

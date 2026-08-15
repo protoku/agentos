@@ -100,6 +100,12 @@ export function App() {
 		setEntries([]);
 	}
 
+	async function cancel() {
+		if (conversationId === undefined) return;
+
+		await window.agentOS.cancelTurn(conversationId);
+	}
+
 	async function archive() {
 		if (workspaceId === undefined || conversationId === undefined) return;
 
@@ -244,6 +250,7 @@ export function App() {
 						toolsEnabled={openConversation !== undefined}
 						archivedAt={openConversation?.archivedAt}
 						onSend={send}
+						onCancel={cancel}
 						onArchive={openConversation ? archive : undefined}
 					/>
 					<ContextPanel sandbox={openConversation?.sandbox} present={present} />
