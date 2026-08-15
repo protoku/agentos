@@ -1,7 +1,9 @@
-import { app, BrowserWindow } from "electron";
+import { app, BrowserWindow, Menu } from "electron";
 import { join } from "node:path";
 
 const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
+
+Menu.setApplicationMenu(null);
 
 function createWindow(): void {
 	const window = new BrowserWindow({

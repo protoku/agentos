@@ -269,6 +269,7 @@ Built-in tools act on the conversation's sandbox and respect read-only mounts; t
 Features of the app around the model above.
 
 - Messages and tool calls offer copy to clipboard: a message copies its text, a tool call its input and output as JSON. Turn entries have nothing to copy.
+- The window carries no application menu: everything AgentOS does is reachable in the interface itself.
 
 ## Design
 
