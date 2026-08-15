@@ -1,4 +1,4 @@
-import type { Agent, Conversation, Entry, ToolCall, UserMessage, Workspace } from "./types";
+import type { Agent, BuiltinTool, Conversation, Entry, ToolCall, UserMessage, Workspace } from "./types";
 
 /** A conversation record plus the time of its last entry, which is what the lists order by. */
 export interface ConversationSummary extends Conversation {
@@ -14,12 +14,15 @@ export interface AgentOSApi {
 	sendMessage(workspaceId: string, conversationId: string, content: string): Promise<UserMessage>;
 	archiveConversation(workspaceId: string, conversationId: string): Promise<Conversation>;
 	listAgents(workspaceId: string): Promise<Agent[]>;
-	createAgent(workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt">): Promise<Agent>;
+	createAgent(workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt" | "tools">): Promise<Agent>;
 	updateAgent(workspaceId: string, agent: Agent): Promise<Agent>;
+	listTools(): Promise<BuiltinTool[]>;
 	invokeTool(
 		workspaceId: string,
 		conversationId: string,
 		toolId: string,
 		input: Record<string, unknown>,
 	): Promise<ToolCall>;
+	/** Entries an agent adds while its turn runs. Returns the unsubscribe. */
+	onThreadEntry(listener: (workspaceId: string, conversationId: string, entry: Entry) => void): () => void;
 }

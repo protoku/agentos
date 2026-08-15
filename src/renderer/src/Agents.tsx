@@ -6,16 +6,22 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { defaultModel, models } from "../../shared/models";
-import type { Agent } from "../../shared/types";
+import type { Agent, BuiltinTool } from "../../shared/types";
 
-type Draft = Pick<Agent, "name" | "model" | "systemPrompt">;
+type Draft = Pick<Agent, "name" | "model" | "systemPrompt" | "tools">;
+type Permission = "allow" | "deny";
 
-const emptyDraft: Draft = { name: "", model: defaultModel, systemPrompt: "" };
+const emptyDraft: Draft = { name: "", model: defaultModel, systemPrompt: "", tools: {} };
 
 export function Agents({ workspaceId }: { workspaceId: string }) {
 	const [agents, setAgents] = useState<Agent[]>([]);
+	const [tools, setTools] = useState<BuiltinTool[]>([]);
 	const [editing, setEditing] = useState<Agent>();
 	const [draft, setDraft] = useState<Draft>();
+
+	useEffect(() => {
+		void window.agentOS.listTools().then(setTools);
+	}, []);
 
 	useEffect(() => {
 		void window.agentOS.listAgents(workspaceId).then(setAgents);
@@ -25,7 +31,12 @@ export function Agents({ workspaceId }: { workspaceId: string }) {
 
 	function edit(agent: Agent) {
 		setEditing(agent);
-		setDraft({ name: agent.name, model: agent.model, systemPrompt: agent.systemPrompt });
+		setDraft({
+			name: agent.name,
+			model: agent.model,
+			systemPrompt: agent.systemPrompt,
+			tools: agent.tools,
+		});
 	}
 
 	async function save() {
@@ -112,6 +123,26 @@ export function Agents({ workspaceId }: { workspaceId: string }) {
 							/>
 						</Field>
 
+						<section className="flex flex-col gap-1.5">
+							<span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">Tools</span>
+							<div className="flex flex-col divide-y divide-border rounded-md border border-border">
+								{tools.map((tool) => (
+									<div key={tool.id} className="flex items-center justify-between gap-4 px-3 py-2">
+										<div className="min-w-0">
+											<p className="text-sm">{tool.name}</p>
+											<p className="truncate text-xs text-muted-foreground">{tool.description}</p>
+										</div>
+										<PermissionPicker
+											value={draft.tools[tool.id] === "allow" ? "allow" : "deny"}
+											onPick={(permission) =>
+												setDraft({ ...draft, tools: withPermission(draft.tools, tool.id, permission) })
+											}
+										/>
+									</div>
+								))}
+							</div>
+						</section>
+
 						<div>
 							<Button onClick={() => void save()}>{editing ? "Save" : "Create agent"}</Button>
 						</div>
@@ -120,6 +151,42 @@ export function Agents({ workspaceId }: { workspaceId: string }) {
 			</div>
 		</main>
 	);
+}
+
+const permissionColors: Record<Permission, string> = {
+	allow: "border-success text-success",
+	deny: "border-destructive text-destructive",
+};
+
+function PermissionPicker({ value, onPick }: { value: Permission; onPick: (permission: Permission) => void }) {
+	return (
+		<div className="flex shrink-0 gap-1">
+			{(["allow", "deny"] as const).map((permission) => (
+				<button
+					key={permission}
+					type="button"
+					onClick={() => onPick(permission)}
+					className={cn(
+						"rounded-md border px-2 py-0.5 text-xs capitalize",
+						permission === value
+							? permissionColors[permission]
+							: "border-transparent text-muted-foreground hover:text-foreground",
+					)}
+				>
+					{permission}
+				</button>
+			))}
+		</div>
+	);
+}
+
+/** Denied is the absence of a permission, so denying a tool leaves no entry behind. */
+function withPermission(tools: Agent["tools"], toolId: string, permission: Permission): Agent["tools"] {
+	const next = { ...tools };
+	if (permission === "deny") delete next[toolId];
+	else next[toolId] = permission;
+
+	return next;
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {

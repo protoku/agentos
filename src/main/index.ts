@@ -8,8 +8,11 @@ import {
 	sendMessage,
 	startConversation,
 } from "./storage/conversations";
-import { createAgent, listAgents, updateAgent } from "./storage/agents";
+import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
+import { builtinToolMetadata } from "./tools/builtin";
 import { invokeTool } from "./tools/invoke";
+import { isTurnRunning, runMentionedTurns } from "./turns/run";
+import type { Entry } from "../shared/types";
 import type { Agent } from "../shared/types";
 
 const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
@@ -47,26 +50,34 @@ void app.whenReady().then(async () => {
 	ipcMain.handle("conversations:read", (_event, workspaceId: string, conversationId: string) =>
 		readConversation(root, workspaceId, conversationId),
 	);
-	ipcMain.handle("conversations:start", (_event, workspaceId: string, content: string) =>
-		startConversation(root, workspaceId, content),
-	);
-	ipcMain.handle("conversations:send", (_event, workspaceId: string, conversationId: string, content: string) =>
-		sendMessage(root, workspaceId, conversationId, content),
-	);
+	ipcMain.handle("conversations:start", async (_event, workspaceId: string, content: string) => {
+		const started = await startConversation(root, workspaceId, content);
+		startTurns(root, workspaceId, started.conversation.id, started.message.mentions);
+		return started;
+	});
+	ipcMain.handle("conversations:send", async (_event, workspaceId: string, conversationId: string, content: string) => {
+		refuseWhileTurnRuns(conversationId);
+		const message = await sendMessage(root, workspaceId, conversationId, content);
+		startTurns(root, workspaceId, conversationId, message.mentions);
+		return message;
+	});
 	ipcMain.handle("conversations:archive", (_event, workspaceId: string, conversationId: string) =>
 		archiveConversation(root, workspaceId, conversationId),
 	);
 	ipcMain.handle("agents:list", (_event, workspaceId: string) => listAgents(root, workspaceId));
-	ipcMain.handle("agents:create", (_event, workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt">) =>
+	ipcMain.handle("agents:create", (_event, workspaceId: string, draft: AgentDraft) =>
 		createAgent(root, workspaceId, draft),
 	);
 	ipcMain.handle("agents:update", (_event, workspaceId: string, agent: Agent) =>
 		updateAgent(root, workspaceId, agent),
 	);
+	ipcMain.handle("tools:list", () => builtinToolMetadata());
 	ipcMain.handle(
 		"tools:invoke",
-		(_event, workspaceId: string, conversationId: string, toolId: string, input: Record<string, unknown>) =>
-			invokeTool(root, workspaceId, conversationId, toolId, input),
+		(_event, workspaceId: string, conversationId: string, toolId: string, input: Record<string, unknown>) => {
+			refuseWhileTurnRuns(conversationId);
+			return invokeTool(root, workspaceId, conversationId, toolId, input);
+		},
 	);
 
 	await recoverAllInterruptedTurns(root);
@@ -76,6 +87,21 @@ void app.whenReady().then(async () => {
 		if (BrowserWindow.getAllWindows().length === 0) createWindow();
 	});
 });
+
+/** The thread has one writer at a time: while an agent acts, the user cannot add to it. */
+function refuseWhileTurnRuns(conversationId: string): void {
+	if (isTurnRunning(conversationId)) throw new Error("An agent is acting in this conversation");
+}
+
+function startTurns(root: string, workspaceId: string, conversationId: string, mentions?: string[]): void {
+	if (mentions === undefined || mentions.length === 0) return;
+
+	void runMentionedTurns(root, workspaceId, conversationId, mentions, (entry: Entry) => {
+		for (const window of BrowserWindow.getAllWindows()) {
+			window.webContents.send("thread:entry", workspaceId, conversationId, entry);
+		}
+	});
+}
 
 app.on("window-all-closed", () => {
 	if (process.platform !== "darwin") app.quit();

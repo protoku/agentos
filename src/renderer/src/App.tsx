@@ -41,6 +41,16 @@ export function App() {
 		void window.agentOS.listWorkspaces().then(setWorkspaces);
 	}, []);
 
+	// Entries an acting agent adds arrive here, not from the call that started its turn.
+	useEffect(() => {
+		return window.agentOS.onThreadEntry((forWorkspace, forConversation, entry) => {
+			if (forWorkspace !== workspaceId || forConversation !== conversationId) return;
+
+			setEntries((current) => [...current, entry]);
+			if (entry.type === "turnEnd") void window.agentOS.listConversations(forWorkspace).then(setConversations);
+		});
+	}, [workspaceId, conversationId]);
+
 	useEffect(() => {
 		setConversationId(undefined);
 		setDrafting(false);
@@ -118,6 +128,11 @@ export function App() {
 	const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
 	const listed = conversations.filter((conversation) => !conversation.archivedAt).slice(0, sidebarConversations);
 	const openConversation = conversations.find((conversation) => conversation.id === conversationId);
+	const present = agents.filter((agent) =>
+		entries.some(
+			(entry) => (entry.type === "turnStart" || entry.type === "agentMessage") && entry.agentId === agent.id,
+		),
+	);
 
 	return (
 		<div className="flex h-full">
@@ -226,14 +241,14 @@ export function App() {
 						onSend={send}
 						onArchive={openConversation ? archive : undefined}
 					/>
-					<ContextPanel sandbox={openConversation?.sandbox} />
+					<ContextPanel sandbox={openConversation?.sandbox} present={present} />
 				</>
 			) : (
 				<>
 					<main className="grid flex-1 place-items-center text-sm text-muted-foreground">
 						No conversation selected
 					</main>
-					<ContextPanel />
+					<ContextPanel present={[]} />
 				</>
 			)}
 		</div>
@@ -265,12 +280,14 @@ function SidebarItem({
 	);
 }
 
-function ContextPanel({ sandbox }: { sandbox?: string }) {
+function ContextPanel({ sandbox, present }: { sandbox?: string; present: Agent[] }) {
 	return (
 		<aside className="flex w-72 shrink-0 flex-col gap-6 border-l border-border bg-surface p-4">
 			<ContextSection title="Mounts">Nothing mounted</ContextSection>
 			<ContextSection title="Sandbox">{sandbox ?? "Not created yet"}</ContextSection>
-			<ContextSection title="Agents">Nobody in the thread</ContextSection>
+			<ContextSection title="Agents">
+				{present.length === 0 ? "Nobody in the thread" : present.map((agent) => `@${agent.name}`).join(", ")}
+			</ContextSection>
 		</aside>
 	);
 }

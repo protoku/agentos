@@ -17,13 +17,18 @@ afterEach(async () => {
 	await rm(root, { recursive: true, force: true });
 });
 
-const draft = { name: "Ops", model: "claude-opus-5", systemPrompt: "You keep the pipeline healthy." };
+const draft = {
+	name: "Ops",
+	model: "claude-opus-5",
+	systemPrompt: "You keep the pipeline healthy.",
+	tools: { read_file: "allow" } as const,
+};
 
 describe("createAgent", () => {
-	it("records the agent with no tools allowed yet", async () => {
+	it("records the agent with the permissions it was created with", async () => {
 		const agent = await createAgent(root, workspaceId, draft);
 
-		expect(agent).toMatchObject({ ...draft, tools: {} });
+		expect(agent).toMatchObject(draft);
 		expect(await listAgents(root, workspaceId)).toEqual([agent]);
 	});
 });

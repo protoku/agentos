@@ -1,5 +1,6 @@
 import { contextBridge, ipcRenderer } from "electron";
 import type { AgentOSApi } from "../shared/api";
+import type { Entry } from "../shared/types";
 
 const api: AgentOSApi = {
 	listWorkspaces: () => ipcRenderer.invoke("workspaces:list"),
@@ -15,8 +16,16 @@ const api: AgentOSApi = {
 	listAgents: (workspaceId) => ipcRenderer.invoke("agents:list", workspaceId),
 	createAgent: (workspaceId, draft) => ipcRenderer.invoke("agents:create", workspaceId, draft),
 	updateAgent: (workspaceId, agent) => ipcRenderer.invoke("agents:update", workspaceId, agent),
+	listTools: () => ipcRenderer.invoke("tools:list"),
 	invokeTool: (workspaceId, conversationId, toolId, input) =>
 		ipcRenderer.invoke("tools:invoke", workspaceId, conversationId, toolId, input),
+	onThreadEntry: (listener) => {
+		const handler = (_event: unknown, workspaceId: string, conversationId: string, entry: Entry) =>
+			listener(workspaceId, conversationId, entry);
+
+		ipcRenderer.on("thread:entry", handler);
+		return () => void ipcRenderer.off("thread:entry", handler);
+	},
 };
 
 contextBridge.exposeInMainWorld("agentOS", api);

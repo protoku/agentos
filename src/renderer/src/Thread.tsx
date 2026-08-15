@@ -26,6 +26,10 @@ export function Thread({
 	const [refused, setRefused] = useState<string>();
 	const newest = useRef<HTMLDivElement>(null);
 
+	// A start with no end is a turn running right now, and the thread belongs to that agent.
+	const endedTurns = new Set(entries.filter((entry) => entry.type === "turnEnd").map((entry) => entry.turnId));
+	const acting = entries.some((entry) => entry.type === "turnStart" && !endedTurns.has(entry.id));
+
 	// The thread follows the newest entry, so a sent message or a tool call is never below the fold.
 	useEffect(() => {
 		newest.current?.scrollIntoView({ block: "end" });
@@ -34,6 +38,8 @@ export function Thread({
 	async function send() {
 		const content = draft.trim();
 		if (content.length === 0) return;
+
+		if (acting) return;
 
 		if (content.startsWith("/") && !toolsEnabled) {
 			return setRefused("A tool call needs a conversation. Send a message first.");
@@ -57,7 +63,7 @@ export function Thread({
 
 			<div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
 				{entries.map((entry) => (
-					<EntryView key={entry.id} entry={entry} agents={agents} />
+					<EntryView key={entry.id} entry={entry} agents={agents} endedTurns={endedTurns} />
 				))}
 				<div ref={newest} />
 			</div>
@@ -71,7 +77,8 @@ export function Thread({
 					<Textarea
 						autoFocus
 						value={draft}
-						placeholder="Message"
+						disabled={acting}
+						placeholder={acting ? "An agent is acting in this conversation" : "Message"}
 						className="max-h-48 min-h-16 flex-1 resize-none"
 						onChange={(event) => setDraft(event.target.value)}
 						onKeyDown={(event) => {
@@ -81,7 +88,9 @@ export function Thread({
 							}
 						}}
 					/>
-					<Button onClick={() => void send()}>Send</Button>
+					<Button disabled={acting} onClick={() => void send()}>
+						Send
+					</Button>
 				</div>
 			)}
 
@@ -90,20 +99,46 @@ export function Thread({
 	);
 }
 
-function EntryView({ entry, agents }: { entry: Entry; agents: Agent[] }) {
-	if (entry.type === "toolCall") return <ToolCallView call={entry} />;
-	// Turn markers and agent messages arrive with the Agent SDK.
-	if (entry.type !== "userMessage") return null;
+function EntryView({
+	entry,
+	agents,
+	endedTurns,
+}: {
+	entry: Entry;
+	agents: Agent[];
+	endedTurns: Set<string>;
+}) {
+	switch (entry.type) {
+		case "toolCall":
+			return <ToolCallView call={entry} />;
+		case "turnStart":
+			return endedTurns.has(entry.id) ? null : (
+				<p className="text-sm text-muted-foreground">@{agentName(agents, entry.agentId)} is working…</p>
+			);
+		case "turnEnd":
+			return entry.status === "finished" ? null : (
+				<p className="text-sm text-destructive">
+					Turn {entry.status}. {entry.error}
+				</p>
+			);
+		case "userMessage":
+		case "agentMessage":
+			return (
+				<article className="flex flex-col gap-1">
+					<div className="flex items-baseline gap-2 text-xs text-muted-foreground">
+						<span className="font-medium text-foreground">
+							{entry.type === "userMessage" ? "You" : `@${agentName(agents, entry.agentId)}`}
+						</span>
+						<time dateTime={entry.createdAt}>{time(entry.createdAt)}</time>
+					</div>
+					<p className="text-sm whitespace-pre-wrap">{withMentions(entry.content, agents)}</p>
+				</article>
+			);
+	}
+}
 
-	return (
-		<article className="flex flex-col gap-1">
-			<div className="flex items-baseline gap-2 text-xs text-muted-foreground">
-				<span className="font-medium text-foreground">You</span>
-				<time dateTime={entry.createdAt}>{time(entry.createdAt)}</time>
-			</div>
-			<p className="text-sm whitespace-pre-wrap">{withMentions(entry.content, agents)}</p>
-		</article>
-	);
+function agentName(agents: Agent[], agentId: string): string {
+	return agents.find((agent) => agent.id === agentId)?.name ?? "unknown";
 }
 
 const statusColors: Record<ToolCall["status"], string> = {

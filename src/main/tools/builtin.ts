@@ -215,6 +215,11 @@ export const builtinTools: BuiltinToolImplementation[] = [
 	},
 ];
 
+/** The metadata alone, since run is a function and IPC cannot carry one. */
+export function builtinToolMetadata(): BuiltinTool[] {
+	return builtinTools.map(({ run, ...tool }) => tool);
+}
+
 export function builtinTool(toolId: string): BuiltinToolImplementation {
 	const tool = builtinTools.find((candidate) => candidate.id === toolId);
 	if (tool === undefined) throw new Error(`No tool ${toolId}`);
