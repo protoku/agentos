@@ -270,6 +270,7 @@ Features of the app around the model above.
 
 - Messages and tool calls offer copy to clipboard: a message copies its text, a tool call its input and output as JSON. Turn entries have nothing to copy.
 - The window carries no application menu: everything AgentOS does is reachable in the interface itself.
+- The sidebar header holds the workspace picker: it names the workspace in view and switches to any other.
 
 ## Design
 

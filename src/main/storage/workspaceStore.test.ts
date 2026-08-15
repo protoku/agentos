@@ -10,7 +10,7 @@ import {
 	recoverAllInterruptedTurns,
 	saveWorkspace,
 } from "./workspaceStore";
-import type { TurnStart } from "./types";
+import type { TurnStart } from "../../shared/types";
 
 let root: string;
 

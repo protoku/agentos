@@ -5,6 +5,7 @@ import { fileURLToPath } from "node:url";
 
 export default defineConfig({
 	main: {},
+	preload: {},
 	renderer: {
 		resolve: {
 			alias: {

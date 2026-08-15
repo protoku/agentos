@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { Entry, TurnEnd, TurnStart } from "./types";
+import type { Entry, TurnEnd, TurnStart } from "../../shared/types";
 
 const interruptionError = "Interrupted by an AgentOS restart.";
 

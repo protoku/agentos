@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { recoverInterruptedTurns } from "./conversationFile";
-import type { TurnEnd, Workspace } from "./types";
+import type { TurnEnd, Workspace } from "../../shared/types";
 
 function workspacesDirectory(root: string): string {
 	return join(root, "workspaces");

@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { appendEntry, readEntries, recoverInterruptedTurns } from "./conversationFile";
-import type { TurnEnd, TurnStart, UserMessage } from "./types";
+import type { TurnEnd, TurnStart, UserMessage } from "../../shared/types";
 
 let directory: string;
 let file: string;
