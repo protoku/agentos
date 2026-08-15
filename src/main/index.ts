@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme } from "electron";
 import { join } from "node:path";
 import { createWorkspace, loadWorkspaces, recoverAllInterruptedTurns } from "./storage/workspaceStore";
+import { listConversations, readConversation, sendMessage, startConversation } from "./storage/conversations";
 
 const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
 
@@ -33,6 +34,16 @@ void app.whenReady().then(async () => {
 
 	ipcMain.handle("workspaces:list", () => loadWorkspaces(root));
 	ipcMain.handle("workspaces:create", (_event, name: string) => createWorkspace(root, name));
+	ipcMain.handle("conversations:list", (_event, workspaceId: string) => listConversations(root, workspaceId));
+	ipcMain.handle("conversations:read", (_event, workspaceId: string, conversationId: string) =>
+		readConversation(root, workspaceId, conversationId),
+	);
+	ipcMain.handle("conversations:start", (_event, workspaceId: string, content: string) =>
+		startConversation(root, workspaceId, content),
+	);
+	ipcMain.handle("conversations:send", (_event, workspaceId: string, conversationId: string, content: string) =>
+		sendMessage(root, workspaceId, conversationId, content),
+	);
 
 	await recoverAllInterruptedTurns(root);
 	createWindow();
