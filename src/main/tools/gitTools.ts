@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { define, sandboxPath, type BuiltinToolImplementation, type ToolContext } from "./define";
+import { define, sandboxPath, type BuiltinToolImplementation, type ToolTarget } from "./define";
 import { mountedAt } from "./mounts";
 import { createBranchTool } from "../git/branches";
 import { git } from "../git/git";
@@ -181,7 +181,7 @@ interface Needs {
 
 /** A git tool names its mount by sandbox path, since several repositories can be mounted at once. */
 async function gitMount(
-	context: ToolContext,
+	context: ToolTarget,
 	path: string,
 	needs: Needs = {},
 ): Promise<{ directory: string; branch?: string }> {

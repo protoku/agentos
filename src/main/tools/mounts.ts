@@ -1,7 +1,7 @@
 import { mkdir, stat, symlink, unlink } from "node:fs/promises";
 import { dirname, relative, sep } from "node:path";
 import { z } from "zod";
-import { define, sandboxPath, type BuiltinToolImplementation, type ToolContext } from "./define";
+import { define, sandboxPath, type BuiltinToolImplementation, type ToolTarget } from "./define";
 import { resolveInSandbox } from "./sandbox";
 import { branchesCreatedOn, deleteBranches } from "../git/branches";
 import { baseClonePath, ensureBaseClone, gitConfigOf } from "../git/clone";
@@ -80,7 +80,7 @@ export const mountTools: BuiltinToolImplementation[] = [
  * mount the conversation took read-only. Mounts come from the record on every call, since a
  * turn can mount and unmount while it runs.
  */
-export async function resolveWritable(context: ToolContext, path: string): Promise<string> {
+export async function resolveWritable(context: ToolTarget, path: string): Promise<string> {
 	const target = resolveInSandbox(context.sandbox, path);
 	const { conversation } = await open(context);
 
@@ -106,7 +106,7 @@ export interface MountedAt {
 }
 
 /** What sits at a sandbox path, which is how a git tool names the repository it acts on. */
-export async function mountedAt(context: ToolContext, path: string): Promise<MountedAt | undefined> {
+export async function mountedAt(context: ToolTarget, path: string): Promise<MountedAt | undefined> {
 	const { workspace, conversation } = await open(context);
 	const mount = conversation.mounts.find((candidate) => candidate.path === path);
 	if (mount === undefined) return undefined;
@@ -121,7 +121,7 @@ export async function mountedAt(context: ToolContext, path: string): Promise<Mou
 	};
 }
 
-async function open(context: ToolContext): Promise<{ workspace: Workspace; conversation: Conversation }> {
+async function open(context: ToolTarget): Promise<{ workspace: Workspace; conversation: Conversation }> {
 	const workspace = await loadWorkspace(context.root, context.workspaceId);
 	const conversation = workspace.conversations.find((candidate) => candidate.id === context.conversationId);
 	if (conversation === undefined) throw new Error(`No conversation ${context.conversationId}`);
@@ -148,7 +148,7 @@ function isInside(path: string, parent: string): boolean {
  * How a mount materializes: a link to the directory or to the workspace's clone, except for an
  * isolated mount, which is a worktree of that clone and so is the checkout rather than pointing at one.
  */
-async function attach(context: ToolContext, source: MountSource, mode: Mount["mode"], link: string): Promise<void> {
+async function attach(context: ToolTarget, source: MountSource, mode: Mount["mode"], link: string): Promise<void> {
 	await mkdir(dirname(link), { recursive: true });
 
 	if (source.type === "git") {
@@ -167,7 +167,7 @@ async function attach(context: ToolContext, source: MountSource, mode: Mount["mo
 }
 
 /** Unmounting a link leaves the data behind it; unmounting a worktree discards it and its branches. */
-async function detach(context: ToolContext, mount: Mount, link: string): Promise<void> {
+async function detach(context: ToolTarget, mount: Mount, link: string): Promise<void> {
 	if (mount.mode !== "isolated") return unlink(link);
 
 	const clone = baseClonePath(context.root, context.workspaceId, mount.sourceId);

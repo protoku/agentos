@@ -38,13 +38,16 @@ export async function invokeTool(
 
 		const sandbox = await ensureSandbox(root, workspaceId, conversationId);
 		const stopping = awaitRuling(call.id, conversationId);
-		const attempt = attemptCall(tool, input, { root, workspaceId, conversationId, sandbox });
+		const stop = new AbortController();
+		const attempt = attemptCall(tool, input, { root, workspaceId, conversationId, sandbox, signal: stop.signal });
 		emit({ ...call });
 
 		const stopped = await Promise.race([attempt.then(() => false), stopping.then(() => true)]);
 		forget(call.id);
 
 		if (stopped) {
+			// Canceling is not just letting go of the result: the work itself stops here.
+			stop.abort();
 			call.status = "canceled";
 		} else {
 			const { output, failure } = await attempt;

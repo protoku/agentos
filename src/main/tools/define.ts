@@ -2,11 +2,16 @@ import { z } from "zod";
 import type { BuiltinTool } from "../../shared/types";
 
 /** What a tool acts on: its conversation, and the sandbox that conversation owns. */
-export interface ToolContext {
+export interface ToolTarget {
 	root: string;
 	workspaceId: string;
 	conversationId: string;
 	sandbox: string;
+}
+
+export interface ToolContext extends ToolTarget {
+	/** Aborted when the call is canceled, so the work behind it stops rather than running on. */
+	signal: AbortSignal;
 }
 
 /** What every tool offers a caller, whichever kind it is. */

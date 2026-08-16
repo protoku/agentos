@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
 import { zodObjectFrom } from "./schema";
 import { loadWorkspace } from "../storage/workspaceStore";
-import type { ToolContext, ToolImplementation } from "./define";
+import type { ToolImplementation, ToolTarget } from "./define";
 import type { ScriptTool } from "../../shared/types";
 
 /**
@@ -34,7 +34,13 @@ export function implementationOf(tool: ScriptTool): ToolImplementation {
 		description: tool.description,
 		input,
 		async run(given, context) {
-			const returned = await callScript(tool, input.parse(given), await declaredEnv(tool, context), context.sandbox);
+			const returned = await callScript(
+				tool,
+				input.parse(given),
+				await declaredEnv(tool, context),
+				context.sandbox,
+				context.signal,
+			);
 
 			return output.parse(returned);
 		},
@@ -42,7 +48,7 @@ export function implementationOf(tool: ScriptTool): ToolImplementation {
 }
 
 /** Everything else in the workspace env is invisible: a tool's reach is exactly its declaration. */
-async function declaredEnv(tool: ScriptTool, context: ToolContext): Promise<Record<string, string>> {
+async function declaredEnv(tool: ScriptTool, context: ToolTarget): Promise<Record<string, string>> {
 	const { env } = await loadWorkspace(context.root, context.workspaceId);
 
 	return Object.fromEntries(tool.env.filter((key) => key in env).map((key) => [key, env[key]]));
@@ -53,8 +59,9 @@ async function callScript(
 	input: Record<string, unknown>,
 	env: Record<string, string>,
 	sandbox: string,
+	signal: AbortSignal,
 ): Promise<unknown> {
-	const written = await inNode(JSON.stringify({ code: tool.code, input, env }), sandbox);
+	const written = await inNode(JSON.stringify({ code: tool.code, input, env }), sandbox, signal);
 	const { output, failure } = JSON.parse(written) as { output?: unknown; failure?: string };
 
 	if (failure !== undefined) throw new Error(failure);
@@ -62,11 +69,12 @@ async function callScript(
 	return output;
 }
 
-function inNode(payload: string, cwd: string): Promise<string> {
+function inNode(payload: string, cwd: string, signal: AbortSignal): Promise<string> {
 	return new Promise((resolve, reject) => {
 		// ELECTRON_RUN_AS_NODE, since in the app this same binary is Electron rather than node.
 		const child = spawn(process.execPath, ["-e", runner], {
 			cwd,
+			signal,
 			env: { ...process.env, ELECTRON_RUN_AS_NODE: "1" },
 		});
 

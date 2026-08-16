@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -7,6 +8,7 @@ import { startConversation } from "../storage/conversations";
 import { setEnv } from "../storage/env";
 import { createScriptTool } from "../storage/scriptTools";
 import { createWorkspace } from "../storage/workspaceStore";
+import { cancelRuling } from "../turns/decisions";
 import type { ScriptToolDraft } from "../storage/scriptTools";
 import type { ToolCall } from "../../shared/types";
 
@@ -112,6 +114,28 @@ describe("a script tool", () => {
 
 		expect(await invoke("wrong", {})).toMatchObject({ status: "error" });
 	});
+
+	it("stops the work itself when the call is canceled, not just the waiting for it", async () => {
+		await createScriptTool(root, workspaceId, {
+			...draft,
+			name: "slow",
+			code: "const { writeFileSync } = require('node:fs'); await new Promise((wait) => setTimeout(wait, 3000)); writeFileSync('finished.txt', 'late'); return {};",
+			inputSchema: object({}, []),
+			outputSchema: object({}, []),
+		});
+
+		const started = Date.now();
+		const call = await invokeTool(root, workspaceId, conversationId, "slow", {}, (entry) => {
+			if (entry.type === "toolCall" && entry.status === "running") cancelRuling(entry.id);
+		});
+
+		expect(call.status).toBe("canceled");
+		expect(Date.now() - started).toBeLessThan(2000);
+
+		// The child was killed, so the write it would have done a moment later never happens.
+		await new Promise((wait) => setTimeout(wait, 3500));
+		expect(existsSync(join(root, "workspaces", workspaceId, "sandboxes", conversationId, "finished.txt"))).toBe(false);
+	}, 15_000);
 
 	it("records what the function threw", async () => {
 		await createScriptTool(root, workspaceId, {

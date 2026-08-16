@@ -7,14 +7,14 @@ import { attemptCall } from "../tools/attempt";
 import { builtinTools } from "../tools/builtin";
 import { implementationOf } from "../tools/script";
 import { listScriptTools } from "../storage/scriptTools";
-import type { ToolContext, ToolImplementation } from "../tools/define";
+import type { ToolImplementation, ToolTarget } from "../tools/define";
 import type { Agent, ToolCall } from "../../shared/types";
 import type { EntrySink } from "./run";
 
 const serverName = "agentos";
 const reason = z.string().describe("Why you are making this call, in one short sentence.");
 
-export interface CallContext extends ToolContext {
+export interface CallContext extends ToolTarget {
 	file: string;
 	agentId: string;
 	turnId: string;
@@ -98,13 +98,16 @@ async function record(
 
 	// Shown as running so the user can cancel it, which is a race the call itself has to run.
 	const stopping = awaitRuling(call.id, context.turnId);
-	const attempt = attemptCall(builtin, input, context);
+	const stop = new AbortController();
+	const attempt = attemptCall(builtin, input, { ...context, signal: stop.signal });
 	context.emit({ ...call });
 
 	const stopped = await Promise.race([attempt.then(() => false), stopping.then(() => true)]);
 	forget(call.id);
 
 	if (stopped) {
+		// Canceling is not just letting go of the result: the work itself stops here.
+		stop.abort();
 		call.status = "canceled";
 
 		return settle(call, context, "This call was canceled by the user. Carry on without it.");
