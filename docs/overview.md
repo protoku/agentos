@@ -8,7 +8,7 @@ A workspace is the top-level container and a hard boundary. What it represents i
 
 It owns its agents, tools, mount sources, and conversations, and its env holds the credentials and configuration its tools use.
 
-Nothing is shared between workspaces: reusing an agent elsewhere means copying it and its tools, with the agent's permission keys remapped to the copied tools' new ids; built-in tool ids are the same everywhere. An agent can only reach what its workspace binds, never what another workspace binds. The one exception is machine-level: git remote access authenticates with the host's ambient git setup, as described under Mount.
+Nothing is shared between workspaces: reusing an agent elsewhere means copying it and its tools, with the agent's permission keys remapped to the copied tools' new ids; built-in tool ids are the same everywhere. An agent can only reach what its workspace binds, never what another workspace binds. The one exception is machine-level: git remote access authenticates with the host's ambient git setup, as described under Mount, and agents run on the host's Claude Code, signed in as that machine is.
 
 ```ts
 interface Workspace {
@@ -275,6 +275,7 @@ Built-in tools act on the conversation's sandbox and respect read-only mounts; t
 Features of the app around the model above.
 
 - Messages and tool calls offer copy to clipboard: a message copies its text, a tool call its input and output as JSON. Turn entries have nothing to copy.
+- Agents run on the Claude Code installed on the machine, found wherever it put itself. When it is not there the app says so and where to get it, rather than letting every turn fail on its own.
 - An agent's message is rendered as markdown, which is how models write. A user's message stays as typed, with its @mentions highlighted. A link opens in the browser rather than in AgentOS.
 - A pending call is decided in the entry itself: approve it, or deny it with a message for the agent alongside.
 - The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn.

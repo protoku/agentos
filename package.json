@@ -46,9 +46,14 @@
 		"zod": "^4.4.3"
 	},
 	"license": "MIT",
+	"desktopName": "agentos.desktop",
 	"author": {
-		"name": "Jeroen Herczeg",
+		"name": "Protoku",
 		"email": "jeroen@herczeg.be"
 	},
-	"desktopName": "agentos.desktop"
+	"homepage": "https://github.com/protoku/agentos",
+	"repository": {
+		"type": "git",
+		"url": "git+https://github.com/protoku/agentos.git"
+	}
 }

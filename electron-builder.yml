@@ -16,9 +16,9 @@ files:
 
 linux:
   syncDesktopName: true
-  # deb needs a homepage, which waits on the repository URL.
   target:
     - AppImage
+    - deb
   category: Development
   synopsis: A unified, purpose-built interface to interact with agents safely
 

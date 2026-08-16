@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { query } from "@anthropic-ai/claude-agent-sdk";
 import { cancelRulings } from "./decisions";
+import { claudeCodeMissing, claudeCodePath } from "../agents/claudeCode";
 import { grantedTools } from "./tools";
 import { transcript } from "./transcript";
 import { appendEntry, readEntries } from "../storage/conversationFile";
@@ -80,6 +81,9 @@ async function runTurn(
 	try {
 		if (agent === undefined) throw new Error(`No agent ${agentId}`);
 
+		const claudeCode = await claudeCodePath();
+		if (claudeCode === undefined) throw new Error(claudeCodeMissing);
+
 		const sandbox = await ensureSandbox(root, workspaceId, conversationId);
 		const prompt = transcript(await readEntries(file), workspace.agents, agent);
 		const granted = await grantedTools(agent, {
@@ -100,6 +104,8 @@ async function runTurn(
 				model: agent.model,
 				systemPrompt: agent.systemPrompt,
 				cwd: sandbox,
+				// The machine's own Claude Code drives the turn, rather than a copy shipped with the app.
+				pathToClaudeCodeExecutable: claudeCode,
 				settingSources: [],
 				abortController: stop,
 				// Nothing but what the workspace grants: no editor tools of its own, no command runner.

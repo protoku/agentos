@@ -1,5 +1,6 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from "electron";
 import { join } from "node:path";
+import { claudeCodeMissing, claudeCodePath } from "./agents/claudeCode";
 import { createWorkspace, loadWorkspaces, recoverAllInterruptedTurns } from "./storage/workspaceStore";
 import {
 	archiveConversation,
@@ -67,6 +68,10 @@ function createWindow(): void {
 void app.whenReady().then(async () => {
 	const root = app.getPath("userData");
 
+	ipcMain.handle("agents:runtime", async () => ({
+		found: (await claudeCodePath()) !== undefined,
+		missing: claudeCodeMissing,
+	}));
 	ipcMain.handle("workspaces:list", () => loadWorkspaces(root));
 	ipcMain.handle("workspaces:create", (_event, name: string) => createWorkspace(root, name));
 	ipcMain.handle("conversations:list", (_event, workspaceId: string) => listConversations(root, workspaceId));

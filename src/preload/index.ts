@@ -3,6 +3,7 @@ import type { AgentOSApi } from "../shared/api";
 import type { Entry } from "../shared/types";
 
 const api: AgentOSApi = {
+	agentRuntime: () => ipcRenderer.invoke("agents:runtime"),
 	listWorkspaces: () => ipcRenderer.invoke("workspaces:list"),
 	createWorkspace: (name) => ipcRenderer.invoke("workspaces:create", name),
 	listConversations: (workspaceId) => ipcRenderer.invoke("conversations:list", workspaceId),

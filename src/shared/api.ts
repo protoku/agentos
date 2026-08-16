@@ -21,6 +21,8 @@ export interface ConversationSummary extends Conversation {
 }
 
 export interface AgentOSApi {
+	/** Whether the machine's Claude Code was found, and what to say when it was not. */
+	agentRuntime(): Promise<{ found: boolean; missing: string }>;
 	listWorkspaces(): Promise<Workspace[]>;
 	createWorkspace(name: string): Promise<Workspace>;
 	listConversations(workspaceId: string): Promise<ConversationSummary[]>;
