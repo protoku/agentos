@@ -3,6 +3,7 @@ import { dirname, relative, sep } from "node:path";
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation, type ToolContext } from "./define";
 import { resolveInSandbox } from "./sandbox";
+import { ensureBaseClone } from "../git/clone";
 import { loadWorkspace, saveWorkspace } from "../storage/workspaceStore";
 import type { Conversation, Mount, MountSource, Workspace } from "../../shared/types";
 
@@ -35,13 +36,10 @@ export const mountTools: BuiltinToolImplementation[] = [
 
 			// Only a git source has branching to build an isolated checkout from.
 			if (mode === "isolated" && source.type !== "git") throw new Error("An isolated mount needs a git source");
-			if (source.type !== "directory") throw new Error(`Cannot mount a ${source.type} source yet`);
 
 			refuseCollision(conversation.mounts, path);
 
-			const target = directoryOf(source);
-			if (!(await isDirectory(target))) throw new Error(`${target} is not a directory`);
-
+			const target = await materialize(context, source, mode);
 			const link = resolveInSandbox(context.sandbox, path);
 			await mkdir(dirname(link), { recursive: true });
 			await symlink(target, link);
@@ -118,6 +116,22 @@ function isInside(path: string, parent: string): boolean {
 	const between = relative(parent, path);
 
 	return between.length > 0 && !between.startsWith("..") && !between.startsWith(sep);
+}
+
+/** What the mount ends up pointing at: the directory itself, or the workspace's clone of a repository. */
+async function materialize(context: ToolContext, source: MountSource, mode: Mount["mode"]): Promise<string> {
+	if (source.type === "git") {
+		if (mode === "isolated") throw new Error("An isolated git mount is not built yet");
+
+		return ensureBaseClone(context.root, context.workspaceId, source);
+	}
+
+	if (source.type !== "directory") throw new Error(`Cannot mount a ${source.type} source yet`);
+
+	const path = directoryOf(source);
+	if (!(await isDirectory(path))) throw new Error(`${path} is not a directory`);
+
+	return path;
 }
 
 function directoryOf(source: MountSource): string {
