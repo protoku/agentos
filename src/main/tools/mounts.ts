@@ -3,9 +3,11 @@ import { dirname, relative, sep } from "node:path";
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation, type ToolContext } from "./define";
 import { resolveInSandbox } from "./sandbox";
+import { branchesCreatedOn, deleteBranches } from "../git/branches";
 import { baseClonePath, ensureBaseClone, gitConfigOf } from "../git/clone";
 import { addWorktree, currentBranch, removeWorktree } from "../git/worktree";
-import { loadWorkspace, saveWorkspace } from "../storage/workspaceStore";
+import { readEntries } from "../storage/conversationFile";
+import { conversationFile, loadWorkspace, saveWorkspace } from "../storage/workspaceStore";
 import type { Conversation, Mount, MountSource, Workspace } from "../../shared/types";
 
 const mountPath = sandboxPath.describe("Where in the sandbox the source is attached");
@@ -164,11 +166,15 @@ async function attach(context: ToolContext, source: MountSource, mode: Mount["mo
 	return symlink(path, link);
 }
 
-/** Unmounting a link leaves the data behind it; unmounting a worktree discards it. */
+/** Unmounting a link leaves the data behind it; unmounting a worktree discards it and its branches. */
 async function detach(context: ToolContext, mount: Mount, link: string): Promise<void> {
 	if (mount.mode !== "isolated") return unlink(link);
 
-	return removeWorktree(baseClonePath(context.root, context.workspaceId, mount.sourceId), link);
+	const clone = baseClonePath(context.root, context.workspaceId, mount.sourceId);
+	const entries = await readEntries(conversationFile(context.root, context.workspaceId, context.conversationId));
+
+	await removeWorktree(clone, link);
+	await deleteBranches(clone, branchesCreatedOn(entries, mount.path));
 }
 
 function directoryOf(source: MountSource): string {

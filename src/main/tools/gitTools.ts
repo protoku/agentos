@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation, type ToolContext } from "./define";
 import { mountedAt } from "./mounts";
+import { createBranchTool } from "../git/branches";
 import { git } from "../git/git";
 
 const mountPath = sandboxPath.describe("Sandbox path of the git mount this acts on");
@@ -95,13 +96,113 @@ export const gitTools: BuiltinToolImplementation[] = [
 			};
 		},
 	}),
+	define({
+		id: createBranchTool,
+		description: "Create a branch on an isolated git mount and switch the mount onto it.",
+		input: z.object({ path: mountPath, name: z.string().describe("Branch to create") }),
+		outputSchema: {
+			type: "object",
+			properties: { path: { type: "string" }, branch: { type: "string" } },
+			required: ["path", "branch"],
+		},
+		async run({ path, name }, context) {
+			const { directory } = await gitMount(context, path, { writable: true, isolated: true });
+			await git(["checkout", "-b", name], directory);
+
+			return { path, branch: name };
+		},
+	}),
+	define({
+		id: "git_commit",
+		description: "Commit everything that changed on a git mount.",
+		input: z.object({ path: mountPath, message: z.string().describe("Commit message") }),
+		outputSchema: {
+			type: "object",
+			properties: {
+				path: { type: "string" },
+				branch: { type: "string" },
+				commit: { type: "string" },
+				message: { type: "string" },
+			},
+			required: ["path", "branch", "commit", "message"],
+		},
+		async run({ path, message }, context) {
+			const { directory, branch } = await gitMount(context, path, { writable: true, branch: true });
+
+			await git(["add", "-A"], directory);
+			await git(["commit", "-m", message], directory);
+
+			return { path, branch, commit: (await git(["rev-parse", "HEAD"], directory)).trim(), message };
+		},
+	}),
+	define({
+		id: "git_pull",
+		description: "Pull a git mount's branch from its remote.",
+		input: z.object({ path: mountPath }),
+		outputSchema: {
+			type: "object",
+			properties: { path: { type: "string" }, branch: { type: "string" }, summary: { type: "string" } },
+			required: ["path", "branch", "summary"],
+		},
+		async run({ path }, context) {
+			const { directory, branch } = await gitMount(context, path, { writable: true, branch: true });
+			if ((await upstreamOf(directory)) === undefined) {
+				throw new Error(`${branch} has never been pushed, so there is nothing to pull from yet`);
+			}
+
+			return { path, branch, summary: (await git(["pull"], directory)).trim() };
+		},
+	}),
+	define({
+		id: "git_push",
+		description: "Push a git mount's branch to its remote, setting its upstream the first time.",
+		input: z.object({ path: mountPath }),
+		outputSchema: {
+			type: "object",
+			properties: { path: { type: "string" }, branch: { type: "string" }, summary: { type: "string" } },
+			required: ["path", "branch", "summary"],
+		},
+		async run({ path }, context) {
+			const { directory, branch } = await gitMount(context, path, { writable: true, branch: true });
+			const summary = await git(["push", "--porcelain", "--set-upstream", "origin", String(branch)], directory);
+
+			return { path, branch, summary: summary.trim() };
+		},
+	}),
 ];
 
+interface Needs {
+	/** A read-only mount is for reading: the mutating git tools are unavailable on it. */
+	writable?: boolean;
+	/** Only an isolated mount branches: a shared checkout never leaves its default branch. */
+	isolated?: boolean;
+	branch?: boolean;
+}
+
 /** A git tool names its mount by sandbox path, since several repositories can be mounted at once. */
-async function gitMount(context: ToolContext, path: string): Promise<{ directory: string; branch?: string }> {
+async function gitMount(
+	context: ToolContext,
+	path: string,
+	needs: Needs = {},
+): Promise<{ directory: string; branch?: string }> {
 	const found = await mountedAt(context, path);
 	if (found === undefined) throw new Error(`Nothing is mounted at ${path}`);
 	if (found.source?.type !== "git") throw new Error(`${path} is not a git mount`);
 
-	return { directory: found.directory, branch: await found.branch() };
+	if (needs.writable === true && found.mount.readOnly) throw new Error(`${path} is mounted read-only`);
+	if (needs.isolated === true && found.mount.mode !== "isolated") {
+		throw new Error(`${path} is a shared mount, which never leaves its default branch`);
+	}
+
+	const branch = await found.branch();
+	if (needs.branch === true && branch === undefined) throw new Error(`${path} is on no branch: create one first`);
+
+	return { directory: found.directory, branch };
+}
+
+async function upstreamOf(directory: string): Promise<string | undefined> {
+	return git(["rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], directory).then(
+		(name) => name.trim(),
+		() => undefined,
+	);
 }

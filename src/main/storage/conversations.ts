@@ -3,6 +3,7 @@ import { rm } from "node:fs/promises";
 import { join } from "node:path";
 import { appendEntry, readEntries } from "./conversationFile";
 import { conversationFile, loadWorkspace, saveWorkspace } from "./workspaceStore";
+import { branchesCreatedOn, deleteBranches } from "../git/branches";
 import { baseClonePath } from "../git/clone";
 import { removeWorktree } from "../git/worktree";
 import { invokeTool } from "../tools/invoke";
@@ -95,10 +96,13 @@ export async function archiveConversation(
 	if (conversation === undefined) throw new Error(`No conversation ${conversationId}`);
 
 	// Closing takes the working state with it: only what was pushed survives an archived conversation.
+	const entries = await readConversation(root, workspaceId, conversationId);
 	for (const mount of conversation.mounts) {
 		if (mount.mode !== "isolated" || conversation.sandbox === undefined) continue;
 
-		await removeWorktree(baseClonePath(root, workspaceId, mount.sourceId), join(conversation.sandbox, mount.path));
+		const clone = baseClonePath(root, workspaceId, mount.sourceId);
+		await removeWorktree(clone, join(conversation.sandbox, mount.path));
+		await deleteBranches(clone, branchesCreatedOn(entries, mount.path));
 	}
 	if (conversation.sandbox !== undefined) await rm(conversation.sandbox, { recursive: true, force: true });
 
