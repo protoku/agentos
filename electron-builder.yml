@@ -26,9 +26,13 @@ win:
   target: nsis
 
 mac:
-  target: dmg
+  # Both architectures, so Intel Macs are not left out by the runner's own arch.
+  target:
+    - target: dmg
+      arch: [arm64, x64]
   category: public.app-category.developer-tools
 
 nsis:
+  artifactName: ${productName}-Setup-${version}.${ext}
   oneClick: false
   allowToChangeInstallationDirectory: true
