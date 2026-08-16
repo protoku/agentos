@@ -30,6 +30,9 @@ export interface AgentOSApi {
 	listAgents(workspaceId: string): Promise<Agent[]>;
 	createAgent(workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt" | "tools">): Promise<Agent>;
 	updateAgent(workspaceId: string, agent: Agent): Promise<Agent>;
+	readEnv(workspaceId: string): Promise<Record<string, string>>;
+	/** Sets a key, or drops it when given no value. */
+	setEnv(workspaceId: string, key: string, value?: string): Promise<Record<string, string>>;
 	listSources(workspaceId: string): Promise<MountSource[]>;
 	createSource(workspaceId: string, draft: Pick<MountSource, "name" | "type" | "config">): Promise<MountSource>;
 	listTools(): Promise<BuiltinTool[]>;

@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { cn } from "@/lib/utils";
 import { Agents } from "./Agents";
 import { Conversations } from "./Conversations";
+import { Env } from "./Env";
 import { Sources } from "./Sources";
 import { Thread } from "./Thread";
 import { parseSlashCommand } from "../../shared/slash";
@@ -248,6 +249,8 @@ export function App() {
 				<Agents workspaceId={workspace.id} />
 			) : section === "sources" ? (
 				<Sources workspaceId={workspace.id} />
+			) : section === "env" ? (
+				<Env workspaceId={workspace.id} />
 			) : section ? (
 				<main className="flex-1">
 					<header className="border-b border-border px-6 py-3 text-sm font-medium">

@@ -11,6 +11,7 @@ import {
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
 import { createSource, listSources, type SourceDraft } from "./storage/sources";
+import { readEnv, setEnv } from "./storage/env";
 import { builtinToolMetadata } from "./tools/builtin";
 import { invokeTool, isCallRunning } from "./tools/invoke";
 import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
@@ -87,6 +88,10 @@ void app.whenReady().then(async () => {
 	);
 	ipcMain.handle("agents:update", (_event, workspaceId: string, agent: Agent) =>
 		updateAgent(root, workspaceId, agent),
+	);
+	ipcMain.handle("env:read", (_event, workspaceId: string) => readEnv(root, workspaceId));
+	ipcMain.handle("env:set", (_event, workspaceId: string, key: string, value?: string) =>
+		setEnv(root, workspaceId, key, value),
 	);
 	ipcMain.handle("sources:list", (_event, workspaceId: string) => listSources(root, workspaceId));
 	ipcMain.handle("sources:create", (_event, workspaceId: string, draft: SourceDraft) =>
