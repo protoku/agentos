@@ -78,6 +78,25 @@ export const mountTools: BuiltinToolImplementation[] = [
 	}),
 ];
 
+/**
+ * Where a built-in tool is allowed to change something: inside the sandbox, and not inside a
+ * mount the conversation took read-only. Mounts come from the record on every call, since a
+ * turn can mount and unmount while it runs.
+ */
+export async function resolveWritable(context: ToolContext, path: string): Promise<string> {
+	const target = resolveInSandbox(context.sandbox, path);
+	const { conversation } = await open(context);
+
+	for (const mount of conversation.mounts) {
+		if (!mount.readOnly) continue;
+
+		const root = resolveInSandbox(context.sandbox, mount.path);
+		if (target === root || isInside(target, root)) throw new Error(`${mount.path} is mounted read-only`);
+	}
+
+	return target;
+}
+
 async function open(context: ToolContext): Promise<{ workspace: Workspace; conversation: Conversation }> {
 	const workspace = await loadWorkspace(context.root, context.workspaceId);
 	const conversation = workspace.conversations.find((candidate) => candidate.id === context.conversationId);

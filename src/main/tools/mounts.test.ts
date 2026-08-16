@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -91,6 +91,48 @@ describe("mount", () => {
 		expect(await invoke("mount", { source: "other", path: "deep" })).toMatchObject({
 			error: "deep would contain the mount at deep/inner",
 		});
+	});
+});
+
+describe("a read-only mount", () => {
+	beforeEach(async () => {
+		await invoke("mount", { source: "notes", path: "notes", readOnly: true });
+	});
+
+	it("reads through, like any other mount", async () => {
+		const call = await invoke("read_file", { path: "notes/todo.md" });
+
+		expect(call.output).toEqual({ path: "notes/todo.md", content: "Ship it" });
+	});
+
+	it("refuses every tool that would change what is behind it", async () => {
+		const write = await invoke("write_file", { path: "notes/new.md", content: "No" });
+		const edit = await invoke("edit_file", { path: "notes/todo.md", find: "Ship", replace: "Drop" });
+		const remove = await invoke("delete_file", { path: "notes/todo.md" });
+		const move = await invoke("move_file", { from: "notes/todo.md", to: "todo.md" });
+
+		for (const call of [write, edit, remove, move]) {
+			expect(call).toMatchObject({ status: "error", error: "notes is mounted read-only" });
+		}
+		expect(await readFile(join(notes, "todo.md"), "utf8")).toBe("Ship it");
+		expect(await readdir(notes)).toEqual(["todo.md"]);
+	});
+
+	it("refuses a move that would carry a file into it", async () => {
+		await invoke("write_file", { path: "outside.md", content: "Mine" });
+
+		expect(await invoke("move_file", { from: "outside.md", to: "notes/outside.md" })).toMatchObject({
+			error: "notes is mounted read-only",
+		});
+	});
+
+	it("leaves the rest of the sandbox writable", async () => {
+		expect(await invoke("write_file", { path: "own.md", content: "Mine" })).toMatchObject({ status: "success" });
+	});
+
+	it("can still be unmounted, which changes nothing behind it", async () => {
+		expect(await invoke("unmount", { path: "notes" })).toMatchObject({ status: "success" });
+		expect(await readFile(join(notes, "todo.md"), "utf8")).toBe("Ship it");
 	});
 });
 

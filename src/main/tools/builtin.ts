@@ -2,7 +2,7 @@ import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:
 import { dirname, join, relative } from "node:path";
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
-import { mountTools } from "./mounts";
+import { mountTools, resolveWritable } from "./mounts";
 import { resolveInSandbox } from "./sandbox";
 import type { BuiltinTool } from "../../shared/types";
 
@@ -18,8 +18,8 @@ const fileTools: BuiltinToolImplementation[] = [
 			properties: { path: { type: "string" }, bytes: { type: "number" } },
 			required: ["path", "bytes"],
 		},
-		async run({ path, content }, { sandbox }) {
-			const file = resolveInSandbox(sandbox, path);
+		async run({ path, content }, context) {
+			const file = await resolveWritable(context, path);
 
 			await mkdir(dirname(file), { recursive: true });
 			await writeFile(file, content, "utf8");
@@ -80,8 +80,8 @@ const fileTools: BuiltinToolImplementation[] = [
 			properties: { path: { type: "string" }, bytes: { type: "number" } },
 			required: ["path", "bytes"],
 		},
-		async run({ path, find, replace }, { sandbox }) {
-			const file = resolveInSandbox(sandbox, path);
+		async run({ path, find, replace }, context) {
+			const file = await resolveWritable(context, path);
 			const before = await readFile(file, "utf8");
 
 			const occurrences = before.split(find).length - 1;
@@ -102,13 +102,14 @@ const fileTools: BuiltinToolImplementation[] = [
 			properties: { from: { type: "string" }, to: { type: "string" } },
 			required: ["from", "to"],
 		},
-		async run({ from, to }, { sandbox }) {
-			const target = resolveInSandbox(sandbox, to);
+		async run({ from, to }, context) {
+			const target = await resolveWritable(context, to);
+			const source = await resolveWritable(context, from);
 
 			if (await exists(target)) throw new Error(`${to} already exists`);
 
 			await mkdir(dirname(target), { recursive: true });
-			await rename(resolveInSandbox(sandbox, from), target);
+			await rename(source, target);
 
 			return { from, to };
 		},
@@ -118,8 +119,8 @@ const fileTools: BuiltinToolImplementation[] = [
 		description: "Remove a file. Directories are refused.",
 		input: z.object({ path: sandboxPath }),
 		outputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
-		async run({ path }, { sandbox }) {
-			const file = resolveInSandbox(sandbox, path);
+		async run({ path }, context) {
+			const file = await resolveWritable(context, path);
 
 			if ((await stat(file)).isDirectory()) throw new Error(`${path} is a directory`);
 			await unlink(file);
