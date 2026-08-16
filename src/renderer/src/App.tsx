@@ -262,36 +262,31 @@ export function App() {
 				<Env workspaceId={workspace.id} />
 			) : section === "tools" ? (
 				<Tools workspaceId={workspace.id} />
-			) : section ? (
-				<main className="flex-1">
-					<header className="border-b border-border px-6 py-3 text-sm font-medium">
-						{sectionTitles[section]}
-					</header>
-				</main>
 			) : drafting || openConversation ? (
-				<>
-					<Thread
-						// Each conversation composes on its own: a draft here never follows you to another.
-						key={conversationId ?? "draft"}
-						title={openConversation?.title ?? "New conversation"}
-						entries={entries}
-						agents={agents}
-						tools={tools}
-						archivedAt={openConversation?.archivedAt}
-						onSend={send}
-						onCancel={cancel}
-						onArchive={openConversation ? archive : undefined}
-					/>
-					<ContextPanel sandbox={openConversation?.sandbox} mounts={openConversation?.mounts ?? []} present={present} />
-				</>
+				<Thread
+					// Each conversation composes on its own: a draft here never follows you to another.
+					key={conversationId ?? "draft"}
+					title={openConversation?.title ?? "New conversation"}
+					entries={entries}
+					agents={agents}
+					tools={tools}
+					archivedAt={openConversation?.archivedAt}
+					onSend={send}
+					onCancel={cancel}
+					onArchive={openConversation ? archive : undefined}
+				/>
 			) : (
-				<>
-					<main className="grid flex-1 place-items-center text-sm text-muted-foreground">
-						No conversation selected
-					</main>
-					<ContextPanel mounts={[]} present={[]} />
-				</>
+				<main className="grid flex-1 place-items-center text-sm text-muted-foreground">
+					No conversation selected
+				</main>
 			)}
+
+			{/* The third pane stays put: a section replaces the thread, never the conversation's context. */}
+			<ContextPanel
+				sandbox={openConversation?.sandbox}
+				mounts={openConversation?.mounts ?? []}
+				present={present}
+			/>
 		</div>
 	);
 }
