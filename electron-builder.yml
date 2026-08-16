@@ -26,6 +26,11 @@ win:
   target: nsis
 
 mac:
+  # Ad-hoc signing, explicitly: with no certificate in the keychain electron-builder signs
+  # nothing at all, and an unsigned arm64 app is refused outright as "damaged". The hardened
+  # runtime is off because it buys nothing without notarisation and breaks an ad-hoc signature.
+  identity: "-"
+  hardenedRuntime: false
   # Both architectures, so Intel Macs are not left out by the runner's own arch.
   target:
     - target: dmg

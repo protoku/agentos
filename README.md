@@ -44,8 +44,9 @@ Download the build for your platform from the
 
 Releases are not code signed yet, so the first launch needs one extra step:
 
-- **macOS** reports that the app is damaged. Right-click the app and choose Open, or run
-  `xattr -dr com.apple.quarantine /Applications/AgentOS.app`.
+- **macOS** refuses an app from an unidentified developer. Right-click it and choose Open, or open
+  System Settings, Privacy and Security, and choose Open Anyway. If macOS calls the app damaged
+  rather than unidentified, run `xattr -dr com.apple.quarantine /Applications/AgentOS.app`.
 - **Windows** shows a SmartScreen warning. Choose More info, then Run anyway.
 - **Linux** has nothing to click through. Make the AppImage executable with `chmod +x` if your
   file manager has not.
