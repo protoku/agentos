@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { invokeTool } from "./invoke";
 import { git } from "../git/git";
-import { startConversation } from "../storage/conversations";
+import { archiveConversation, startConversation } from "../storage/conversations";
 import { createSource } from "../storage/sources";
 import { createWorkspace, loadWorkspace } from "../storage/workspaceStore";
 import type { ToolCall } from "../../shared/types";
@@ -92,6 +92,14 @@ describe("a shared git mount", () => {
 		expect((await loadWorkspace(root, workspaceId)).conversations[0].mounts).toEqual([]);
 	});
 
+	it("is writable, since the shared checkout is worked on in place", async () => {
+		await invoke(conversationId, "mount", { source: "api", path: "api" });
+
+		expect(await invoke(conversationId, "write_file", { path: "api/notes.md", content: "In place" })).toMatchObject({
+			status: "success",
+		});
+	});
+
 	it("unmounts by dropping the link, leaving the clone in place for the next mount", async () => {
 		await invoke(conversationId, "mount", { source: "api", path: "api" });
 		await invoke(conversationId, "unmount", { path: "api" });
@@ -100,3 +108,72 @@ describe("a shared git mount", () => {
 		expect((await stat(clone)).isDirectory()).toBe(true);
 	});
 });
+
+describe("an isolated git mount", () => {
+	function worktree(conversation: string, path = "api"): string {
+		return join(root, "workspaces", workspaceId, "sandboxes", conversation, path);
+	}
+
+	beforeEach(async () => {
+		await invoke(conversationId, "mount", { source: "api", path: "api", mode: "isolated" });
+	});
+
+	it("is a worktree of the clone, holding the same content as everyone else", async () => {
+		const read = await invoke(conversationId, "read_file", { path: "api/README.md" });
+
+		expect(read.output).toEqual({ path: "api/README.md", content: "The repository" });
+		expect((await git(["worktree", "list"], clone())).includes(worktree(conversationId))).toBe(true);
+	});
+
+	it("starts on no branch, so nothing can be changed on the default branch itself", async () => {
+		expect((await git(["branch", "--show-current"], worktree(conversationId))).trim()).toBe("");
+		expect(await invoke(conversationId, "write_file", { path: "api/notes.md", content: "Too soon" })).toMatchObject({
+			status: "error",
+			error: "api is on no branch: create one before changing it",
+		});
+	});
+
+	it("becomes writable once a branch is created on it", async () => {
+		await git(["checkout", "-b", "work"], worktree(conversationId));
+
+		expect(await invoke(conversationId, "write_file", { path: "api/notes.md", content: "Mine" })).toMatchObject({
+			status: "success",
+		});
+	});
+
+	it("keeps one conversation's work out of another's", async () => {
+		const other = await conversationIn("Another");
+		await invoke(other, "mount", { source: "api", path: "api", mode: "isolated" });
+
+		await git(["checkout", "-b", "work"], worktree(conversationId));
+		await invoke(conversationId, "write_file", { path: "api/notes.md", content: "Mine" });
+
+		expect(await invoke(other, "read_file", { path: "api/notes.md" })).toMatchObject({ status: "error" });
+	});
+
+	it("discards the worktree when unmounted", async () => {
+		await invoke(conversationId, "unmount", { path: "api" });
+
+		expect((await git(["worktree", "list"], clone())).includes(worktree(conversationId))).toBe(false);
+		expect(await exists(worktree(conversationId))).toBe(false);
+	});
+
+	it("goes with the conversation when it is archived, sandbox and all", async () => {
+		await archiveConversation(root, workspaceId, conversationId);
+
+		expect((await git(["worktree", "list"], clone())).includes(worktree(conversationId))).toBe(false);
+		expect(await exists(join(root, "workspaces", workspaceId, "sandboxes", conversationId))).toBe(false);
+		expect((await loadWorkspace(root, workspaceId)).conversations[0].mounts).toEqual([]);
+	});
+});
+
+function clone(): string {
+	return join(root, "workspaces", workspaceId, "clones", sourceId);
+}
+
+async function exists(path: string): Promise<boolean> {
+	return stat(path).then(
+		() => true,
+		() => false,
+	);
+}

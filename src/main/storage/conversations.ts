@@ -1,6 +1,10 @@
 import { randomUUID } from "node:crypto";
+import { rm } from "node:fs/promises";
+import { join } from "node:path";
 import { appendEntry, readEntries } from "./conversationFile";
 import { conversationFile, loadWorkspace, saveWorkspace } from "./workspaceStore";
+import { baseClonePath } from "../git/clone";
+import { removeWorktree } from "../git/worktree";
 import { invokeTool } from "../tools/invoke";
 import type { EntrySink } from "../turns/run";
 import type { ConversationSummary } from "../../shared/api";
@@ -90,6 +94,15 @@ export async function archiveConversation(
 	const conversation = workspace.conversations.find((candidate) => candidate.id === conversationId);
 	if (conversation === undefined) throw new Error(`No conversation ${conversationId}`);
 
+	// Closing takes the working state with it: only what was pushed survives an archived conversation.
+	for (const mount of conversation.mounts) {
+		if (mount.mode !== "isolated" || conversation.sandbox === undefined) continue;
+
+		await removeWorktree(baseClonePath(root, workspaceId, mount.sourceId), join(conversation.sandbox, mount.path));
+	}
+	if (conversation.sandbox !== undefined) await rm(conversation.sandbox, { recursive: true, force: true });
+
+	conversation.mounts = [];
 	conversation.archivedAt = new Date().toISOString();
 	await saveWorkspace(root, workspace);
 

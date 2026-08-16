@@ -3,7 +3,8 @@ import { dirname, relative, sep } from "node:path";
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation, type ToolContext } from "./define";
 import { resolveInSandbox } from "./sandbox";
-import { ensureBaseClone } from "../git/clone";
+import { baseClonePath, ensureBaseClone, gitConfigOf } from "../git/clone";
+import { addWorktree, currentBranch, removeWorktree } from "../git/worktree";
 import { loadWorkspace, saveWorkspace } from "../storage/workspaceStore";
 import type { Conversation, Mount, MountSource, Workspace } from "../../shared/types";
 
@@ -38,11 +39,7 @@ export const mountTools: BuiltinToolImplementation[] = [
 			if (mode === "isolated" && source.type !== "git") throw new Error("An isolated mount needs a git source");
 
 			refuseCollision(conversation.mounts, path);
-
-			const target = await materialize(context, source, mode);
-			const link = resolveInSandbox(context.sandbox, path);
-			await mkdir(dirname(link), { recursive: true });
-			await symlink(target, link);
+			await attach(context, source, mode, resolveInSandbox(context.sandbox, path));
 
 			const mount: Mount = { sourceId: source.id, path, mode, readOnly, createdAt: new Date().toISOString() };
 			conversation.mounts.push(mount);
@@ -65,7 +62,7 @@ export const mountTools: BuiltinToolImplementation[] = [
 			const mount = conversation.mounts.find((candidate) => candidate.path === path);
 			if (mount === undefined) throw new Error(`Nothing is mounted at ${path}`);
 
-			await unlink(resolveInSandbox(context.sandbox, path));
+			await detach(context, mount, resolveInSandbox(context.sandbox, path));
 
 			// The mounts list is current state: the record of what happened is this call in the thread.
 			conversation.mounts = conversation.mounts.filter((candidate) => candidate !== mount);
@@ -86,10 +83,14 @@ export async function resolveWritable(context: ToolContext, path: string): Promi
 	const { conversation } = await open(context);
 
 	for (const mount of conversation.mounts) {
-		if (!mount.readOnly) continue;
-
 		const root = resolveInSandbox(context.sandbox, mount.path);
-		if (target === root || isInside(target, root)) throw new Error(`${mount.path} is mounted read-only`);
+		if (target !== root && !isInside(target, root)) continue;
+
+		if (mount.readOnly) throw new Error(`${mount.path} is mounted read-only`);
+		// Work never begins on the default branch itself, so an isolated mount waits for a branch.
+		if (mount.mode === "isolated" && (await currentBranch(root)) === undefined) {
+			throw new Error(`${mount.path} is on no branch: create one before changing it`);
+		}
 	}
 
 	return target;
@@ -118,12 +119,18 @@ function isInside(path: string, parent: string): boolean {
 	return between.length > 0 && !between.startsWith("..") && !between.startsWith(sep);
 }
 
-/** What the mount ends up pointing at: the directory itself, or the workspace's clone of a repository. */
-async function materialize(context: ToolContext, source: MountSource, mode: Mount["mode"]): Promise<string> {
-	if (source.type === "git") {
-		if (mode === "isolated") throw new Error("An isolated git mount is not built yet");
+/**
+ * How a mount materializes: a link to the directory or to the workspace's clone, except for an
+ * isolated mount, which is a worktree of that clone and so is the checkout rather than pointing at one.
+ */
+async function attach(context: ToolContext, source: MountSource, mode: Mount["mode"], link: string): Promise<void> {
+	await mkdir(dirname(link), { recursive: true });
 
-		return ensureBaseClone(context.root, context.workspaceId, source);
+	if (source.type === "git") {
+		const clone = await ensureBaseClone(context.root, context.workspaceId, source);
+		if (mode === "isolated") return addWorktree(clone, link, gitConfigOf(source).defaultBranch);
+
+		return symlink(clone, link);
 	}
 
 	if (source.type !== "directory") throw new Error(`Cannot mount a ${source.type} source yet`);
@@ -131,7 +138,14 @@ async function materialize(context: ToolContext, source: MountSource, mode: Moun
 	const path = directoryOf(source);
 	if (!(await isDirectory(path))) throw new Error(`${path} is not a directory`);
 
-	return path;
+	return symlink(path, link);
+}
+
+/** Unmounting a link leaves the data behind it; unmounting a worktree discards it. */
+async function detach(context: ToolContext, mount: Mount, link: string): Promise<void> {
+	if (mount.mode !== "isolated") return unlink(link);
+
+	return removeWorktree(baseClonePath(context.root, context.workspaceId, mount.sourceId), link);
 }
 
 function directoryOf(source: MountSource): string {

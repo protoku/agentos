@@ -17,9 +17,13 @@ export function gitConfigOf(source: MountSource): GitConfig {
 	return { remote, defaultBranch };
 }
 
+export function baseClonePath(root: string, workspaceId: string, sourceId: string): string {
+	return join(root, "workspaces", workspaceId, "clones", sourceId);
+}
+
 /** One clone per source, kept by the workspace: both mount modes are derived from it. */
 export async function ensureBaseClone(root: string, workspaceId: string, source: MountSource): Promise<string> {
-	const clone = join(root, "workspaces", workspaceId, "clones", source.id);
+	const clone = baseClonePath(root, workspaceId, source.id);
 	if (await exists(clone)) return clone;
 
 	const { remote, defaultBranch } = gitConfigOf(source);
