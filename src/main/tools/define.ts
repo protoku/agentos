@@ -9,11 +9,17 @@ export interface ToolContext {
 	sandbox: string;
 }
 
-export interface BuiltinToolImplementation extends BuiltinTool {
+/** What every tool offers a caller, whichever kind it is. */
+export interface ToolImplementation {
+	id: string;
+	name: string;
+	description: string;
 	/** What the agent is given to call with, and what a user-invoked call is parsed against. */
 	input: z.ZodObject;
 	run(input: Record<string, unknown>, context: ToolContext): Promise<Record<string, unknown>>;
 }
+
+export interface BuiltinToolImplementation extends BuiltinTool, ToolImplementation {}
 
 export const sandboxPath = z.string().describe("Path relative to the sandbox");
 

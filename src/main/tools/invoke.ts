@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { attemptCall } from "./attempt";
-import { builtinTool } from "./builtin";
+import { toolNamed } from "./registry";
 import { ensureSandbox } from "./sandbox";
 import { appendEntry } from "../storage/conversationFile";
 import { conversationFile } from "../storage/workspaceStore";
@@ -32,9 +32,13 @@ export async function invokeTool(
 	occupied.add(conversationId);
 
 	try {
+		const tool = await toolNamed(root, workspaceId, toolId);
+		// The record points at the tool itself, not at the name it happened to be called by.
+		call.toolId = tool.id;
+
 		const sandbox = await ensureSandbox(root, workspaceId, conversationId);
 		const stopping = awaitRuling(call.id, conversationId);
-		const attempt = attemptCall(builtinTool(toolId), input, { root, workspaceId, conversationId, sandbox });
+		const attempt = attemptCall(tool, input, { root, workspaceId, conversationId, sandbox });
 		emit({ ...call });
 
 		const stopped = await Promise.race([attempt.then(() => false), stopping.then(() => true)]);
