@@ -96,6 +96,29 @@ export async function resolveWritable(context: ToolContext, path: string): Promi
 	return target;
 }
 
+export interface MountedAt {
+	mount: Mount;
+	source?: MountSource;
+	directory: string;
+	branch(): Promise<string | undefined>;
+}
+
+/** What sits at a sandbox path, which is how a git tool names the repository it acts on. */
+export async function mountedAt(context: ToolContext, path: string): Promise<MountedAt | undefined> {
+	const { workspace, conversation } = await open(context);
+	const mount = conversation.mounts.find((candidate) => candidate.path === path);
+	if (mount === undefined) return undefined;
+
+	const directory = resolveInSandbox(context.sandbox, path);
+
+	return {
+		mount,
+		source: workspace.sources.find((candidate) => candidate.id === mount.sourceId),
+		directory,
+		branch: () => currentBranch(directory),
+	};
+}
+
 async function open(context: ToolContext): Promise<{ workspace: Workspace; conversation: Conversation }> {
 	const workspace = await loadWorkspace(context.root, context.workspaceId);
 	const conversation = workspace.conversations.find((candidate) => candidate.id === context.conversationId);

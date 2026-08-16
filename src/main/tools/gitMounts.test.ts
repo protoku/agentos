@@ -167,6 +167,50 @@ describe("an isolated git mount", () => {
 	});
 });
 
+describe("the git inspection tools", () => {
+	beforeEach(async () => {
+		await invoke(conversationId, "mount", { source: "api", path: "api" });
+	});
+
+	it("report the branch and what changed on the mount", async () => {
+		await invoke(conversationId, "write_file", { path: "api/notes.md", content: "Mine" });
+
+		const call = await invoke(conversationId, "git_status", { path: "api" });
+
+		expect(call.output).toEqual({ path: "api", branch: "main", changes: [{ change: "??", file: "notes.md" }] });
+	});
+
+	it("show the changes themselves", async () => {
+		await invoke(conversationId, "write_file", { path: "api/README.md", content: "Changed" });
+
+		const call = await invoke(conversationId, "git_diff", { path: "api" });
+
+		expect(String(call.output?.diff)).toContain("-The repository");
+		expect(String(call.output?.diff)).toContain("+Changed");
+	});
+
+	it("read the history of the branch the mount is on", async () => {
+		const call = await invoke(conversationId, "git_log", { path: "api" });
+
+		expect(call.output?.commits).toMatchObject([{ author: "Test", subject: "First" }]);
+	});
+
+	it("refuse a path where nothing is mounted, and one that is no repository", async () => {
+		expect(await invoke(conversationId, "git_status", { path: "nowhere" })).toMatchObject({
+			error: "Nothing is mounted at nowhere",
+		});
+
+		const notes = await mkdtemp(join(tmpdir(), "agentos-notes-"));
+		await createSource(root, workspaceId, { name: "notes", type: "directory", config: { path: notes } });
+		await invoke(conversationId, "mount", { source: "notes", path: "notes" });
+
+		expect(await invoke(conversationId, "git_status", { path: "notes" })).toMatchObject({
+			error: "notes is not a git mount",
+		});
+		await rm(notes, { recursive: true, force: true });
+	});
+});
+
 function clone(): string {
 	return join(root, "workspaces", workspaceId, "clones", sourceId);
 }
