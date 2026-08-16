@@ -27,7 +27,7 @@ interface Workspace {
 
 A conversation is a thread of messages, tool calls, and turn markers between the user and one or more agents of the workspace. The user brings agents in by @-mentioning them, and every agent in the conversation sees the full thread, every entry included. A message can mention several agents: each acts on it in mention order, one at a time, so later agents see the work of earlier ones. Mentioning the same agent again queues it again: every mention is its own turn. Agents act only when mentioned.
 
-A new conversation starts as a draft: it is visible in the interface and nothing about it is recorded. Sending its first message is what creates it, and that message gives it its title, shortened to fit the list. A draft that never receives a message leaves no trace.
+A new conversation starts as a draft: it is visible in the interface and nothing about it is recorded. Its first entry is what creates it, a message or a tool call the user invokes, and that entry gives it its title, shortened to fit the list. A draft that never receives one leaves no trace.
 
 Each mentioned agent's activity on a message is a turn: it begins when the agent starts acting and covers everything it does, several messages and several tool calls included, until it has nothing further to do. A turn ends on its own when the agent finishes, and the next mentioned agent's turn begins; a canceled or failed turn ends the whole chain instead, so agents not yet started never act.
 
@@ -280,7 +280,7 @@ Features of the app around the model above.
 - The sidebar header holds the workspace picker: it names the workspace in view and switches to any other.
 - The window is three panes: the sidebar with the workspace picker and the conversation list, the thread in the middle, and the conversation's mounts, sandbox and agents on the right.
 - Conversations, agents, script tools, mount sources and env each open in a pane that replaces the thread.
-- A tool is invoked in the composer as a slash command with key=value arguments, quoting any value that contains spaces: /write_file path=notes/todo.md content="Ship it". A draft has no thread to record the call in, so a tool call there is refused until a message is sent.
+- A tool is invoked in the composer as a slash command with key=value arguments, quoting any value that contains spaces: /write_file path=notes/todo.md content="Ship it". Invoking one in a draft creates the conversation, exactly as sending a message does, and the call is its first entry.
 - The sidebar lists the twenty conversations with the most recent activity, archived ones left out; a conversation's activity is the time of its last entry. The conversations pane lists every conversation, archived included, in that same order.
 
 ## Design
