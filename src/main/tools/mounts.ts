@@ -7,7 +7,7 @@ import { branchesCreatedOn, deleteBranches } from "../git/branches";
 import { baseClonePath, ensureBaseClone, gitConfigOf } from "../git/clone";
 import { addWorktree, currentBranch, removeWorktree } from "../git/worktree";
 import { readEntries } from "../storage/conversationFile";
-import { conversationFile, loadWorkspace, saveWorkspace } from "../storage/workspaceStore";
+import { conversationFile, conversationsDirectory, loadWorkspace, saveWorkspace } from "../storage/workspaceStore";
 import type { Conversation, Mount, MountSource, Workspace } from "../../shared/types";
 
 const mountPath = sandboxPath.describe("Where in the sandbox the source is attached");
@@ -19,8 +19,8 @@ export const mountTools: BuiltinToolImplementation[] = [
 		input: z.object({
 			source: z.string().describe("Name of the workspace mount source"),
 			path: mountPath,
-			mode: z.enum(["shared", "isolated"]).default("shared"),
-			readOnly: z.boolean().default(false),
+			mode: z.enum(["shared", "isolated"]).optional().describe("Shared unless asked otherwise"),
+			readOnly: z.boolean().optional(),
 		}),
 		outputSchema: {
 			type: "object",
@@ -32,13 +32,12 @@ export const mountTools: BuiltinToolImplementation[] = [
 			},
 			required: ["source", "path", "mode", "readOnly"],
 		},
-		async run({ source: name, path, mode, readOnly }, context) {
+		async run({ source: name, path, ...asked }, context) {
 			const { workspace, conversation } = await open(context);
 			const source = workspace.sources.find((candidate) => candidate.name === name);
 			if (source === undefined) throw new Error(`No source ${name}`);
 
-			// Only a git source has branching to build an isolated checkout from.
-			if (mode === "isolated" && source.type !== "git") throw new Error("An isolated mount needs a git source");
+			const { mode, readOnly } = settle(source, asked);
 
 			refuseCollision(conversation.mounts, path);
 			await attach(context, source, mode, resolveInSandbox(context.sandbox, path));
@@ -129,6 +128,27 @@ async function open(context: ToolTarget): Promise<{ workspace: Workspace; conver
 	return { workspace, conversation };
 }
 
+/**
+ * What the mount ends up being: asked for, defaulted, or fixed by the source. A conversations
+ * mount is the workspace reading its own threads, so its terms are not the caller's to choose.
+ */
+function settle(
+	source: MountSource,
+	asked: { mode?: Mount["mode"]; readOnly?: boolean },
+): { mode: Mount["mode"]; readOnly: boolean } {
+	if (source.type === "conversations") {
+		if (asked.mode === "isolated") throw new Error("A conversations mount is always shared");
+		if (asked.readOnly === false) throw new Error("A conversations mount is always read-only");
+
+		return { mode: "shared", readOnly: true };
+	}
+
+	// Only a git source has branching to build an isolated checkout from.
+	if (asked.mode === "isolated" && source.type !== "git") throw new Error("An isolated mount needs a git source");
+
+	return { mode: asked.mode ?? "shared", readOnly: asked.readOnly ?? false };
+}
+
 /** Mount paths may neither repeat nor nest: one path in the sandbox belongs to one mount. */
 function refuseCollision(mounts: Mount[], path: string): void {
 	for (const mount of mounts) {
@@ -158,7 +178,9 @@ async function attach(context: ToolTarget, source: MountSource, mode: Mount["mod
 		return symlink(clone, link);
 	}
 
-	if (source.type !== "directory") throw new Error(`Cannot mount a ${source.type} source yet`);
+	if (source.type === "conversations") {
+		return symlink(conversationsDirectory(context.root, context.workspaceId), link);
+	}
 
 	const path = directoryOf(source);
 	if (!(await isDirectory(path))) throw new Error(`${path} is not a directory`);

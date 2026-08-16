@@ -6,11 +6,13 @@ import type { MountSource } from "../../shared/types";
 
 type Draft =
 	| { type: "directory"; name: string; path: string }
-	| { type: "git"; name: string; remote: string; defaultBranch: string };
+	| { type: "git"; name: string; remote: string; defaultBranch: string }
+	| { type: "conversations"; name: string };
 
 const emptyDrafts: Record<Draft["type"], Draft> = {
 	directory: { type: "directory", name: "", path: "" },
 	git: { type: "git", name: "", remote: "", defaultBranch: "main" },
+	conversations: { type: "conversations", name: "" },
 };
 
 export function Sources({ workspaceId }: { workspaceId: string }) {
@@ -57,6 +59,10 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 						<Plus />
 						New repository
 					</Button>
+					<Button variant="ghost" size="sm" onClick={() => start("conversations")}>
+						<Plus />
+						New conversations
+					</Button>
 				</div>
 			</header>
 
@@ -68,12 +74,12 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 								<Input
 									autoFocus
 									value={draft.name}
-									placeholder={draft.type === "git" ? "api" : "notes"}
+									placeholder={draft.type === "git" ? "api" : draft.type === "conversations" ? "threads" : "notes"}
 									onChange={(event) => setDraft({ ...draft, name: event.target.value })}
 								/>
 							</Field>
 
-							{draft.type === "directory" ? (
+							{draft.type === "conversations" ? null : draft.type === "directory" ? (
 								<Field label="Directory">
 									<Input
 										value={draft.path}
@@ -124,9 +130,10 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 }
 
 function describe(source: MountSource): string {
-	return source.type === "git"
-		? `${String(source.config.remote ?? "")} on ${String(source.config.defaultBranch ?? "")}`
-		: String(source.config.path ?? "");
+	if (source.type === "git") return `${String(source.config.remote ?? "")} on ${String(source.config.defaultBranch ?? "")}`;
+	if (source.type === "conversations") return "this workspace's threads, read-only";
+
+	return String(source.config.path ?? "");
 }
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
