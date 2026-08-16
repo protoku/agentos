@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Square } from "lucide-react";
+import { ArrowUp, Check, Copy, Square } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -236,17 +236,42 @@ function EntryView({
 		case "userMessage":
 		case "agentMessage":
 			return (
-				<article className="flex flex-col gap-1">
+				<article className="group flex flex-col gap-1">
 					<div className="flex items-baseline gap-2 text-xs text-muted-foreground">
 						<span className="font-medium text-foreground">
 							{entry.type === "userMessage" ? "You" : `@${agentName(agents, entry.agentId)}`}
 						</span>
 						<time dateTime={entry.createdAt}>{time(entry.createdAt)}</time>
+						<CopyButton label="Copy message" text={entry.content} />
 					</div>
 					<p className="text-sm whitespace-pre-wrap">{withMentions(entry.content, agents)}</p>
 				</article>
 			);
 	}
+}
+
+/** A message copies its text, a tool call its input and output; turn entries have nothing to copy. */
+function CopyButton({ label, text }: { label: string; text: string }) {
+	const [copied, setCopied] = useState(false);
+
+	return (
+		<button
+			type="button"
+			aria-label={label}
+			title={label}
+			className={cn(
+				"rounded-md p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground",
+				copied && "text-success opacity-100",
+			)}
+			onClick={() => {
+				void navigator.clipboard.writeText(text);
+				setCopied(true);
+				setTimeout(() => setCopied(false), 1200);
+			}}
+		>
+			{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+		</button>
+	);
 }
 
 function agentName(agents: Agent[], agentId: string): string {
@@ -275,7 +300,7 @@ function ToolCallView({ call, agents }: { call: ToolCall; agents: Agent[] }) {
 	}
 
 	return (
-		<article className="flex flex-col gap-2 rounded-lg border border-border p-3">
+		<article className="group flex flex-col gap-2 rounded-lg border border-border p-3">
 			<div className="flex items-baseline gap-2 text-xs">
 				<span className="font-medium">
 					{call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`}
@@ -285,6 +310,10 @@ function ToolCallView({ call, agents }: { call: ToolCall; agents: Agent[] }) {
 				<time className="text-muted-foreground" dateTime={call.createdAt}>
 					{time(call.createdAt)}
 				</time>
+				<CopyButton
+					label="Copy input and output"
+					text={JSON.stringify({ input: call.input, ...(call.output && { output: call.output }) }, null, 2)}
+				/>
 			</div>
 
 			{call.reason && <p className="text-xs text-muted-foreground">{call.reason}</p>}
