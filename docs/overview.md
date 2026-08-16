@@ -275,6 +275,7 @@ Built-in tools act on the conversation's sandbox and respect read-only mounts; t
 Features of the app around the model above.
 
 - Messages and tool calls offer copy to clipboard: a message copies its text, a tool call its input and output as JSON. Turn entries have nothing to copy.
+- An agent's message is rendered as markdown, which is how models write. A user's message stays as typed, with its @mentions highlighted. A link opens in the browser rather than in AgentOS.
 - A pending call is decided in the entry itself: approve it, or deny it with a message for the agent alongside.
 - The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn.
 - The composer completes what can be named in it: / at the start of a message lists the tools, the arguments of that tool once it is named, and @ anywhere lists the agents, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.

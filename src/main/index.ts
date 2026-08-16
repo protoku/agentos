@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, Menu, nativeTheme } from "electron";
+import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from "electron";
 import { join } from "node:path";
 import { createWorkspace, loadWorkspaces, recoverAllInterruptedTurns } from "./storage/workspaceStore";
 import {
@@ -44,6 +44,18 @@ function createWindow(): void {
 	});
 
 	window.on("ready-to-show", () => window.show());
+
+	// A link an agent wrote opens in the browser: the window itself never navigates away.
+	window.webContents.setWindowOpenHandler(({ url }) => {
+		void shell.openExternal(url);
+		return { action: "deny" };
+	});
+	window.webContents.on("will-navigate", (event, url) => {
+		if (url === window.webContents.getURL()) return;
+
+		event.preventDefault();
+		void shell.openExternal(url);
+	});
 
 	if (rendererUrl) {
 		void window.loadURL(rendererUrl);

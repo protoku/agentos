@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { moment } from "./Conversations";
+import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
 import type { Agent, Entry, Tool, ToolCall } from "../../shared/types";
@@ -244,7 +245,11 @@ function EntryView({
 						<time dateTime={entry.createdAt}>{time(entry.createdAt)}</time>
 						<CopyButton label="Copy message" text={entry.content} />
 					</div>
-					<p className="text-sm whitespace-pre-wrap">{withMentions(entry.content, agents)}</p>
+					{entry.type === "userMessage" ? (
+						<p className="text-sm whitespace-pre-wrap">{withMentions(entry.content, agents)}</p>
+					) : (
+						<Markdown content={entry.content} />
+					)}
 				</article>
 			);
 	}
