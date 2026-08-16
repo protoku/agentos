@@ -160,6 +160,8 @@ Script tools are defined by the user in the app, with no AgentOS release needed,
 
 Confinement differs by kind: built-in tools enforce it, resolving every path against the sandbox and checking read-only mounts, while a script tool is trusted code with no operating system boundary around the function or what it spawns. AgentOS enforces everything around a script tool's call instead: it starts in the sandbox as its working directory, sees only the declared env, and receives only schema-valid input; guarding against hostile argument values, like a path leading outside the sandbox, is the tool author's responsibility, since arguments are chosen by the agent.
 
+A script tool is named in one word, uniquely in its workspace and never a name a built-in already uses, since naming a tool is how both the composer and an agent call it.
+
 For both kinds, inputSchema tells the agent how to call the tool and outputSchema gives every result a known shape that can be rendered natively. Everything else in the workspace env is invisible to a tool, so a tool's credential access is exactly its declaration. Stable ids keep permissions and past calls pointing at the exact tool.
 
 ```ts

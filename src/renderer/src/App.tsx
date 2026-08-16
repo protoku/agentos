@@ -8,6 +8,7 @@ import { Agents } from "./Agents";
 import { Conversations } from "./Conversations";
 import { Env } from "./Env";
 import { Sources } from "./Sources";
+import { Tools } from "./Tools";
 import { Thread } from "./Thread";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary } from "../../shared/api";
@@ -251,6 +252,8 @@ export function App() {
 				<Sources workspaceId={workspace.id} />
 			) : section === "env" ? (
 				<Env workspaceId={workspace.id} />
+			) : section === "tools" ? (
+				<Tools workspaceId={workspace.id} />
 			) : section ? (
 				<main className="flex-1">
 					<header className="border-b border-border px-6 py-3 text-sm font-medium">

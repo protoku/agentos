@@ -4,10 +4,16 @@ import type {
 	Conversation,
 	Entry,
 	MountSource,
+	ScriptTool,
 	ToolCall,
 	UserMessage,
 	Workspace,
 } from "./types";
+
+export type ScriptToolDraft = Pick<
+	ScriptTool,
+	"name" | "description" | "code" | "env" | "inputSchema" | "outputSchema"
+>;
 
 /** A conversation record plus the time of its last entry, which is what the lists order by. */
 export interface ConversationSummary extends Conversation {
@@ -36,6 +42,9 @@ export interface AgentOSApi {
 	listSources(workspaceId: string): Promise<MountSource[]>;
 	createSource(workspaceId: string, draft: Pick<MountSource, "name" | "type" | "config">): Promise<MountSource>;
 	listTools(): Promise<BuiltinTool[]>;
+	listScriptTools(workspaceId: string): Promise<ScriptTool[]>;
+	createScriptTool(workspaceId: string, draft: ScriptToolDraft): Promise<ScriptTool>;
+	updateScriptTool(workspaceId: string, tool: ScriptTool): Promise<ScriptTool>;
 	/** Rules on a pending call, which is what an ask tool waits for. */
 	decideToolCall(callId: string, decision: { allowed: boolean; denyMessage?: string }): Promise<void>;
 	/** Stops the acting agent and skips every mention after it. */

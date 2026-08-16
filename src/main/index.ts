@@ -12,13 +12,19 @@ import {
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
 import { createSource, listSources, type SourceDraft } from "./storage/sources";
 import { readEnv, setEnv } from "./storage/env";
+import {
+	createScriptTool,
+	listScriptTools,
+	updateScriptTool,
+	type ScriptToolDraft,
+} from "./storage/scriptTools";
 import { builtinToolMetadata } from "./tools/builtin";
 import { invokeTool, isCallRunning } from "./tools/invoke";
 import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
 import { cancelTurn, isTurnRunning, runMentionedTurns } from "./turns/run";
 import { parseSlashCommand } from "../shared/slash";
 import type { Entry } from "../shared/types";
-import type { Agent } from "../shared/types";
+import type { Agent, ScriptTool } from "../shared/types";
 
 const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
 
@@ -98,6 +104,13 @@ void app.whenReady().then(async () => {
 		createSource(root, workspaceId, draft),
 	);
 	ipcMain.handle("tools:list", () => builtinToolMetadata());
+	ipcMain.handle("tools:listScripts", (_event, workspaceId: string) => listScriptTools(root, workspaceId));
+	ipcMain.handle("tools:createScript", (_event, workspaceId: string, draft: ScriptToolDraft) =>
+		createScriptTool(root, workspaceId, draft),
+	);
+	ipcMain.handle("tools:updateScript", (_event, workspaceId: string, tool: ScriptTool) =>
+		updateScriptTool(root, workspaceId, tool),
+	);
 	ipcMain.handle("tools:decide", (_event, callId: string, decision: { allowed: boolean; denyMessage?: string }) =>
 		rule(callId, decision.allowed ? { type: "allowed" } : { type: "denied", denyMessage: decision.denyMessage }),
 	);
