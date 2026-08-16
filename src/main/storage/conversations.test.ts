@@ -8,6 +8,7 @@ import {
 	readConversation,
 	sendMessage,
 	startConversation,
+	startConversationWithTool,
 } from "./conversations";
 import { createWorkspace, loadWorkspace } from "./workspaceStore";
 import { createAgent } from "./agents";
@@ -119,5 +120,34 @@ describe("listConversations", () => {
 
 		expect(summaries.map((summary) => summary.title)).toEqual(["Older", "Newer"]);
 		expect(summaries[0].lastActivityAt).toBe("2026-08-15T12:00:00.000Z");
+	});
+});
+
+describe("startConversationWithTool", () => {
+	it("creates the conversation, titled by the command, with the call as its first entry", async () => {
+		const { conversation, call } = await startConversationWithTool(
+			root,
+			workspaceId,
+			'/write_file path=a.txt content="Ship it"',
+			{ toolId: "write_file", input: { path: "a.txt", content: "Ship it" } },
+			() => () => {},
+		);
+
+		expect(conversation.title).toBe('/write_file path=a.txt content="Ship it"');
+		expect(call).toMatchObject({ status: "success", toolId: "write_file" });
+		expect(await readConversation(root, workspaceId, conversation.id)).toEqual([call]);
+	});
+
+	it("leaves a conversation behind even when the call fails, since the call happened", async () => {
+		const { conversation, call } = await startConversationWithTool(
+			root,
+			workspaceId,
+			"/mount",
+			{ toolId: "mount", input: {} },
+			() => () => {},
+		);
+
+		expect(call.status).toBe("error");
+		expect(await readConversation(root, workspaceId, conversation.id)).toEqual([call]);
 	});
 });

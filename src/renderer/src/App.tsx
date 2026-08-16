@@ -126,6 +126,14 @@ export function App() {
 			return setConversations(await window.agentOS.listConversations(workspaceId));
 		}
 
+		if (command) {
+			const { conversation, call } = await window.agentOS.startConversationWithTool(workspaceId, content);
+			setDrafting(false);
+			setConversationId(conversation.id);
+			setEntries([call]);
+			return setConversations(await window.agentOS.listConversations(workspaceId));
+		}
+
 		if (conversationId === undefined) {
 			const { conversation, message } = await window.agentOS.startConversation(workspaceId, content);
 			setDrafting(false);
@@ -255,7 +263,6 @@ export function App() {
 						entries={entries}
 						agents={agents}
 						tools={tools}
-						toolsEnabled={openConversation !== undefined}
 						archivedAt={openConversation?.archivedAt}
 						onSend={send}
 						onCancel={cancel}

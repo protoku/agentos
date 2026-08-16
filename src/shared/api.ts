@@ -20,6 +20,11 @@ export interface AgentOSApi {
 	listConversations(workspaceId: string): Promise<ConversationSummary[]>;
 	readConversation(workspaceId: string, conversationId: string): Promise<Entry[]>;
 	startConversation(workspaceId: string, content: string): Promise<{ conversation: Conversation; message: UserMessage }>;
+	/** The other way a draft becomes real: its first entry is the tool call typed in the composer. */
+	startConversationWithTool(
+		workspaceId: string,
+		content: string,
+	): Promise<{ conversation: Conversation; call: ToolCall }>;
 	sendMessage(workspaceId: string, conversationId: string, content: string): Promise<UserMessage>;
 	archiveConversation(workspaceId: string, conversationId: string): Promise<Conversation>;
 	listAgents(workspaceId: string): Promise<Agent[]>;

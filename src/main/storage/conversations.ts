@@ -1,9 +1,12 @@
 import { randomUUID } from "node:crypto";
 import { appendEntry, readEntries } from "./conversationFile";
 import { conversationFile, loadWorkspace, saveWorkspace } from "./workspaceStore";
+import { invokeTool } from "../tools/invoke";
+import type { EntrySink } from "../turns/run";
 import type { ConversationSummary } from "../../shared/api";
 import { findMentions } from "../../shared/mentions";
-import type { Conversation, Entry, UserMessage } from "../../shared/types";
+import type { SlashCommand } from "../../shared/slash";
+import type { Conversation, Entry, ToolCall, UserMessage } from "../../shared/types";
 
 const titleLength = 60;
 
@@ -13,6 +16,34 @@ export async function startConversation(
 	workspaceId: string,
 	content: string,
 ): Promise<{ conversation: Conversation; message: UserMessage }> {
+	const conversation = await createConversation(root, workspaceId, content);
+	const message = await sendMessage(root, workspaceId, conversation.id, content);
+
+	return { conversation, message };
+}
+
+/** A tool call makes a draft real the same way, and the command it was typed as titles it. */
+export async function startConversationWithTool(
+	root: string,
+	workspaceId: string,
+	content: string,
+	command: SlashCommand,
+	sink: (conversationId: string) => EntrySink,
+): Promise<{ conversation: Conversation; call: ToolCall }> {
+	const conversation = await createConversation(root, workspaceId, content);
+	const call = await invokeTool(
+		root,
+		workspaceId,
+		conversation.id,
+		command.toolId,
+		command.input,
+		sink(conversation.id),
+	);
+
+	return { conversation, call };
+}
+
+async function createConversation(root: string, workspaceId: string, content: string): Promise<Conversation> {
 	const workspace = await loadWorkspace(root, workspaceId);
 	const conversation: Conversation = {
 		id: randomUUID(),
@@ -23,9 +54,8 @@ export async function startConversation(
 
 	workspace.conversations.push(conversation);
 	await saveWorkspace(root, workspace);
-	const message = await sendMessage(root, workspaceId, conversation.id, content);
 
-	return { conversation, message };
+	return conversation;
 }
 
 export async function sendMessage(

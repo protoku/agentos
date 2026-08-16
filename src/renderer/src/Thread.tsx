@@ -14,7 +14,6 @@ export function Thread({
 	entries,
 	agents,
 	tools,
-	toolsEnabled,
 	archivedAt,
 	onSend,
 	onCancel,
@@ -24,7 +23,6 @@ export function Thread({
 	entries: Entry[];
 	agents: Agent[];
 	tools: BuiltinTool[];
-	toolsEnabled: boolean;
 	archivedAt?: string;
 	onSend: (content: string) => Promise<void>;
 	onCancel: () => Promise<void>;
@@ -34,7 +32,6 @@ export function Thread({
 	const [caret, setCaret] = useState(0);
 	const [highlight, setHighlight] = useState(0);
 	const [dismissed, setDismissed] = useState(false);
-	const [refused, setRefused] = useState<string>();
 	const newest = useRef<HTMLDivElement>(null);
 	const composer = useRef<HTMLTextAreaElement>(null);
 
@@ -106,11 +103,6 @@ export function Thread({
 
 		if (busy) return;
 
-		if (content.startsWith("/") && !toolsEnabled) {
-			return setRefused("A tool call needs a conversation. Send a message first.");
-		}
-
-		setRefused(undefined);
 		setDraft("");
 		await onSend(content);
 	}
@@ -183,7 +175,6 @@ export function Thread({
 								setDraft(event.target.value);
 								setCaret(event.target.selectionStart);
 								setDismissed(false);
-								setRefused(undefined);
 							}}
 							onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
 							onKeyDown={onKeyDown}
@@ -216,7 +207,6 @@ export function Thread({
 				</div>
 			)}
 
-			{refused && <p className="px-4 pb-3 text-sm text-destructive">{refused}</p>}
 		</main>
 	);
 }

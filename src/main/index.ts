@@ -7,6 +7,7 @@ import {
 	readConversation,
 	sendMessage,
 	startConversation,
+	startConversationWithTool,
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
 import { createSource, listSources, type SourceDraft } from "./storage/sources";
@@ -14,6 +15,7 @@ import { builtinToolMetadata } from "./tools/builtin";
 import { invokeTool, isCallRunning } from "./tools/invoke";
 import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
 import { cancelTurn, isTurnRunning, runMentionedTurns } from "./turns/run";
+import { parseSlashCommand } from "../shared/slash";
 import type { Entry } from "../shared/types";
 import type { Agent } from "../shared/types";
 
@@ -56,6 +58,14 @@ void app.whenReady().then(async () => {
 		const started = await startConversation(root, workspaceId, content);
 		startTurns(root, workspaceId, started.conversation.id, started.message.mentions);
 		return started;
+	});
+	ipcMain.handle("conversations:startWithTool", (_event, workspaceId: string, content: string) => {
+		const command = parseSlashCommand(content);
+		if (command === undefined) throw new Error("Not a tool call");
+
+		return startConversationWithTool(root, workspaceId, content, command, (conversationId) =>
+			broadcast(workspaceId, conversationId),
+		);
 	});
 	ipcMain.handle("conversations:send", async (_event, workspaceId: string, conversationId: string, content: string) => {
 		refuseWhileBusy(conversationId);
