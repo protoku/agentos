@@ -5,7 +5,9 @@ import { awaitRuling, forget } from "./decisions";
 import { appendEntry } from "../storage/conversationFile";
 import { attemptCall } from "../tools/attempt";
 import { builtinTools } from "../tools/builtin";
-import type { BuiltinToolImplementation, ToolContext } from "../tools/define";
+import { implementationOf } from "../tools/script";
+import { listScriptTools } from "../storage/scriptTools";
+import type { ToolContext, ToolImplementation } from "../tools/define";
 import type { Agent, ToolCall } from "../../shared/types";
 import type { EntrySink } from "./run";
 
@@ -25,24 +27,27 @@ export interface CallContext extends ToolContext {
  * Ask tools are indistinguishable from allowed ones here: the wait for a decision is the only
  * difference, and to the agent that looks like a call still running.
  */
-export function grantedTools(agent: Agent, context: CallContext) {
-	const granted = builtinTools.filter((builtin) => agent.tools[builtin.id] !== undefined);
+export async function grantedTools(agent: Agent, context: CallContext) {
+	const scripts = await listScriptTools(context.root, context.workspaceId);
+	const granted = [...builtinTools, ...scripts.map(implementationOf)].filter(
+		(tool) => agent.tools[tool.id] !== undefined,
+	);
 
 	return {
 		server: createSdkMcpServer({
 			name: serverName,
-			tools: granted.map((builtin) =>
-				tool(builtin.name, builtin.description, { ...builtin.input.shape, reason }, (args) =>
-					record(builtin, agent.tools[builtin.id] === "ask", args, context),
+			tools: granted.map((granted) =>
+				tool(granted.name, granted.description, { ...granted.input.shape, reason }, (args) =>
+					record(granted, agent.tools[granted.id] === "ask", args, context),
 				),
 			),
 		}),
-		allowedTools: granted.map((builtin) => `mcp__${serverName}__${builtin.name}`),
+		allowedTools: granted.map((granted) => `mcp__${serverName}__${granted.name}`),
 	};
 }
 
 async function record(
-	builtin: BuiltinToolImplementation,
+	builtin: ToolImplementation,
 	asks: boolean,
 	args: Record<string, unknown>,
 	context: CallContext,

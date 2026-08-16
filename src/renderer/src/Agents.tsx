@@ -6,7 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { defaultModel, models } from "../../shared/models";
-import type { Agent, BuiltinTool } from "../../shared/types";
+import type { Agent, Tool } from "../../shared/types";
 
 type Draft = Pick<Agent, "name" | "model" | "systemPrompt" | "tools">;
 type Permission = "allow" | "ask" | "deny";
@@ -15,13 +15,15 @@ const emptyDraft: Draft = { name: "", model: defaultModel, systemPrompt: "", too
 
 export function Agents({ workspaceId }: { workspaceId: string }) {
 	const [agents, setAgents] = useState<Agent[]>([]);
-	const [tools, setTools] = useState<BuiltinTool[]>([]);
+	const [tools, setTools] = useState<Tool[]>([]);
 	const [editing, setEditing] = useState<Agent>();
 	const [draft, setDraft] = useState<Draft>();
 
 	useEffect(() => {
-		void window.agentOS.listTools().then(setTools);
-	}, []);
+		void Promise.all([window.agentOS.listTools(), window.agentOS.listScriptTools(workspaceId)]).then(
+			([builtin, scripts]) => setTools([...builtin, ...scripts]),
+		);
+	}, [workspaceId]);
 
 	useEffect(() => {
 		void window.agentOS.listAgents(workspaceId).then(setAgents);

@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 import { moment } from "./Conversations";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
-import type { Agent, BuiltinTool, Entry, ToolCall } from "../../shared/types";
+import type { Agent, Entry, Tool, ToolCall } from "../../shared/types";
 
 export function Thread({
 	title,
@@ -22,7 +22,7 @@ export function Thread({
 	title: string;
 	entries: Entry[];
 	agents: Agent[];
-	tools: BuiltinTool[];
+	tools: Tool[];
 	archivedAt?: string;
 	onSend: (content: string) => Promise<void>;
 	onCancel: () => Promise<void>;

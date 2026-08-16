@@ -12,7 +12,7 @@ import { Tools } from "./Tools";
 import { Thread } from "./Thread";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary } from "../../shared/api";
-import type { Agent, BuiltinTool, Entry, Mount, Workspace } from "../../shared/types";
+import type { Agent, Entry, Mount, Tool, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "sources", "env"] as const;
 
@@ -35,7 +35,7 @@ export function App() {
 	const [conversationId, setConversationId] = useState<string>();
 	const [entries, setEntries] = useState<Entry[]>([]);
 	const [agents, setAgents] = useState<Agent[]>([]);
-	const [tools, setTools] = useState<BuiltinTool[]>([]);
+	const [tools, setTools] = useState<Tool[]>([]);
 	const [drafting, setDrafting] = useState(false);
 	const [section, setSection] = useState<Section>();
 	const [name, setName] = useState("");
@@ -43,8 +43,16 @@ export function App() {
 
 	useEffect(() => {
 		void window.agentOS.listWorkspaces().then(setWorkspaces);
-		void window.agentOS.listTools().then(setTools);
 	}, []);
+
+	// Both kinds are called the same way, so the composer offers them as one list.
+	useEffect(() => {
+		if (workspaceId === undefined) return;
+
+		void Promise.all([window.agentOS.listTools(), window.agentOS.listScriptTools(workspaceId)]).then(
+			([builtin, scripts]) => setTools([...builtin, ...scripts]),
+		);
+	}, [workspaceId, section]);
 
 	// Entries an acting agent adds arrive here, not from the call that started its turn.
 	useEffect(() => {

@@ -1,4 +1,4 @@
-import type { Agent, BuiltinTool } from "./types";
+import type { Agent, Tool } from "./types";
 
 export interface Candidate {
 	id: string;
@@ -18,7 +18,7 @@ export interface Completion {
 export function completionAt(
 	draft: string,
 	caret: number,
-	tools: BuiltinTool[],
+	tools: Tool[],
 	agents: Pick<Agent, "id" | "name">[],
 ): Completion | undefined {
 	// A slash command names its tool in the first token, then its arguments, and carries no mentions.
@@ -42,7 +42,7 @@ export function completionAt(
 }
 
 /** The arguments a tool takes, each accepted as name=, since a value follows it. */
-function argumentsOf(draft: string, caret: number, tool: BuiltinTool | undefined): Completion | undefined {
+function argumentsOf(draft: string, caret: number, tool: Tool | undefined): Completion | undefined {
 	if (tool === undefined) return undefined;
 
 	const properties = tool.inputSchema.properties;
