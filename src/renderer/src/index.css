@@ -74,3 +74,26 @@
 		@apply h-full bg-background text-foreground;
 	}
 }
+
+/* The utilities shadcn's message-scroller styles itself with, which its own CSS base defines
+   and ours does not. Without them the thread scrolls fine but looks wrong. */
+@utility scrollbar-thin {
+	scrollbar-width: thin;
+}
+
+@utility scrollbar-gutter-stable {
+	scrollbar-gutter: stable;
+}
+
+@utility scrollbar-thumb-transparent {
+	scrollbar-color: transparent transparent;
+}
+
+@utility scrollbar-track-transparent {
+	scrollbar-color: transparent transparent;
+}
+
+/* The last stretch of the thread fades out, so an entry never ends flush against the composer. */
+@utility scroll-fade-b {
+	mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent 100%);
+}
