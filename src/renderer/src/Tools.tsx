@@ -22,7 +22,7 @@ const emptyDraft: Draft = {
 	outputSchema: JSON.stringify({ type: "object", properties: { ok: { type: "boolean" } } }, null, 2),
 };
 
-export function Tools({ workspaceId }: { workspaceId: string }) {
+export function Tools({ workspaceId, selected }: { workspaceId: string; selected?: string }) {
 	const [tools, setTools] = useState<ScriptTool[]>([]);
 	const [editing, setEditing] = useState<ScriptTool>();
 	const [draft, setDraft] = useState<Draft>();
@@ -33,6 +33,12 @@ export function Tools({ workspaceId }: { workspaceId: string }) {
 		setEditing(undefined);
 		setDraft(undefined);
 	}, [workspaceId]);
+
+	// Picked in the sidebar: the pane opens on it rather than on nothing.
+	useEffect(() => {
+		const picked = tools.find((tool) => tool.id === selected);
+		if (picked !== undefined) edit(picked);
+	}, [tools, selected]);
 
 	function edit(tool: ScriptTool) {
 		setEditing(tool);

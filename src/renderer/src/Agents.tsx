@@ -13,7 +13,7 @@ type Permission = "allow" | "ask" | "deny";
 
 const emptyDraft: Draft = { name: "", model: defaultModel, systemPrompt: "", tools: {} };
 
-export function Agents({ workspaceId }: { workspaceId: string }) {
+export function Agents({ workspaceId, selected }: { workspaceId: string; selected?: string }) {
 	const [agents, setAgents] = useState<Agent[]>([]);
 	const [tools, setTools] = useState<Tool[]>([]);
 	const [editing, setEditing] = useState<Agent>();
@@ -30,6 +30,12 @@ export function Agents({ workspaceId }: { workspaceId: string }) {
 		setEditing(undefined);
 		setDraft(undefined);
 	}, [workspaceId]);
+
+	// Picked in the sidebar: the pane opens on it rather than on nothing.
+	useEffect(() => {
+		const picked = agents.find((agent) => agent.id === selected);
+		if (picked !== undefined) edit(picked);
+	}, [agents, selected]);
 
 	function edit(agent: Agent) {
 		setEditing(agent);

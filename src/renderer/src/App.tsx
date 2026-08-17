@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import { Bot, Boxes, ChevronRight, ChevronsUpDown, Database, KeyRound, MessagesSquare, Plus, Wrench } from "lucide-react";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+	DropdownMenu,
+	DropdownMenuContent,
+	DropdownMenuItem,
+	DropdownMenuLabel,
+	DropdownMenuSeparator,
+	DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
 	Sidebar,
 	SidebarContent,
-	SidebarFooter,
 	SidebarGroup,
 	SidebarGroupAction,
 	SidebarGroupContent,
@@ -14,11 +21,13 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
+	SidebarMenuSub,
+	SidebarMenuSubButton,
+	SidebarMenuSubItem,
 	SidebarProvider,
 	SidebarRail,
 } from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Agents } from "./Agents";
 import { Conversations } from "./Conversations";
 import { Env } from "./Env";
@@ -28,21 +37,60 @@ import { pathOf, Thread } from "./Thread";
 import { Viewer } from "./Viewer";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary } from "../../shared/api";
-import type { Agent, Entry, Tool, ToolCall, Workspace } from "../../shared/types";
+import type { Agent, Entry, MountSource, Tool, ToolCall, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "sources", "env"] as const;
 
 type Section = (typeof sections)[number];
 
-const sectionTitles: Record<Section, string> = {
-	conversations: "Conversations",
-	agents: "Agents",
-	tools: "Tools",
-	sources: "Sources",
-	env: "Env",
-};
-
 const sidebarConversations = 20;
+
+/** A pane and what is in it: opening the pane expands its list, and a name in the list opens it there. */
+function Listing({
+	section,
+	label,
+	icon,
+	items,
+	open,
+	selected,
+	onOpen,
+	onPick,
+}: {
+	section: Section;
+	label: string;
+	icon: React.ReactNode;
+	items: { id: string; name: string }[];
+	open?: Section;
+	selected?: string;
+	onOpen: (section?: Section) => void;
+	onPick: (id: string) => void;
+}) {
+	return (
+		<Collapsible asChild open={open === section} onOpenChange={(opening) => onOpen(opening ? section : undefined)}>
+			<SidebarMenuItem>
+				<CollapsibleTrigger asChild>
+					<SidebarMenuButton isActive={open === section}>
+						{icon}
+						{label}
+						<ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
+					</SidebarMenuButton>
+				</CollapsibleTrigger>
+				<CollapsibleContent>
+					<SidebarMenuSub>
+						{items.length === 0 && <SidebarMenuSubItem className="px-2 py-1 text-xs text-muted-foreground">None yet</SidebarMenuSubItem>}
+						{items.map((item) => (
+							<SidebarMenuSubItem key={item.id}>
+								<SidebarMenuSubButton isActive={selected === item.id} onClick={() => onPick(item.id)}>
+									<span className="truncate">{item.name}</span>
+								</SidebarMenuSubButton>
+							</SidebarMenuSubItem>
+						))}
+					</SidebarMenuSub>
+				</CollapsibleContent>
+			</SidebarMenuItem>
+		</Collapsible>
+	);
+}
 
 /** A call that acted on the open path is a new version of what the viewer is showing. */
 function touches(call: ToolCall, path: string): boolean {
@@ -63,6 +111,8 @@ export function App() {
 	const [naming, setNaming] = useState(false);
 	const [runtime, setRuntime] = useState<{ found: boolean; missing: string }>();
 	const [viewing, setViewing] = useState<string>();
+	const [sources, setSources] = useState<MountSource[]>([]);
+	const [selected, setSelected] = useState<string>();
 
 	useEffect(() => {
 		void window.agentOS.listWorkspaces().then(setWorkspaces);
@@ -78,6 +128,7 @@ export function App() {
 		if (workspaceId === undefined) return;
 
 		void window.agentOS.listAgents(workspaceId).then(setAgents);
+		void window.agentOS.listSources(workspaceId).then(setSources);
 		void Promise.all([window.agentOS.listTools(), window.agentOS.listScriptTools(workspaceId)]).then(
 			([builtin, scripts]) => setTools([...builtin, ...scripts]),
 		);
@@ -196,6 +247,7 @@ export function App() {
 	const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
 	const listed = conversations.filter((conversation) => !conversation.archivedAt).slice(0, sidebarConversations);
 	const openConversation = conversations.find((conversation) => conversation.id === conversationId);
+	const scriptTools = tools.filter((tool) => tool.type === "script");
 
 	return (
 		<div className="flex h-full flex-col">
@@ -208,24 +260,39 @@ export function App() {
 			<SidebarProvider className="min-h-0 flex-1">
 				<Sidebar collapsible="offcanvas">
 					<SidebarHeader>
-						<div className="flex items-center gap-1">
-							<Select value={workspaceId ?? ""} onValueChange={setWorkspaceId}>
-								<SelectTrigger className="w-full border-transparent">
-									<SelectValue placeholder="No workspace" />
-								</SelectTrigger>
-								<SelectContent>
-									{workspaces.map((candidate) => (
-										<SelectItem key={candidate.id} value={candidate.id}>
-											{candidate.name}
-										</SelectItem>
-									))}
-								</SelectContent>
-							</Select>
-
-							<Button variant="ghost" size="icon-sm" aria-label="New workspace" onClick={() => setNaming(true)}>
-								<Plus />
-							</Button>
-						</div>
+						<SidebarMenu>
+							<SidebarMenuItem>
+								<DropdownMenu>
+									<DropdownMenuTrigger asChild>
+										<SidebarMenuButton size="lg">
+											<div className="flex aspect-square size-8 items-center justify-center rounded-lg bg-muted">
+												<Boxes className="size-4" />
+											</div>
+											<div className="flex min-w-0 flex-1 flex-col text-left leading-tight">
+												<span className="truncate text-sm font-medium">
+													{workspace?.name ?? "No workspace"}
+												</span>
+												<span className="truncate text-xs text-muted-foreground">Workspace</span>
+											</div>
+											<ChevronsUpDown className="ml-auto size-4" />
+										</SidebarMenuButton>
+									</DropdownMenuTrigger>
+									<DropdownMenuContent align="start" className="w-56">
+										<DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+										{workspaces.map((candidate) => (
+											<DropdownMenuItem key={candidate.id} onClick={() => setWorkspaceId(candidate.id)}>
+												{candidate.name}
+											</DropdownMenuItem>
+										))}
+										<DropdownMenuSeparator />
+										<DropdownMenuItem onClick={() => setNaming(true)}>
+											<Plus />
+											New workspace
+										</DropdownMenuItem>
+									</DropdownMenuContent>
+								</DropdownMenu>
+							</SidebarMenuItem>
+						</SidebarMenu>
 
 						{naming && (
 							<Input
@@ -244,49 +311,91 @@ export function App() {
 
 					<SidebarContent>
 						{workspace && (
-							<SidebarGroup>
-								<SidebarGroupLabel>Conversations</SidebarGroupLabel>
-								<SidebarGroupAction aria-label="New conversation" onClick={draft}>
-									<Plus />
-								</SidebarGroupAction>
-								<SidebarGroupContent>
-									<SidebarMenu>
-										{drafting && (
+							<>
+								<SidebarGroup>
+									<SidebarGroupLabel>Conversations</SidebarGroupLabel>
+									<SidebarGroupAction aria-label="New conversation" onClick={draft}>
+										<Plus />
+									</SidebarGroupAction>
+									<SidebarGroupContent>
+										<SidebarMenu>
+											{drafting && (
+												<SidebarMenuItem>
+													<SidebarMenuButton isActive>New conversation</SidebarMenuButton>
+												</SidebarMenuItem>
+											)}
+											{listed.map((conversation) => (
+												<SidebarMenuItem key={conversation.id}>
+													<SidebarMenuButton
+														isActive={conversation.id === conversationId && section === undefined}
+														onClick={() => void openThread(conversation.id)}
+													>
+														<span className="truncate">{conversation.title}</span>
+													</SidebarMenuButton>
+												</SidebarMenuItem>
+											))}
 											<SidebarMenuItem>
-												<SidebarMenuButton isActive>New conversation</SidebarMenuButton>
-											</SidebarMenuItem>
-										)}
-										{listed.map((conversation) => (
-											<SidebarMenuItem key={conversation.id}>
 												<SidebarMenuButton
-													isActive={conversation.id === conversationId}
-													onClick={() => void openThread(conversation.id)}
+													isActive={section === "conversations"}
+													onClick={() => setSection(section === "conversations" ? undefined : "conversations")}
 												>
-													<span className="truncate">{conversation.title}</span>
+													<MessagesSquare />
+													All conversations
 												</SidebarMenuButton>
 											</SidebarMenuItem>
-										))}
-									</SidebarMenu>
-								</SidebarGroupContent>
-							</SidebarGroup>
+										</SidebarMenu>
+									</SidebarGroupContent>
+								</SidebarGroup>
+
+								<SidebarGroup>
+									<SidebarGroupLabel>Workspace</SidebarGroupLabel>
+									<SidebarGroupContent>
+										<SidebarMenu>
+											<Listing
+												section="agents"
+												label="Agents"
+												icon={<Bot />}
+												items={agents.map((agent) => ({ id: agent.id, name: `@${agent.name}` }))}
+												open={section}
+												onOpen={setSection}
+												onPick={setSelected}
+												selected={selected}
+											/>
+											<Listing
+												section="tools"
+												label="Tools"
+												icon={<Wrench />}
+												items={scriptTools.map((tool) => ({ id: tool.id, name: tool.name }))}
+												open={section}
+												onOpen={setSection}
+												onPick={setSelected}
+												selected={selected}
+											/>
+											<Listing
+												section="sources"
+												label="Sources"
+												icon={<Database />}
+												items={sources.map((source) => ({ id: source.id, name: source.name }))}
+												open={section}
+												onOpen={setSection}
+												onPick={setSelected}
+												selected={selected}
+											/>
+											<SidebarMenuItem>
+												<SidebarMenuButton
+													isActive={section === "env"}
+													onClick={() => setSection(section === "env" ? undefined : "env")}
+												>
+													<KeyRound />
+													Env
+												</SidebarMenuButton>
+											</SidebarMenuItem>
+										</SidebarMenu>
+									</SidebarGroupContent>
+								</SidebarGroup>
+							</>
 						)}
 					</SidebarContent>
-
-					<SidebarFooter>
-						<SidebarMenu>
-							{sections.map((current) => (
-								<SidebarMenuItem key={current}>
-									<SidebarMenuButton
-										disabled={workspace === undefined}
-										isActive={current === section}
-										onClick={() => setSection(current === section ? undefined : current)}
-									>
-										{sectionTitles[current]}
-									</SidebarMenuButton>
-								</SidebarMenuItem>
-							))}
-						</SidebarMenu>
-					</SidebarFooter>
 
 					<SidebarRail />
 				</Sidebar>
@@ -299,13 +408,13 @@ export function App() {
 			) : section === "conversations" ? (
 				<Conversations conversations={conversations} onOpen={(id) => void openThread(id)} />
 			) : section === "agents" ? (
-				<Agents workspaceId={workspace.id} />
+				<Agents workspaceId={workspace.id} selected={selected} />
 			) : section === "sources" ? (
 				<Sources workspaceId={workspace.id} />
 			) : section === "env" ? (
 				<Env workspaceId={workspace.id} />
 			) : section === "tools" ? (
-				<Tools workspaceId={workspace.id} />
+				<Tools workspaceId={workspace.id} selected={selected} />
 			) : drafting || openConversation ? (
 				<Thread
 					// Each conversation composes on its own: a draft here never follows you to another.
