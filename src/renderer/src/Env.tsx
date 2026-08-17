@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Plus, X } from "lucide-react";
+import { KeyRound, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Nothing } from "./Nothing";
 
 export function Env({ workspaceId }: { workspaceId: string }) {
 	const [env, setEnv] = useState<Record<string, string>>({});
@@ -67,7 +68,12 @@ export function Env({ workspaceId }: { workspaceId: string }) {
 					</div>
 				)}
 
-				{Object.keys(env).length === 0 && !draft && <p className="text-sm text-muted-foreground">Nothing set</p>}
+				{Object.keys(env).length === 0 && !draft && (
+					<Nothing icon={<KeyRound />} title="Nothing set">
+						Credentials and configuration the workspace's tools can be given. A tool sees only the keys it
+						declares.
+					</Nothing>
+				)}
 
 				{Object.entries(env).map(([key, value]) => (
 					<div key={key} className="flex items-center gap-3 border-b border-border pb-3 text-sm">

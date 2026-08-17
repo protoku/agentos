@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Plus, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Nothing } from "./Nothing";
 import type { ScriptToolDraft } from "../../shared/api";
 import type { ScriptTool } from "../../shared/types";
 
@@ -120,7 +121,10 @@ export function Tools({ workspaceId, selected }: { workspaceId: string; selected
 				</nav>
 
 				{draft === undefined ? (
-					<div className="grid flex-1 place-items-center text-sm text-muted-foreground">No tool selected</div>
+					<Nothing icon={<Wrench />} title="No tool selected">
+						A script tool is a function this workspace can run, called by name from the composer or by an
+						agent you grant it to.
+					</Nothing>
 				) : (
 					<div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
 						<div className="flex gap-4">

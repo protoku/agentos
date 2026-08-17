@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Bot, Boxes, ChevronRight, ChevronsUpDown, Database, KeyRound, MessagesSquare, Plus, Wrench } from "lucide-react";
+import { Nothing } from "./Nothing";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
 	DropdownMenu,
@@ -402,8 +403,11 @@ export function App() {
 
 				<SidebarInset className="flex min-w-0 flex-row">
 			{workspace === undefined ? (
-				<main className="grid flex-1 place-items-center text-sm text-muted-foreground">
-					No workspace selected
+				<main className="flex flex-1">
+					<Nothing icon={<Boxes />} title="No workspace">
+						A workspace holds its own agents, tools, sources and conversations, and shares none of them.
+						Make one to begin.
+					</Nothing>
 				</main>
 			) : section === "conversations" ? (
 				<Conversations conversations={conversations} onOpen={(id) => void openThread(id)} />
@@ -433,8 +437,10 @@ export function App() {
 					onArchive={openConversation ? archive : undefined}
 				/>
 			) : (
-				<main className="grid flex-1 place-items-center text-sm text-muted-foreground">
-					No conversation selected
+				<main className="flex flex-1">
+					<Nothing icon={<MessagesSquare />} title="No conversation open">
+						Pick one from the sidebar, or start a new one and mention an agent by name.
+					</Nothing>
 				</main>
 			)}
 

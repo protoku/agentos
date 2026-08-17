@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Database, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Nothing } from "./Nothing";
 import type { MountSource } from "../../shared/types";
 
 type Draft =
@@ -115,7 +116,12 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 					</div>
 				)}
 
-				{sources.length === 0 && !draft && <p className="text-sm text-muted-foreground">No sources yet</p>}
+				{sources.length === 0 && !draft && (
+					<Nothing icon={<Database />} title="No sources yet">
+						A source is something a conversation can mount: a directory, a repository, or this workspace's
+						own threads.
+					</Nothing>
+				)}
 
 				{sources.map((source) => (
 					<div key={source.id} className="flex items-baseline gap-3 border-b border-border pb-3 text-sm">

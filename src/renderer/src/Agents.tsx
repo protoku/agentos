@@ -1,10 +1,11 @@
 import { useEffect, useState } from "react";
-import { Plus } from "lucide-react";
+import { Bot, Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Nothing } from "./Nothing";
 import { defaultModel, models } from "../../shared/models";
 import type { Agent, Tool } from "../../shared/types";
 
@@ -96,7 +97,10 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 				</nav>
 
 				{draft === undefined ? (
-					<div className="grid flex-1 place-items-center text-sm text-muted-foreground">No agent selected</div>
+					<Nothing icon={<Bot />} title="No agent selected">
+						An agent is a name, a model, a system prompt, and the tools it may use. Pick one or make a new
+						one.
+					</Nothing>
 				) : (
 					<div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
 						<Field label="Name">
