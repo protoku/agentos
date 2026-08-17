@@ -47,10 +47,15 @@ export function App() {
 		void window.agentOS.agentRuntime().then(setRuntime);
 	}, []);
 
-	// Both kinds are called the same way, so the composer offers them as one list.
+	/**
+	 * What the thread can name: agents and tools, reloaded whenever a pane that edits them is
+	 * left, not only when the workspace changes. An agent created a moment ago is one the thread
+	 * has to know about, or it cannot complete its @name or say who is working.
+	 */
 	useEffect(() => {
 		if (workspaceId === undefined) return;
 
+		void window.agentOS.listAgents(workspaceId).then(setAgents);
 		void Promise.all([window.agentOS.listTools(), window.agentOS.listScriptTools(workspaceId)]).then(
 			([builtin, scripts]) => setTools([...builtin, ...scripts]),
 		);
@@ -81,7 +86,6 @@ export function App() {
 		}
 
 		void window.agentOS.listConversations(workspaceId).then(setConversations);
-		void window.agentOS.listAgents(workspaceId).then(setAgents);
 	}, [workspaceId]);
 
 	function stopNaming() {
