@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Check, Copy, Square } from "lucide-react";
+import { ArrowUp, Boxes, Check, Copy, FolderOpen, Square, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -16,25 +16,31 @@ import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
-import type { Agent, Entry, Tool, ToolCall } from "../../shared/types";
+import type { Agent, Entry, Mount, Tool, ToolCall } from "../../shared/types";
 
 export function Thread({
 	title,
 	entries,
 	agents,
 	tools,
+	mounts,
+	sandbox,
 	archivedAt,
 	onSend,
 	onCancel,
+	onOpenSandbox,
 	onArchive,
 }: {
 	title: string;
 	entries: Entry[];
 	agents: Agent[];
 	tools: Tool[];
+	mounts: Mount[];
+	sandbox?: string;
 	archivedAt?: string;
 	onSend: (content: string) => Promise<void>;
 	onCancel: () => Promise<void>;
+	onOpenSandbox: () => Promise<void>;
 	onArchive?: () => Promise<void>;
 }) {
 	const [draft, setDraft] = useState("");
@@ -53,6 +59,12 @@ export function Thread({
 	const busy = acting || calling;
 
 	const completion = dismissed ? undefined : completionAt(draft, caret, tools, agents);
+	// Who has taken part, which is not the same as who the workspace has.
+	const present = agents.filter((agent) =>
+		entries.some(
+			(entry) => (entry.type === "turnStart" || entry.type === "agentMessage") && entry.agentId === agent.id,
+		),
+	);
 
 	// A different list starts at its first name, never at wherever the last one was left.
 	useEffect(() => {
@@ -112,8 +124,28 @@ export function Thread({
 
 	return (
 		<main className="flex min-w-0 flex-1 flex-col">
-			<header className="flex items-center justify-between gap-4 border-b border-border py-2 pr-2 pl-6">
-				<span className="truncate text-sm font-medium">{title}</span>
+			<header className="flex items-center gap-4 border-b border-border py-2 pr-2 pl-6">
+				<span className="shrink-0 truncate text-sm font-medium">{title}</span>
+
+				<div className="flex min-w-0 flex-1 items-center gap-4 text-xs text-muted-foreground">
+					{mounts.length > 0 && (
+						<Bound label="Mounted" icon={<Boxes className="size-3.5" />}>
+							{mounts.map((mount) => `${mount.path}${mount.readOnly ? " (read-only)" : ""}`).join(", ")}
+						</Bound>
+					)}
+					{present.length > 0 && (
+						<Bound label="In this conversation" icon={<Users className="size-3.5" />}>
+							{present.map((agent) => `@${agent.name}`).join(", ")}
+						</Bound>
+					)}
+				</div>
+
+				{sandbox && (
+					<Button variant="ghost" size="sm" title={sandbox} onClick={() => void onOpenSandbox()}>
+						<FolderOpen />
+						Sandbox
+					</Button>
+				)}
 				{onArchive && archivedAt === undefined && (
 					<Button variant="ghost" size="sm" onClick={() => void onArchive()}>
 						Archive
@@ -221,6 +253,15 @@ export function Thread({
 			)}
 
 		</main>
+	);
+}
+
+function Bound({ label, icon, children }: { label: string; icon: React.ReactNode; children: string }) {
+	return (
+		<span className="flex min-w-0 items-center gap-1.5" title={`${label}: ${children}`}>
+			{icon}
+			<span className="truncate">{children}</span>
+		</span>
 	);
 }
 

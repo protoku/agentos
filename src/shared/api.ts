@@ -35,6 +35,8 @@ export interface AgentOSApi {
 	): Promise<{ conversation: Conversation; call: ToolCall }>;
 	sendMessage(workspaceId: string, conversationId: string, content: string): Promise<UserMessage>;
 	archiveConversation(workspaceId: string, conversationId: string): Promise<Conversation>;
+	/** Shows the conversation's sandbox in the file manager. */
+	openSandbox(workspaceId: string, conversationId: string): Promise<void>;
 	listAgents(workspaceId: string): Promise<Agent[]>;
 	createAgent(workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt" | "tools">): Promise<Agent>;
 	updateAgent(workspaceId: string, agent: Agent): Promise<Agent>;

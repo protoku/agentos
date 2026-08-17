@@ -1,7 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from "electron";
 import { join } from "node:path";
 import { claudeCodeMissing, claudeCodePath } from "./agents/claudeCode";
-import { createWorkspace, loadWorkspaces, recoverAllInterruptedTurns } from "./storage/workspaceStore";
+import { createWorkspace, loadWorkspace, loadWorkspaces, recoverAllInterruptedTurns } from "./storage/workspaceStore";
 import {
 	archiveConversation,
 	listConversations,
@@ -102,6 +102,14 @@ void app.whenReady().then(async () => {
 		cancelTurn(conversationId);
 		cancelRulings(conversationId);
 		return archiveConversation(root, workspaceId, conversationId);
+	});
+	ipcMain.handle("conversations:openSandbox", async (_event, workspaceId: string, conversationId: string) => {
+		const workspace = await loadWorkspace(root, workspaceId);
+		const sandbox = workspace.conversations.find((candidate) => candidate.id === conversationId)?.sandbox;
+		if (sandbox === undefined) throw new Error("This conversation has no sandbox yet");
+
+		const failure = await shell.openPath(sandbox);
+		if (failure.length > 0) throw new Error(failure);
 	});
 	ipcMain.handle("turns:cancel", (_event, conversationId: string) => cancelTurn(conversationId));
 	ipcMain.handle("tools:cancel", (_event, callId: string) => cancelRuling(callId));

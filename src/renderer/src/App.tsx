@@ -12,7 +12,7 @@ import { Tools } from "./Tools";
 import { Thread } from "./Thread";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary } from "../../shared/api";
-import type { Agent, Entry, Mount, Tool, Workspace } from "../../shared/types";
+import type { Agent, Entry, Tool, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "sources", "env"] as const;
 
@@ -125,6 +125,12 @@ export function App() {
 		await window.agentOS.cancelTurn(conversationId);
 	}
 
+	async function openSandbox() {
+		if (workspaceId === undefined || conversationId === undefined) return;
+
+		await window.agentOS.openSandbox(workspaceId, conversationId);
+	}
+
 	async function archive() {
 		if (workspaceId === undefined || conversationId === undefined) return;
 
@@ -166,11 +172,6 @@ export function App() {
 	const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
 	const listed = conversations.filter((conversation) => !conversation.archivedAt).slice(0, sidebarConversations);
 	const openConversation = conversations.find((conversation) => conversation.id === conversationId);
-	const present = agents.filter((agent) =>
-		entries.some(
-			(entry) => (entry.type === "turnStart" || entry.type === "agentMessage") && entry.agentId === agent.id,
-		),
-	);
 
 	return (
 		<div className="flex h-full flex-col">
@@ -283,9 +284,12 @@ export function App() {
 					entries={entries}
 					agents={agents}
 					tools={tools}
+					mounts={openConversation?.mounts ?? []}
+					sandbox={openConversation?.sandbox}
 					archivedAt={openConversation?.archivedAt}
 					onSend={send}
 					onCancel={cancel}
+					onOpenSandbox={openSandbox}
 					onArchive={openConversation ? archive : undefined}
 				/>
 			) : (
@@ -293,13 +297,6 @@ export function App() {
 					No conversation selected
 				</main>
 			)}
-
-			{/* The third pane stays put: a section replaces the thread, never the conversation's context. */}
-			<ContextPanel
-				sandbox={openConversation?.sandbox}
-				mounts={openConversation?.mounts ?? []}
-				present={present}
-			/>
 			</div>
 		</div>
 	);
@@ -330,27 +327,3 @@ function SidebarItem({
 	);
 }
 
-function ContextPanel({ sandbox, mounts, present }: { sandbox?: string; mounts: Mount[]; present: Agent[] }) {
-	return (
-		<aside className="flex w-72 shrink-0 flex-col gap-6 border-l border-border bg-surface p-4">
-			<ContextSection title="Mounts">
-				{mounts.length === 0
-					? "Nothing mounted"
-					: mounts.map((mount) => `${mount.path}${mount.readOnly ? " (read-only)" : ""}`).join(", ")}
-			</ContextSection>
-			<ContextSection title="Sandbox">{sandbox ?? "Not created yet"}</ContextSection>
-			<ContextSection title="Agents">
-				{present.length === 0 ? "Nobody in the thread" : present.map((agent) => `@${agent.name}`).join(", ")}
-			</ContextSection>
-		</aside>
-	);
-}
-
-function ContextSection({ title, children }: { title: string; children: string }) {
-	return (
-		<section className="flex flex-col gap-1.5">
-			<h2 className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{title}</h2>
-			<p className="text-sm break-all text-muted-foreground">{children}</p>
-		</section>
-	);
-}

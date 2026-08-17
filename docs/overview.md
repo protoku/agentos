@@ -283,7 +283,8 @@ Features of the app around the model above.
 - The composer completes what can be named in it: / at the start of a message lists the tools, the arguments of that tool once it is named, and @ anywhere lists the agents, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
 - The window carries no application menu: everything AgentOS does is reachable in the interface itself.
 - The sidebar header holds the workspace picker: it names the workspace in view and switches to any other.
-- The window is three panes: the sidebar with the workspace picker and the conversation list, the thread in the middle, and the conversation's mounts, sandbox and agents on the right.
+- The window is two panes: the sidebar, with the workspace picker and the conversation list, and the thread beside it.
+- A conversation's header carries what the conversation is bound to: the paths it has mounted, the agents that have taken part in it, and its sandbox, which opens in the file manager.
 - Conversations, agents, script tools, mount sources and env each open in a pane that replaces the thread.
 - A tool is invoked in the composer as a slash command with key=value arguments, quoting any value that contains spaces: /write_file path=notes/todo.md content="Ship it". Invoking one in a draft creates the conversation, exactly as sending a message does, and the call is its first entry.
 - The sidebar lists the twenty conversations with the most recent activity, archived ones left out; a conversation's activity is the time of its last entry. The conversations pane lists every conversation, archived included, in that same order.
