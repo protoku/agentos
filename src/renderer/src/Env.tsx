@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { KeyRound, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Nothing } from "./Nothing";
 
 export function Env({ workspaceId }: { workspaceId: string }) {
@@ -75,15 +76,26 @@ export function Env({ workspaceId }: { workspaceId: string }) {
 					</Nothing>
 				)}
 
-				{Object.entries(env).map(([key, value]) => (
-					<div key={key} className="flex items-center gap-3 border-b border-border pb-3 text-sm">
-						<span className="w-64 shrink-0 truncate font-medium">{key}</span>
-						<span className="flex-1 truncate text-muted-foreground">{value}</span>
-						<Button variant="ghost" size="icon-sm" aria-label={`Remove ${key}`} onClick={() => void drop(key)}>
-							<X />
-						</Button>
-					</div>
-				))}
+				<ItemGroup>
+					{Object.entries(env).map(([key, value]) => (
+						<Item key={key} variant="outline">
+							<ItemContent>
+								<ItemTitle>{key}</ItemTitle>
+								<ItemDescription>{value}</ItemDescription>
+							</ItemContent>
+							<ItemActions>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									aria-label={`Remove ${key}`}
+									onClick={() => void drop(key)}
+								>
+									<X />
+								</Button>
+							</ItemActions>
+						</Item>
+					))}
+				</ItemGroup>
 			</div>
 		</main>
 	);

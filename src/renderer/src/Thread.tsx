@@ -12,6 +12,7 @@ import {
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
+import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -215,7 +216,8 @@ export function Thread({
 			) : (
 				<div className="relative border-t border-border p-4">
 					{completion && (
-						<ul className="absolute bottom-full left-4 mb-2 max-h-64 w-96 overflow-y-auto rounded-lg border border-border bg-popover p-1">
+						<div className="absolute bottom-full left-4 mb-2 w-96 rounded-lg border border-border bg-popover">
+						<ul className="max-h-64 overflow-y-auto p-1">
 							{completion.candidates.map((candidate, index) => (
 								<li key={candidate.id}>
 									<button
@@ -238,6 +240,20 @@ export function Thread({
 								</li>
 							))}
 						</ul>
+						<div className="flex items-center gap-3 border-t border-border px-2 py-1.5 text-xs text-muted-foreground">
+							<span className="flex items-center gap-1">
+								<KbdGroup>
+									<Kbd>Enter</Kbd>
+									<Kbd>Tab</Kbd>
+								</KbdGroup>
+								to take
+							</span>
+							<span className="flex items-center gap-1">
+								<Kbd>Esc</Kbd>
+								to close
+							</span>
+						</div>
+						</div>
 					)}
 
 					<div className="flex flex-col gap-1 rounded-xl border border-border p-2 focus-within:border-ring">

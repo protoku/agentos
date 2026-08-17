@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Spinner } from "@/components/ui/spinner";
 import { Markdown } from "./Markdown";
 import type { SandboxView } from "../../shared/api";
 
@@ -98,7 +99,14 @@ export function Viewer({
 }
 
 function Shown({ view }: { view?: SandboxView }) {
-	if (view === undefined) return <p className="text-sm text-muted-foreground">Reading…</p>;
+	if (view === undefined) {
+		return (
+			<p className="flex items-center gap-2 text-sm text-muted-foreground">
+				<Spinner />
+				Reading…
+			</p>
+		);
+	}
 
 	switch (view.kind) {
 		case "missing":

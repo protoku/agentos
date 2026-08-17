@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { Bot, Boxes, ChevronRight, ChevronsUpDown, Database, KeyRound, MessagesSquare, Plus, Wrench } from "lucide-react";
+import { Bot, Boxes, ChevronRight, ChevronsUpDown, Database, KeyRound, MessagesSquare, Plus, TriangleAlert, Wrench } from "lucide-react";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Nothing } from "./Nothing";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -253,9 +254,11 @@ export function App() {
 	return (
 		<div className="flex h-full flex-col">
 			{runtime?.found === false && (
-				<p className="border-b border-destructive/40 bg-destructive/10 px-4 py-2 text-sm text-destructive">
-					{runtime.missing}
-				</p>
+				<Alert variant="destructive" className="rounded-none border-x-0 border-t-0">
+					<TriangleAlert />
+					<AlertTitle>Claude Code was not found</AlertTitle>
+					<AlertDescription>{runtime.missing}</AlertDescription>
+				</Alert>
 			)}
 
 			<SidebarProvider className="min-h-0 flex-1">

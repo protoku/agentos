@@ -1,6 +1,8 @@
 import { useEffect, useState } from "react";
-import { Database, Plus } from "lucide-react";
+import { Database, FolderOpen, GitBranch, MessagesSquare, Plus } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Input } from "@/components/ui/input";
 import { Nothing } from "./Nothing";
 import type { MountSource } from "../../shared/types";
@@ -123,17 +125,30 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 					</Nothing>
 				)}
 
-				{sources.map((source) => (
-					<div key={source.id} className="flex items-baseline gap-3 border-b border-border pb-3 text-sm">
-						<span className="font-medium">{source.name}</span>
-						<span className="text-xs text-muted-foreground">{source.type}</span>
-						<span className="truncate text-xs text-muted-foreground">{describe(source)}</span>
-					</div>
-				))}
+				<ItemGroup>
+					{sources.map((source) => (
+						<Item key={source.id} variant="outline">
+							<ItemMedia variant="icon">{icons[source.type]}</ItemMedia>
+							<ItemContent>
+								<ItemTitle>{source.name}</ItemTitle>
+								<ItemDescription>{describe(source)}</ItemDescription>
+							</ItemContent>
+							<ItemActions>
+								<Badge variant="outline">{source.type}</Badge>
+							</ItemActions>
+						</Item>
+					))}
+				</ItemGroup>
 			</div>
 		</main>
 	);
 }
+
+const icons: Record<MountSource["type"], React.ReactNode> = {
+	directory: <FolderOpen />,
+	git: <GitBranch />,
+	conversations: <MessagesSquare />,
+};
 
 function describe(source: MountSource): string {
 	if (source.type === "git") return `${String(source.config.remote ?? "")} on ${String(source.config.defaultBranch ?? "")}`;
