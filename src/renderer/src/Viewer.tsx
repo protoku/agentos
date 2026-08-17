@@ -23,6 +23,7 @@ export function Viewer({
 	onClose: () => void;
 }) {
 	const [view, setView] = useState<SandboxView>();
+	const [width, setWidth] = useState(rememberedWidth);
 
 	useEffect(() => {
 		let current = true;
@@ -35,8 +36,51 @@ export function Viewer({
 		return () => void (current = false);
 	}, [workspaceId, conversationId, path, version]);
 
+	function resizeTo(next: number) {
+		const within = withinReason(next);
+
+		setWidth(within);
+		localStorage.setItem(remembered, String(within));
+	}
+
+	/** The pane grows as the handle moves left, and the width it lands on is the one kept. */
+	function drag(event: React.PointerEvent) {
+		event.preventDefault();
+		const from = event.clientX;
+		const started = width;
+		let landed = started;
+
+		const move = (moved: PointerEvent) => {
+			landed = withinReason(started + (from - moved.clientX));
+			setWidth(landed);
+		};
+		const done = () => {
+			window.removeEventListener("pointermove", move);
+			window.removeEventListener("pointerup", done);
+			localStorage.setItem(remembered, String(landed));
+		};
+
+		window.addEventListener("pointermove", move);
+		window.addEventListener("pointerup", done);
+	}
+
 	return (
-		<aside className="flex w-[26rem] shrink-0 flex-col border-l border-border bg-surface">
+		<aside
+			style={{ width }}
+			className="relative flex shrink-0 flex-col border-l border-border bg-surface"
+		>
+			<div
+				role="separator"
+				aria-orientation="vertical"
+				aria-label="Resize the viewer"
+				tabIndex={0}
+				onPointerDown={drag}
+				onKeyDown={(event) => {
+					if (event.key === "ArrowLeft") resizeTo(width + 32);
+					if (event.key === "ArrowRight") resizeTo(width - 32);
+				}}
+				className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize hover:bg-border focus-visible:bg-ring focus-visible:outline-none"
+			/>
 			<header className="flex items-center gap-2 border-b border-border py-2 pr-2 pl-4">
 				<span className="min-w-0 flex-1 truncate text-sm font-medium" title={path}>
 					{path}
@@ -85,6 +129,18 @@ function Shown({ view }: { view?: SandboxView }) {
 				</div>
 			);
 	}
+}
+
+const remembered = "agentos.viewer.width";
+const narrowest = 320;
+
+function rememberedWidth(): number {
+	return withinReason(Number(localStorage.getItem(remembered)) || 560);
+}
+
+/** Wide enough to read a document, never so wide the thread it belongs to disappears. */
+function withinReason(width: number): number {
+	return Math.min(Math.max(width, narrowest), Math.round(window.innerWidth * 0.7));
 }
 
 function isMarkdown(path: string): boolean {

@@ -285,6 +285,7 @@ Features of the app around the model above.
 - The sidebar header holds the workspace picker: it names the workspace in view and switches to any other.
 - The window is two panes, the sidebar with the workspace picker and the conversation list, and the thread beside it, and a third while a file is open in the viewer.
 - A tool call that names a file opens that file in the viewer, as it is now: markdown rendered, text as written, a directory as the names in it, anything else described rather than drawn. A file too large to read comfortably is shown up to a limit and says so.
+- The viewer is as wide as you drag it, and stays that width next time.
 - The viewer never edits. Work on a file happens through the conversation, so that every change is a tool call somebody can read; a change made beside the thread would be a change nobody recorded. It follows the file it shows: a later call touching that path refreshes it, and a file that has since been deleted says so.
 - A conversation's header carries what the conversation is bound to: the paths it has mounted, the agents that have taken part in it, and its sandbox, which opens in the file manager.
 - Conversations, agents, script tools, mount sources and env each open in a pane that replaces the thread.
