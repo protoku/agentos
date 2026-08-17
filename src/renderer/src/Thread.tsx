@@ -11,6 +11,7 @@ import {
 	AlertDialogTitle,
 	AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -390,13 +391,14 @@ function agentName(agents: Agent[], agentId: string): string {
 	return agents.find((agent) => agent.id === agentId)?.name ?? "unknown";
 }
 
+/** Colour as border and text rather than a filled surface, which is the rule the theme follows. */
 const statusColors: Record<ToolCall["status"], string> = {
-	pending: "text-pending",
-	running: "text-muted-foreground",
-	success: "text-success",
-	error: "text-destructive",
-	denied: "text-destructive",
-	canceled: "text-muted-foreground",
+	pending: "border-pending text-pending",
+	running: "border-border text-muted-foreground",
+	success: "border-success text-success",
+	error: "border-destructive text-destructive",
+	denied: "border-destructive text-destructive",
+	canceled: "border-border text-muted-foreground",
 };
 
 function ToolCallView({
@@ -438,7 +440,9 @@ function ToolCallView({
 						{call.toolId}
 					</button>
 				)}
-				<span className={statusColors[call.status]}>{call.status}</span>
+				<Badge variant="outline" className={statusColors[call.status]}>
+					{call.status}
+				</Badge>
 				<time className="text-muted-foreground" dateTime={call.createdAt}>
 					{time(call.createdAt)}
 				</time>
