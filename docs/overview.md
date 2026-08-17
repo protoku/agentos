@@ -276,6 +276,7 @@ Features of the app around the model above.
 
 - Messages and tool calls offer copy to clipboard: a message copies its text, a tool call its input and output as JSON. Turn entries have nothing to copy.
 - Agents run on the Claude Code installed on the machine, found wherever it put itself. When it is not there the app says so and where to get it, rather than letting every turn fail on its own.
+- The thread follows its newest entry while you are at the bottom of it, and stops following the moment you scroll away to read, offering a way back to the newest. A conversation opens at its last turn rather than at its very end.
 - An agent's message is rendered as markdown, which is how models write. A user's message stays as typed, with its @mentions highlighted. A link opens in the browser rather than in AgentOS.
 - A pending call is decided in the entry itself: approve it, or deny it with a message for the agent alongside.
 - The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn.

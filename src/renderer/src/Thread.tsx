@@ -4,6 +4,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import {
+	MessageScroller,
+	MessageScrollerButton,
+	MessageScrollerContent,
+	MessageScrollerItem,
+	MessageScrollerProvider,
+	MessageScrollerViewport,
+} from "@/components/ui/message-scroller";
 import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
@@ -33,7 +41,6 @@ export function Thread({
 	const [caret, setCaret] = useState(0);
 	const [highlight, setHighlight] = useState(0);
 	const [dismissed, setDismissed] = useState(false);
-	const newest = useRef<HTMLDivElement>(null);
 	const composer = useRef<HTMLTextAreaElement>(null);
 
 	// A start with no end is a turn running right now, and the thread belongs to that agent.
@@ -46,11 +53,6 @@ export function Thread({
 	const busy = acting || calling;
 
 	const completion = dismissed ? undefined : completionAt(draft, caret, tools, agents);
-
-	// The thread follows the newest entry, so a sent message or a tool call is never below the fold.
-	useEffect(() => {
-		newest.current?.scrollIntoView({ block: "end" });
-	}, [entries]);
 
 	// A different list starts at its first name, never at wherever the last one was left.
 	useEffect(() => {
@@ -119,12 +121,25 @@ export function Thread({
 				)}
 			</header>
 
-			<div className="flex flex-1 flex-col gap-5 overflow-y-auto px-6 py-5">
-				{entries.map((entry) => (
-					<EntryView key={entry.id} entry={entry} agents={agents} endedTurns={endedTurns} />
-				))}
-				<div ref={newest} />
-			</div>
+			<MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor" scrollPreviousItemPeek={64}>
+				<MessageScroller className="flex-1">
+					<MessageScrollerViewport>
+						<MessageScrollerContent className="flex flex-col gap-5 px-6 py-5">
+							{entries.filter((entry) => shows(entry, endedTurns)).map((entry) => (
+								// A turn begins at the message that asked for it, so that is where the thread anchors.
+								<MessageScrollerItem
+									key={entry.id}
+									messageId={entry.id}
+									scrollAnchor={entry.type === "userMessage"}
+								>
+									<EntryView entry={entry} agents={agents} endedTurns={endedTurns} />
+								</MessageScrollerItem>
+							))}
+						</MessageScrollerContent>
+					</MessageScrollerViewport>
+					<MessageScrollerButton />
+				</MessageScroller>
+			</MessageScrollerProvider>
 
 			{archivedAt ? (
 				<p className="border-t border-border px-6 py-4 text-sm text-muted-foreground">
@@ -210,6 +225,14 @@ export function Thread({
 
 		</main>
 	);
+}
+
+/** A finished turn's markers say nothing, and a row wrapped around nothing would still take space. */
+function shows(entry: Entry, endedTurns: Set<string>): boolean {
+	if (entry.type === "turnStart") return !endedTurns.has(entry.id);
+	if (entry.type === "turnEnd") return entry.status !== "finished";
+
+	return true;
 }
 
 function EntryView({
