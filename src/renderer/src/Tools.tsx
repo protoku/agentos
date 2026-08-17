@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import type { ScriptToolDraft } from "../../shared/api";
@@ -147,30 +148,37 @@ export function Tools({ workspaceId, selected }: { workspaceId: string; selected
 							/>
 						</Field>
 
-						<Field label="Code">
-							<Textarea
-								value={draft.code}
-								className="min-h-48 resize-none font-mono text-xs"
-								onChange={(event) => setDraft({ ...draft, code: event.target.value })}
-							/>
-						</Field>
+						<Tabs defaultValue="code" className="min-h-0 flex-1">
+							<TabsList>
+								<TabsTrigger value="code">Code</TabsTrigger>
+								<TabsTrigger value="input">Input schema</TabsTrigger>
+								<TabsTrigger value="output">Output schema</TabsTrigger>
+							</TabsList>
 
-						<div className="flex gap-4">
-							<Field label="Input schema">
+							<TabsContent value="code">
+								<Textarea
+									value={draft.code}
+									className="min-h-80 resize-none font-mono text-xs"
+									onChange={(event) => setDraft({ ...draft, code: event.target.value })}
+								/>
+							</TabsContent>
+
+							<TabsContent value="input">
 								<Textarea
 									value={draft.inputSchema}
-									className="min-h-40 resize-none font-mono text-xs"
+									className="min-h-80 resize-none font-mono text-xs"
 									onChange={(event) => setDraft({ ...draft, inputSchema: event.target.value })}
 								/>
-							</Field>
-							<Field label="Output schema">
+							</TabsContent>
+
+							<TabsContent value="output">
 								<Textarea
 									value={draft.outputSchema}
-									className="min-h-40 resize-none font-mono text-xs"
+									className="min-h-80 resize-none font-mono text-xs"
 									onChange={(event) => setDraft({ ...draft, outputSchema: event.target.value })}
 								/>
-							</Field>
-						</div>
+							</TabsContent>
+						</Tabs>
 
 						<div className="flex items-center gap-3">
 							<Button onClick={() => void save()}>{editing ? "Save" : "Create tool"}</Button>
