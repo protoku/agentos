@@ -121,17 +121,14 @@ export function Thread({
 				)}
 			</header>
 
-			<MessageScrollerProvider autoScroll defaultScrollPosition="last-anchor" scrollPreviousItemPeek={64}>
+			{/* No scroll anchors: anchoring a turn to the top reserves a viewport of empty space
+			    below it, which reads as a hole in a thread of short entries. */}
+			<MessageScrollerProvider autoScroll defaultScrollPosition="end">
 				<MessageScroller className="flex-1">
 					<MessageScrollerViewport>
 						<MessageScrollerContent className="flex flex-col gap-5 px-6 py-5">
 							{entries.filter((entry) => shows(entry, endedTurns)).map((entry) => (
-								// A turn begins at the message that asked for it, so that is where the thread anchors.
-								<MessageScrollerItem
-									key={entry.id}
-									messageId={entry.id}
-									scrollAnchor={entry.type === "userMessage"}
-								>
+								<MessageScrollerItem key={entry.id} messageId={entry.id}>
 									<EntryView entry={entry} agents={agents} endedTurns={endedTurns} />
 								</MessageScrollerItem>
 							))}
