@@ -19,6 +19,13 @@ jobs:
           node-version: 22
           cache: npm
 
+      - name: Give git an identity
+        # A commit tool call uses the machine's git identity, and a runner has none it can
+        # auto-detect: its hostname has no domain, so git refuses to guess an address.
+        run: |
+          git config --global user.email "ci@agentos.invalid"
+          git config --global user.name "AgentOS CI"
+
       - run: npm ci
 
       - run: npm run typecheck
