@@ -237,7 +237,7 @@ interface MountSource {
 
 ## Archiving
 
-Nothing in AgentOS is deleted, and only conversations archive. Archiving a conversation closes it for good: there is no unarchive, its thread stays readable forever, and its sandbox and checkouts are removed, so work that was never pushed is gone. Archiving is available at any moment, blocked or not: it cancels whatever call is pending or running, exactly as if the user had canceled the turn, and those entries keep their canceled status in the closed thread.
+Nothing in AgentOS is deleted, and only conversations archive. Archiving a conversation closes it for good: there is no unarchive, its thread stays readable forever, and its sandbox and checkouts are removed, so work that was never pushed is gone. Archiving is available at any moment, blocked or not: it cancels whatever call is pending or running, exactly as if the user had canceled the turn, and those entries keep their canceled status in the closed thread. Because none of it can be undone, archiving asks first, and says what goes with the conversation.
 
 Everything else, workspaces, agents, tools, and mount sources, simply persists; since records never disappear, history always stays renderable. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery.
 

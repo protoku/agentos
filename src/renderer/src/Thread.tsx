@@ -1,5 +1,16 @@
 import { useEffect, useRef, useState } from "react";
 import { ArrowUp, Boxes, Check, Copy, FolderOpen, Square, Users } from "lucide-react";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+	AlertDialogTrigger,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -149,9 +160,28 @@ export function Thread({
 					</Button>
 				)}
 				{onArchive && archivedAt === undefined && (
-					<Button variant="ghost" size="sm" onClick={() => void onArchive()}>
-						Archive
-					</Button>
+					<AlertDialog>
+						<AlertDialogTrigger asChild>
+							<Button variant="ghost" size="sm">
+								Archive
+							</Button>
+						</AlertDialogTrigger>
+						<AlertDialogContent>
+							<AlertDialogHeader>
+								<AlertDialogTitle>Archive this conversation?</AlertDialogTitle>
+								<AlertDialogDescription>
+									The thread stays readable forever, and nothing else does. Its sandbox is removed with
+									everything in it, an isolated mount takes its worktree and any branch made on it, and
+									whatever is running right now is canceled. Work that was never pushed is gone. There is
+									no unarchive.
+								</AlertDialogDescription>
+							</AlertDialogHeader>
+							<AlertDialogFooter>
+								<AlertDialogCancel>Keep it</AlertDialogCancel>
+								<AlertDialogAction onClick={() => void onArchive()}>Archive</AlertDialogAction>
+							</AlertDialogFooter>
+						</AlertDialogContent>
+					</AlertDialog>
 				)}
 			</header>
 
