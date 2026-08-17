@@ -1,9 +1,24 @@
 import { useEffect, useState } from "react";
 import { Plus } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import {
+	Sidebar,
+	SidebarContent,
+	SidebarFooter,
+	SidebarGroup,
+	SidebarGroupAction,
+	SidebarGroupContent,
+	SidebarGroupLabel,
+	SidebarHeader,
+	SidebarInset,
+	SidebarMenu,
+	SidebarMenuButton,
+	SidebarMenuItem,
+	SidebarProvider,
+	SidebarRail,
+} from "@/components/ui/sidebar";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { cn } from "@/lib/utils";
 import { Agents } from "./Agents";
 import { Conversations } from "./Conversations";
 import { Env } from "./Env";
@@ -190,87 +205,93 @@ export function App() {
 				</p>
 			)}
 
-			<div className="flex min-h-0 flex-1">
-			<aside className="flex w-64 shrink-0 flex-col border-r border-border bg-surface">
-				<div className="flex items-center gap-1 border-b border-border p-2">
-					<Select value={workspaceId ?? ""} onValueChange={setWorkspaceId}>
-						<SelectTrigger className="w-full border-transparent">
-							<SelectValue placeholder="No workspace" />
-						</SelectTrigger>
-						<SelectContent>
-							{workspaces.map((candidate) => (
-								<SelectItem key={candidate.id} value={candidate.id}>
-									{candidate.name}
-								</SelectItem>
+			<SidebarProvider className="min-h-0 flex-1">
+				<Sidebar collapsible="offcanvas">
+					<SidebarHeader>
+						<div className="flex items-center gap-1">
+							<Select value={workspaceId ?? ""} onValueChange={setWorkspaceId}>
+								<SelectTrigger className="w-full border-transparent">
+									<SelectValue placeholder="No workspace" />
+								</SelectTrigger>
+								<SelectContent>
+									{workspaces.map((candidate) => (
+										<SelectItem key={candidate.id} value={candidate.id}>
+											{candidate.name}
+										</SelectItem>
+									))}
+								</SelectContent>
+							</Select>
+
+							<Button variant="ghost" size="icon-sm" aria-label="New workspace" onClick={() => setNaming(true)}>
+								<Plus />
+							</Button>
+						</div>
+
+						{naming && (
+							<Input
+								autoFocus
+								value={name}
+								placeholder="Workspace name"
+								onChange={(event) => setName(event.target.value)}
+								onBlur={() => void createWorkspace()}
+								onKeyDown={(event) => {
+									if (event.key === "Enter") void createWorkspace();
+									if (event.key === "Escape") stopNaming();
+								}}
+							/>
+						)}
+					</SidebarHeader>
+
+					<SidebarContent>
+						{workspace && (
+							<SidebarGroup>
+								<SidebarGroupLabel>Conversations</SidebarGroupLabel>
+								<SidebarGroupAction aria-label="New conversation" onClick={draft}>
+									<Plus />
+								</SidebarGroupAction>
+								<SidebarGroupContent>
+									<SidebarMenu>
+										{drafting && (
+											<SidebarMenuItem>
+												<SidebarMenuButton isActive>New conversation</SidebarMenuButton>
+											</SidebarMenuItem>
+										)}
+										{listed.map((conversation) => (
+											<SidebarMenuItem key={conversation.id}>
+												<SidebarMenuButton
+													isActive={conversation.id === conversationId}
+													onClick={() => void openThread(conversation.id)}
+												>
+													<span className="truncate">{conversation.title}</span>
+												</SidebarMenuButton>
+											</SidebarMenuItem>
+										))}
+									</SidebarMenu>
+								</SidebarGroupContent>
+							</SidebarGroup>
+						)}
+					</SidebarContent>
+
+					<SidebarFooter>
+						<SidebarMenu>
+							{sections.map((current) => (
+								<SidebarMenuItem key={current}>
+									<SidebarMenuButton
+										disabled={workspace === undefined}
+										isActive={current === section}
+										onClick={() => setSection(current === section ? undefined : current)}
+									>
+										{sectionTitles[current]}
+									</SidebarMenuButton>
+								</SidebarMenuItem>
 							))}
-						</SelectContent>
-					</Select>
+						</SidebarMenu>
+					</SidebarFooter>
 
-					<Button variant="ghost" size="icon-sm" aria-label="New workspace" onClick={() => setNaming(true)}>
-						<Plus />
-					</Button>
-				</div>
+					<SidebarRail />
+				</Sidebar>
 
-				{naming && (
-					<div className="p-2">
-						<Input
-							autoFocus
-							value={name}
-							placeholder="Workspace name"
-							onChange={(event) => setName(event.target.value)}
-							onBlur={() => void createWorkspace()}
-							onKeyDown={(event) => {
-								if (event.key === "Enter") void createWorkspace();
-								if (event.key === "Escape") stopNaming();
-							}}
-						/>
-					</div>
-				)}
-
-				{workspace && (
-					<div className="flex items-center justify-between py-1 pr-2 pl-4">
-						<span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">
-							Conversations
-						</span>
-						<Button variant="ghost" size="icon-sm" aria-label="New conversation" onClick={draft}>
-							<Plus />
-						</Button>
-					</div>
-				)}
-
-				<div className="flex flex-1 flex-col gap-0.5 overflow-y-auto p-2 pt-0">
-					{drafting && <SidebarItem selected>New conversation</SidebarItem>}
-					{listed.map((conversation) => (
-						<SidebarItem
-							key={conversation.id}
-							selected={conversation.id === conversationId}
-							onClick={() => void openThread(conversation.id)}
-						>
-							{conversation.title}
-						</SidebarItem>
-					))}
-				</div>
-
-				<nav className="flex flex-col gap-0.5 border-t border-border p-2">
-					{sections.map((current) => (
-						<button
-							key={current}
-							type="button"
-							disabled={workspace === undefined}
-							onClick={() => setSection(current === section ? undefined : current)}
-							className={cn(
-								"rounded-md px-2 py-1.5 text-left text-sm disabled:opacity-40",
-								current === section
-									? "bg-accent text-accent-foreground"
-									: "text-muted-foreground enabled:hover:bg-muted enabled:hover:text-foreground",
-							)}
-						>
-							{sectionTitles[current]}
-						</button>
-					))}
-				</nav>
-			</aside>
-
+				<SidebarInset className="flex min-w-0 flex-row">
 			{workspace === undefined ? (
 				<main className="grid flex-1 place-items-center text-sm text-muted-foreground">
 					No workspace selected
@@ -317,33 +338,10 @@ export function App() {
 					onClose={() => setViewing(undefined)}
 				/>
 			)}
-			</div>
+				</SidebarInset>
+			</SidebarProvider>
 		</div>
 	);
 }
 
-function SidebarItem({
-	selected,
-	onClick,
-	children,
-}: {
-	selected: boolean;
-	onClick?: () => void;
-	children: string;
-}) {
-	return (
-		<button
-			type="button"
-			onClick={onClick}
-			className={cn(
-				"truncate rounded-md px-2 py-1.5 text-left text-sm",
-				selected
-					? "bg-accent text-accent-foreground"
-					: "text-muted-foreground hover:bg-muted hover:text-foreground",
-			)}
-		>
-			{children}
-		</button>
-	);
-}
 

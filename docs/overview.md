@@ -283,7 +283,7 @@ Features of the app around the model above.
 - The composer completes what can be named in it: / at the start of a message lists the tools, the arguments of that tool once it is named, and @ anywhere lists the agents, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
 - The window carries no application menu: everything AgentOS does is reachable in the interface itself.
 - The sidebar header holds the workspace picker: it names the workspace in view and switches to any other.
-- The window is two panes, the sidebar with the workspace picker and the conversation list, and the thread beside it, and a third while a file is open in the viewer.
+- The window is two panes, the sidebar with the workspace picker and the conversation list, and the thread beside it, and a third while a file is open in the viewer. The sidebar slides out of the way and back, and stays as you left it.
 - A tool call that names a file opens that file in the viewer, as it is now: markdown rendered, text as written, a directory as the names in it, anything else described rather than drawn. A file too large to read comfortably is shown up to a limit and says so.
 - The viewer is as wide as you drag it, and stays that width next time.
 - The viewer never edits. Work on a file happens through the conversation, so that every change is a tool call somebody can read; a change made beside the thread would be a change nobody recorded. It follows the file it shows: a later call touching that path refreshes it, and a file that has since been deleted says so.
