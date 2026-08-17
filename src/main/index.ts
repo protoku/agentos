@@ -21,6 +21,7 @@ import {
 } from "./storage/scriptTools";
 import { builtinToolMetadata } from "./tools/builtin";
 import { invokeTool, isCallRunning } from "./tools/invoke";
+import { viewSandboxPath } from "./tools/viewer";
 import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
 import { cancelTurn, isTurnRunning, runMentionedTurns } from "./turns/run";
 import { parseSlashCommand } from "../shared/slash";
@@ -111,6 +112,9 @@ void app.whenReady().then(async () => {
 		const failure = await shell.openPath(sandbox);
 		if (failure.length > 0) throw new Error(failure);
 	});
+	ipcMain.handle("sandbox:view", (_event, workspaceId: string, conversationId: string, path: string) =>
+		viewSandboxPath(root, workspaceId, conversationId, path),
+	);
 	ipcMain.handle("turns:cancel", (_event, conversationId: string) => cancelTurn(conversationId));
 	ipcMain.handle("tools:cancel", (_event, callId: string) => cancelRuling(callId));
 	ipcMain.handle("agents:list", (_event, workspaceId: string) => listAgents(root, workspaceId));

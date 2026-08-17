@@ -29,6 +29,7 @@ export function Thread({
 	onSend,
 	onCancel,
 	onOpenSandbox,
+	onOpenPath,
 	onArchive,
 }: {
 	title: string;
@@ -41,6 +42,7 @@ export function Thread({
 	onSend: (content: string) => Promise<void>;
 	onCancel: () => Promise<void>;
 	onOpenSandbox: () => Promise<void>;
+	onOpenPath: (path: string) => void;
 	onArchive?: () => Promise<void>;
 }) {
 	const [draft, setDraft] = useState("");
@@ -161,7 +163,12 @@ export function Thread({
 						<MessageScrollerContent className="flex flex-col gap-5 px-6 py-5">
 							{entries.filter((entry) => shows(entry, endedTurns)).map((entry) => (
 								<MessageScrollerItem key={entry.id} messageId={entry.id}>
-									<EntryView entry={entry} agents={agents} endedTurns={endedTurns} />
+									<EntryView
+										entry={entry}
+										agents={agents}
+										endedTurns={endedTurns}
+										onOpenPath={onOpenPath}
+									/>
 								</MessageScrollerItem>
 							))}
 						</MessageScrollerContent>
@@ -265,6 +272,13 @@ function Bound({ label, icon, children }: { label: string; icon: React.ReactNode
 	);
 }
 
+/** What a call acted on, if it named a file at all: a move ends at its destination. */
+export function pathOf(call: ToolCall): string | undefined {
+	const named = call.input.to ?? call.input.path;
+
+	return typeof named === "string" ? named : undefined;
+}
+
 /** A finished turn's markers say nothing, and a row wrapped around nothing would still take space. */
 function shows(entry: Entry, endedTurns: Set<string>): boolean {
 	if (entry.type === "turnStart") return !endedTurns.has(entry.id);
@@ -277,14 +291,16 @@ function EntryView({
 	entry,
 	agents,
 	endedTurns,
+	onOpenPath,
 }: {
 	entry: Entry;
 	agents: Agent[];
 	endedTurns: Set<string>;
+	onOpenPath: (path: string) => void;
 }) {
 	switch (entry.type) {
 		case "toolCall":
-			return <ToolCallView call={entry} agents={agents} />;
+			return <ToolCallView call={entry} agents={agents} onOpenPath={onOpenPath} />;
 		case "turnStart":
 			return endedTurns.has(entry.id) ? null : (
 				<p className="text-sm text-muted-foreground">@{agentName(agents, entry.agentId)} is working…</p>
@@ -353,8 +369,17 @@ const statusColors: Record<ToolCall["status"], string> = {
 	canceled: "text-muted-foreground",
 };
 
-function ToolCallView({ call, agents }: { call: ToolCall; agents: Agent[] }) {
+function ToolCallView({
+	call,
+	agents,
+	onOpenPath,
+}: {
+	call: ToolCall;
+	agents: Agent[];
+	onOpenPath: (path: string) => void;
+}) {
 	const [denyMessage, setDenyMessage] = useState("");
+	const path = pathOf(call);
 
 	function decide(allowed: boolean) {
 		const message = denyMessage.trim();
@@ -371,7 +396,18 @@ function ToolCallView({ call, agents }: { call: ToolCall; agents: Agent[] }) {
 				<span className="font-medium">
 					{call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`}
 				</span>
-				<span className="font-medium">{call.toolId}</span>
+				{path === undefined ? (
+					<span className="font-medium">{call.toolId}</span>
+				) : (
+					<button
+						type="button"
+						title={`Open ${path}`}
+						className="font-medium underline-offset-4 hover:underline"
+						onClick={() => onOpenPath(path)}
+					>
+						{call.toolId}
+					</button>
+				)}
 				<span className={statusColors[call.status]}>{call.status}</span>
 				<time className="text-muted-foreground" dateTime={call.createdAt}>
 					{time(call.createdAt)}

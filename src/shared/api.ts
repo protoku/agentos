@@ -20,6 +20,13 @@ export interface ConversationSummary extends Conversation {
 	lastActivityAt: string;
 }
 
+/** What the viewer found at a path, which is never something it can change. */
+export type SandboxView =
+	| { kind: "text"; path: string; content: string; truncated: boolean }
+	| { kind: "directory"; path: string; entries: string[] }
+	| { kind: "binary"; path: string; bytes: number }
+	| { kind: "missing"; path: string };
+
 export interface AgentOSApi {
 	/** Whether the machine's Claude Code was found, and what to say when it was not. */
 	agentRuntime(): Promise<{ found: boolean; missing: string }>;
@@ -37,6 +44,7 @@ export interface AgentOSApi {
 	archiveConversation(workspaceId: string, conversationId: string): Promise<Conversation>;
 	/** Shows the conversation's sandbox in the file manager. */
 	openSandbox(workspaceId: string, conversationId: string): Promise<void>;
+	viewSandboxPath(workspaceId: string, conversationId: string, path: string): Promise<SandboxView>;
 	listAgents(workspaceId: string): Promise<Agent[]>;
 	createAgent(workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt" | "tools">): Promise<Agent>;
 	updateAgent(workspaceId: string, agent: Agent): Promise<Agent>;

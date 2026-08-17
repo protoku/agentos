@@ -9,10 +9,11 @@ import { Conversations } from "./Conversations";
 import { Env } from "./Env";
 import { Sources } from "./Sources";
 import { Tools } from "./Tools";
-import { Thread } from "./Thread";
+import { pathOf, Thread } from "./Thread";
+import { Viewer } from "./Viewer";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary } from "../../shared/api";
-import type { Agent, Entry, Tool, Workspace } from "../../shared/types";
+import type { Agent, Entry, Tool, ToolCall, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "sources", "env"] as const;
 
@@ -28,6 +29,11 @@ const sectionTitles: Record<Section, string> = {
 
 const sidebarConversations = 20;
 
+/** A call that acted on the open path is a new version of what the viewer is showing. */
+function touches(call: ToolCall, path: string): boolean {
+	return pathOf(call) === path;
+}
+
 export function App() {
 	const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
 	const [workspaceId, setWorkspaceId] = useState<string>();
@@ -41,6 +47,7 @@ export function App() {
 	const [name, setName] = useState("");
 	const [naming, setNaming] = useState(false);
 	const [runtime, setRuntime] = useState<{ found: boolean; missing: string }>();
+	const [viewing, setViewing] = useState<string>();
 
 	useEffect(() => {
 		void window.agentOS.listWorkspaces().then(setWorkspaces);
@@ -106,6 +113,7 @@ export function App() {
 	async function openThread(id: string) {
 		if (workspaceId === undefined) return;
 
+		setViewing(undefined);
 		setDrafting(false);
 		setSection(undefined);
 		setConversationId(id);
@@ -113,6 +121,7 @@ export function App() {
 	}
 
 	function draft() {
+		setViewing(undefined);
 		setDrafting(true);
 		setSection(undefined);
 		setConversationId(undefined);
@@ -290,12 +299,23 @@ export function App() {
 					onSend={send}
 					onCancel={cancel}
 					onOpenSandbox={openSandbox}
+					onOpenPath={setViewing}
 					onArchive={openConversation ? archive : undefined}
 				/>
 			) : (
 				<main className="grid flex-1 place-items-center text-sm text-muted-foreground">
 					No conversation selected
 				</main>
+			)}
+
+			{viewing !== undefined && workspaceId !== undefined && conversationId !== undefined && (
+				<Viewer
+					workspaceId={workspaceId}
+					conversationId={conversationId}
+					path={viewing}
+					version={entries.filter((entry) => entry.type === "toolCall" && touches(entry, viewing)).length}
+					onClose={() => setViewing(undefined)}
+				/>
 			)}
 			</div>
 		</div>
