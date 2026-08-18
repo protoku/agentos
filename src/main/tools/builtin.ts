@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:
 import { dirname, join, relative, sep } from "node:path";
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
+import { authoringTools } from "./authoring";
 import { gitTools } from "./gitTools";
 import { mountTools, resolveWritable } from "./mounts";
 import { resolveInSandbox } from "./sandbox";
@@ -175,7 +176,12 @@ const fileTools: BuiltinToolImplementation[] = [
 	}),
 ];
 
-export const builtinTools: BuiltinToolImplementation[] = [...fileTools, ...mountTools, ...gitTools];
+export const builtinTools: BuiltinToolImplementation[] = [
+	...fileTools,
+	...mountTools,
+	...gitTools,
+	...authoringTools,
+];
 
 /** The metadata alone, since run and input carry functions and IPC cannot carry one. */
 export function builtinToolMetadata(): BuiltinTool[] {
