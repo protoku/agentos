@@ -41,6 +41,7 @@ export interface AgentOSApi {
 	agentRuntime(): Promise<{ found: boolean; missing: string }>;
 	listWorkspaces(): Promise<Workspace[]>;
 	createWorkspace(name: string): Promise<Workspace>;
+	deleteWorkspace(workspaceId: string): Promise<void>;
 	listConversations(workspaceId: string): Promise<ConversationSummary[]>;
 	readConversation(workspaceId: string, conversationId: string): Promise<Entry[]>;
 	startConversation(workspaceId: string, content: string): Promise<{ conversation: Conversation; message: UserMessage }>;

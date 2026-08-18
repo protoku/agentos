@@ -8,7 +8,7 @@ function workspacesDirectory(root: string): string {
 	return join(root, "workspaces");
 }
 
-function workspaceDirectory(root: string, workspaceId: string): string {
+export function workspaceDirectory(root: string, workspaceId: string): string {
 	return join(workspacesDirectory(root), workspaceId);
 }
 

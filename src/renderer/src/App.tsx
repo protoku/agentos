@@ -1,6 +1,16 @@
 import { useEffect, useState } from "react";
-import { Bot, Boxes, ChevronRight, ChevronsUpDown, Database, KeyRound, MessagesSquare, Plus, TriangleAlert, Wrench } from "lucide-react";
+import { Bot, Boxes, ChevronRight, ChevronsUpDown, Database, KeyRound, MessagesSquare, Plus, Trash2, TriangleAlert, Wrench } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Nothing } from "./Nothing";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
@@ -111,6 +121,7 @@ export function App() {
 	const [section, setSection] = useState<Section>();
 	const [name, setName] = useState("");
 	const [naming, setNaming] = useState(false);
+	const [deleting, setDeleting] = useState(false);
 	const [runtime, setRuntime] = useState<{ found: boolean; missing: string }>();
 	const [viewing, setViewing] = useState<string>();
 	const [sources, setSources] = useState<MountSource[]>([]);
@@ -183,6 +194,18 @@ export function App() {
 		setWorkspaces((current) => [...current, workspace]);
 		setWorkspaceId(workspace.id);
 		stopNaming();
+	}
+
+	async function deleteWorkspace() {
+		if (workspaceId === undefined) return;
+
+		await window.agentOS.deleteWorkspace(workspaceId);
+		const remaining = workspaces.filter((candidate) => candidate.id !== workspaceId);
+		setDeleting(false);
+		setWorkspaces(remaining);
+		setSection(undefined);
+		setViewing(undefined);
+		setWorkspaceId(remaining[0]?.id);
 	}
 
 	async function openThread(id: string) {
@@ -300,6 +323,12 @@ export function App() {
 											<Plus />
 											New workspace
 										</DropdownMenuItem>
+										{workspace && (
+											<DropdownMenuItem onClick={() => setDeleting(true)}>
+												<Trash2 />
+												Delete {workspace.name}
+											</DropdownMenuItem>
+										)}
 									</DropdownMenuContent>
 								</DropdownMenu>
 							</SidebarMenuItem>
@@ -318,6 +347,24 @@ export function App() {
 								}}
 							/>
 						)}
+
+						{/* Outside the picker, since deciding here would close with the menu that opened it. */}
+						<AlertDialog open={deleting} onOpenChange={setDeleting}>
+							<AlertDialogContent>
+								<AlertDialogHeader>
+									<AlertDialogTitle>Delete {workspace?.name}?</AlertDialogTitle>
+									<AlertDialogDescription>
+										Its conversations and their threads go, with its sandboxes, clones and worktrees, and
+										its agents, tools, sources and env, and whatever is running right now is canceled.
+										Work that was never pushed is gone. Nothing is left to say this workspace existed.
+									</AlertDialogDescription>
+								</AlertDialogHeader>
+								<AlertDialogFooter>
+									<AlertDialogCancel>Keep it</AlertDialogCancel>
+									<AlertDialogAction onClick={() => void deleteWorkspace()}>Delete</AlertDialogAction>
+								</AlertDialogFooter>
+							</AlertDialogContent>
+						</AlertDialog>
 					</SidebarHeader>
 
 					<SidebarContent>

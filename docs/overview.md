@@ -33,7 +33,7 @@ A new conversation starts as a draft: it is visible in the interface and nothing
 
 Each mentioned agent's activity on a message is a turn: it begins when the agent starts acting and covers everything it does, several messages and several tool calls included, until it has nothing further to do. A turn ends on its own when the agent finishes, and the next mentioned agent's turn begins; a canceled or failed turn ends the whole chain instead, so agents not yet started never act.
 
-While a turn is running the conversation belongs to the acting agent: the user can neither add messages nor invoke slash commands, whether the agent is working or waiting on a pending call. What the user can always do are the exits: decide a pending call by allowing or denying it, cancel a running call, cancel the whole turn, which stops its current call and skips every later-mentioned agent that has not yet started, or archive the conversation. The thread has exactly one writer at any moment: the user between turns, the acting agent during one. A user-invoked tool call occupies the conversation the same way: until it finishes or is canceled, no message can be sent and no turn can start.
+While a turn is running the conversation belongs to the acting agent: the user can neither add messages nor invoke slash commands, whether the agent is working or waiting on a pending call. What the user can always do are the exits: decide a pending call by allowing or denying it, cancel a running call, cancel the whole turn, which stops its current call and skips every later-mentioned agent that has not yet started, archive the conversation, or delete the workspace it belongs to. The thread has exactly one writer at any moment: the user between turns, the acting agent during one. A user-invoked tool call occupies the conversation the same way: until it finishes or is canceled, no message can be sent and no turn can start.
 
 A conversation can have a sandbox: its own directory, created the first time a tool or a mount needs it. With no mounts it is plain scratch space where agents can work; mounts attach the workspace's data sources into it. With isolated mounts, conversations run in parallel without interfering with each other.
 
@@ -237,17 +237,19 @@ interface MountSource {
 }
 ```
 
-## Archiving
+## Archiving and deletion
 
-Nothing in AgentOS is deleted, and only conversations archive. Archiving a conversation closes it for good: there is no unarchive, its thread stays readable forever, and its sandbox and checkouts are removed, so work that was never pushed is gone. Archiving is available at any moment, blocked or not: it cancels whatever call is pending or running, exactly as if the user had canceled the turn, and those entries keep their canceled status in the closed thread. Because none of it can be undone, archiving asks first, and says what goes with the conversation.
+A conversation archives and a workspace is deleted; nothing else ends. Archiving a conversation closes it for good: there is no unarchive, its thread stays readable forever, and its sandbox and checkouts are removed, so work that was never pushed is gone. Archiving is available at any moment, blocked or not: it cancels whatever call is pending or running, exactly as if the user had canceled the turn, and those entries keep their canceled status in the closed thread. Because none of it can be undone, archiving asks first, and says what goes with the conversation.
 
-Everything else, workspaces, agents, tools, and mount sources, simply persists; since records never disappear, history always stays renderable. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery.
+Deleting a workspace destroys the whole boundary at once: its conversations and their threads, its sandboxes, base clones and isolated worktrees, its agents, tools, mount sources, and env. Like archiving, it is never blocked: it cancels whatever call is pending or running and whatever turn is acting, in every conversation of the workspace. What it never touches is data AgentOS does not own: a directory source's directory and a git source's remote stay exactly as they were, and only the workspace's own clone of a repository goes, so work that was never pushed is gone with it. Nothing survives to say it happened, and the workspace's threads stop being renderable: that is the cost of deleting, which is why it asks first and says what goes.
+
+Deletion is whole or not at all: nothing inside a workspace can be removed piecemeal, so its agents, tools, and mount sources simply persist for as long as it does, and since records never disappear while their workspace exists, its history always stays renderable. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery.
 
 ## Auditability
 
 Every record carries createdAt; tool calls record decidedAt when the user rules on a pending call and completedAt when they reach a terminal status, a turn's timing is carried by its start and end entries, and a conversation's archiving is recorded as archivedAt rather than a flag, so closing it is itself an audited event.
 
-Built-in tools carry no timestamps: they are part of the app, not records. All timestamps are ISO 8601. Together with append-only conversations and the archive-only lifecycle, every action in AgentOS is traceable to a moment in time.
+Built-in tools carry no timestamps: they are part of the app, not records. All timestamps are ISO 8601. Together with append-only conversations and a lifecycle that only archives or deletes a workspace whole, every action in AgentOS is traceable to a moment in time, for as long as its workspace exists.
 
 The scope is deliberately actions, not definitions. Agent prompts, permissions, and script tool code are edited in place without version history: a past entry tells you exactly what happened and when, while the agent or tool it points at is whatever that definition is today.
 
@@ -284,7 +286,7 @@ Features of the app around the model above.
 - The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn.
 - The composer completes what can be named in it: / at the start of a message lists the tools, the arguments of that tool once it is named, and @ anywhere lists the agents, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
 - The window carries no application menu: everything AgentOS does is reachable in the interface itself.
-- The sidebar header holds the workspace picker: it names the workspace in view and switches to any other.
+- The sidebar header holds the workspace picker: it names the workspace in view and switches to any other. It also deletes the workspace in view, confirming first like archiving does and naming what goes with it. After deleting, the picker falls back to the first workspace it lists, and when the deleted one was the last there is no workspace in view.
 - The window is two panes, the sidebar with the workspace picker and the conversation list, and the thread beside it, and a third while a file is open in the viewer. The sidebar slides out of the way and back, and stays as you left it.
 - A tool call that names a file opens that file in the viewer, as it is now: markdown rendered, text as written, a directory as the names in it, anything else described rather than drawn. A file too large to read comfortably is shown up to a limit and says so.
 - The viewer is as wide as you drag it, and stays that width next time.
