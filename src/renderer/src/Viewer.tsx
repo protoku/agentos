@@ -5,37 +5,9 @@ import { Spinner } from "@/components/ui/spinner";
 import { Markdown } from "./Markdown";
 import type { SandboxView } from "../../shared/api";
 
-/**
- * A file as it is now, beside the thread that changed it. It never edits: work on a file happens
- * through the conversation, so that every change is a tool call somebody can read.
- */
-export function Viewer({
-	workspaceId,
-	conversationId,
-	path,
-	version,
-	onClose,
-}: {
-	workspaceId: string;
-	conversationId: string;
-	path: string;
-	/** Bumped by the thread when a call touches this path, which is what makes the viewer follow. */
-	version: number;
-	onClose: () => void;
-}) {
-	const [view, setView] = useState<SandboxView>();
+/** The pane beside the thread, as wide as it has been dragged, whatever it is showing. */
+export function SidePane({ children }: { children: React.ReactNode }) {
 	const [width, setWidth] = useState(rememberedWidth);
-
-	useEffect(() => {
-		let current = true;
-		setView(undefined);
-
-		void window.agentOS.viewSandboxPath(workspaceId, conversationId, path).then((found) => {
-			if (current) setView(found);
-		});
-
-		return () => void (current = false);
-	}, [workspaceId, conversationId, path, version]);
 
 	function resizeTo(next: number) {
 		const within = withinReason(next);
@@ -82,6 +54,41 @@ export function Viewer({
 				}}
 				className="absolute inset-y-0 -left-1 z-10 w-2 cursor-col-resize hover:bg-border focus-visible:bg-ring focus-visible:outline-none"
 			/>
+			{children}
+		</aside>
+	);
+}
+
+/** A file as it is now, beside the thread that changed it, and never editable here. */
+export function Viewer({
+	workspaceId,
+	conversationId,
+	path,
+	version,
+	onClose,
+}: {
+	workspaceId: string;
+	conversationId: string;
+	path: string;
+	/** Bumped by the thread when a call touches this path, which is what makes the viewer follow. */
+	version: number;
+	onClose: () => void;
+}) {
+	const [view, setView] = useState<SandboxView>();
+
+	useEffect(() => {
+		let current = true;
+		setView(undefined);
+
+		void window.agentOS.viewSandboxPath(workspaceId, conversationId, path).then((found) => {
+			if (current) setView(found);
+		});
+
+		return () => void (current = false);
+	}, [workspaceId, conversationId, path, version]);
+
+	return (
+		<>
 			<header className="flex items-center gap-2 border-b border-border py-2 pr-2 pl-4">
 				<span className="min-w-0 flex-1 truncate text-sm font-medium" title={path}>
 					{path}
@@ -94,7 +101,7 @@ export function Viewer({
 			<div className="min-h-0 flex-1 overflow-auto p-4">
 				<Shown view={view} />
 			</div>
-		</aside>
+		</>
 	);
 }
 

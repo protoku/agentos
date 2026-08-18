@@ -36,6 +36,13 @@ export interface MountState {
 	commit?: string;
 }
 
+/** A mount's changes: the diff against its last commit, and the files that diff cannot see. */
+export interface SandboxDiff {
+	path: string;
+	diff: string;
+	untracked: string[];
+}
+
 export interface AgentOSApi {
 	/** Whether the machine's Claude Code was found, and what to say when it was not. */
 	agentRuntime(): Promise<{ found: boolean; missing: string }>;
@@ -56,6 +63,7 @@ export interface AgentOSApi {
 	openSandbox(workspaceId: string, conversationId: string): Promise<void>;
 	viewSandboxPath(workspaceId: string, conversationId: string, path: string): Promise<SandboxView>;
 	mountStates(workspaceId: string, conversationId: string): Promise<MountState[]>;
+	sandboxDiff(workspaceId: string, conversationId: string, path: string): Promise<SandboxDiff>;
 	listAgents(workspaceId: string): Promise<Agent[]>;
 	createAgent(workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt" | "tools">): Promise<Agent>;
 	updateAgent(workspaceId: string, agent: Agent): Promise<Agent>;

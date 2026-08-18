@@ -22,6 +22,7 @@ import {
 } from "./storage/scriptTools";
 import { builtinToolMetadata } from "./tools/builtin";
 import { invokeTool, isCallRunning } from "./tools/invoke";
+import { sandboxDiff } from "./tools/diff";
 import { mountStates } from "./tools/mountState";
 import { viewSandboxPath } from "./tools/viewer";
 import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
@@ -122,6 +123,9 @@ void app.whenReady().then(async () => {
 	});
 	ipcMain.handle("conversations:mountStates", (_event, workspaceId: string, conversationId: string) =>
 		mountStates(root, workspaceId, conversationId),
+	);
+	ipcMain.handle("sandbox:diff", (_event, workspaceId: string, conversationId: string, path: string) =>
+		sandboxDiff(root, workspaceId, conversationId, path),
 	);
 	ipcMain.handle("sandbox:view", (_event, workspaceId: string, conversationId: string, path: string) =>
 		viewSandboxPath(root, workspaceId, conversationId, path),

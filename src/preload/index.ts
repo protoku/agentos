@@ -21,6 +21,8 @@ const api: AgentOSApi = {
 		ipcRenderer.invoke("conversations:openSandbox", workspaceId, conversationId),
 	viewSandboxPath: (workspaceId, conversationId, path) =>
 		ipcRenderer.invoke("sandbox:view", workspaceId, conversationId, path),
+	sandboxDiff: (workspaceId, conversationId, path) =>
+		ipcRenderer.invoke("sandbox:diff", workspaceId, conversationId, path),
 	mountStates: (workspaceId, conversationId) =>
 		ipcRenderer.invoke("conversations:mountStates", workspaceId, conversationId),
 	listAgents: (workspaceId) => ipcRenderer.invoke("agents:list", workspaceId),

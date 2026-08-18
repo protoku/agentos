@@ -46,7 +46,8 @@ import { Env } from "./Env";
 import { Sources } from "./Sources";
 import { Tools } from "./Tools";
 import { pathOf, Thread } from "./Thread";
-import { Viewer } from "./Viewer";
+import { Diff } from "./Diff";
+import { SidePane, Viewer } from "./Viewer";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary, MountState } from "../../shared/api";
 import type { Agent, Entry, MountSource, Tool, ToolCall, Workspace } from "../../shared/types";
@@ -123,7 +124,7 @@ export function App() {
 	const [naming, setNaming] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [runtime, setRuntime] = useState<{ found: boolean; missing: string }>();
-	const [viewing, setViewing] = useState<string>();
+	const [viewing, setViewing] = useState<{ kind: "file" | "diff"; path: string }>();
 	const [sources, setSources] = useState<MountSource[]>([]);
 	const [mounts, setMounts] = useState<MountState[]>([]);
 	const [selected, setSelected] = useState<string>();
@@ -280,6 +281,7 @@ export function App() {
 	const listed = conversations.filter((conversation) => !conversation.archivedAt).slice(0, sidebarConversations);
 	const openConversation = conversations.find((conversation) => conversation.id === conversationId);
 	const scriptTools = tools.filter((tool) => tool.type === "script");
+	const settled = entries.filter((entry) => entry.type === "toolCall");
 
 	return (
 		<div className="flex h-full flex-col">
@@ -490,7 +492,8 @@ export function App() {
 					onSend={send}
 					onCancel={cancel}
 					onOpenSandbox={openSandbox}
-					onOpenPath={setViewing}
+					onOpenPath={(path) => setViewing({ kind: "file", path })}
+					onOpenDiff={(path) => setViewing({ kind: "diff", path })}
 					onArchive={openConversation ? archive : undefined}
 				/>
 			) : (
@@ -502,13 +505,26 @@ export function App() {
 			)}
 
 			{viewing !== undefined && workspaceId !== undefined && conversationId !== undefined && (
-				<Viewer
-					workspaceId={workspaceId}
-					conversationId={conversationId}
-					path={viewing}
-					version={entries.filter((entry) => entry.type === "toolCall" && touches(entry, viewing)).length}
-					onClose={() => setViewing(undefined)}
-				/>
+				<SidePane>
+					{viewing.kind === "file" ? (
+						<Viewer
+							workspaceId={workspaceId}
+							conversationId={conversationId}
+							path={viewing.path}
+							version={settled.filter((call) => touches(call, viewing.path)).length}
+							onClose={() => setViewing(undefined)}
+						/>
+					) : (
+						// Any settled call may have changed the tree, so the diff follows all of them.
+						<Diff
+							workspaceId={workspaceId}
+							conversationId={conversationId}
+							path={viewing.path}
+							version={settled.length}
+							onClose={() => setViewing(undefined)}
+						/>
+					)}
+				</SidePane>
 			)}
 				</SidebarInset>
 			</SidebarProvider>

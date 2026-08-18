@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Boxes, Check, Copy, FolderOpen, Gauge, Square, Users } from "lucide-react";
+import { ArrowUp, Boxes, Check, Copy, FolderOpen, Gauge, GitCompare, Square, Users } from "lucide-react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -45,6 +45,7 @@ export function Thread({
 	onCancel,
 	onOpenSandbox,
 	onOpenPath,
+	onOpenDiff,
 	onArchive,
 }: {
 	title: string;
@@ -58,6 +59,7 @@ export function Thread({
 	onCancel: () => Promise<void>;
 	onOpenSandbox: () => Promise<void>;
 	onOpenPath: (path: string) => void;
+	onOpenDiff: (path: string) => void;
 	onArchive?: () => Promise<void>;
 }) {
 	const [draft, setDraft] = useState("");
@@ -148,10 +150,24 @@ export function Thread({
 				<span className="shrink-0 truncate text-sm font-medium">{title}</span>
 
 				<div className="flex min-w-0 flex-1 items-center gap-4 text-xs text-muted-foreground">
-					{mounts.length > 0 && (
-						<Bound label="Mounted" icon={<Boxes className="size-3.5" />}>
-							{mounts.map(describeMount).join(", ")}
-						</Bound>
+					{mounts.map((mount) =>
+						mount.commit === undefined ? (
+							<Bound key={mount.path} label="Mounted" icon={<Boxes className="size-3.5" />}>
+								{describeMount(mount)}
+							</Bound>
+						) : (
+							// A git mount is where the work is, so it opens what has changed in it.
+							<button
+								key={mount.path}
+								type="button"
+								title={`What has changed in ${mount.path}`}
+								onClick={() => onOpenDiff(mount.path)}
+								className="flex min-w-0 items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
+							>
+								<GitCompare className="size-3.5" />
+								<span className="truncate">{describeMount(mount)}</span>
+							</button>
+						),
 					)}
 					{present.length > 0 && (
 						<Bound label="In this conversation" icon={<Users className="size-3.5" />}>
