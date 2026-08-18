@@ -1,5 +1,19 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ArrowUp, Boxes, Check, Copy, FolderOpen, Gauge, GitCompare, Square, Users } from "lucide-react";
+import {
+	ArrowUp,
+	Boxes,
+	Check,
+	ChevronDown,
+	CircleSlash,
+	Clock,
+	Copy,
+	FolderOpen,
+	Gauge,
+	GitCompare,
+	Square,
+	Users,
+	X,
+} from "lucide-react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -480,6 +494,56 @@ function ToolCallView({
 		});
 	}
 
+	if (summary !== undefined) {
+		return (
+			<article className="group flex flex-col divide-y divide-border rounded-lg border border-border">
+				<div className="flex items-center gap-3 p-3">
+					<Medallion className={statusColors[call.status]}>{statusIcons[call.status]}</Medallion>
+					{path === undefined ? (
+						<span className="flex-1 text-sm font-medium">{summary.title}</span>
+					) : (
+						<button
+							type="button"
+							title={`Open ${path}`}
+							onClick={() => onOpenPath(path)}
+							className="flex-1 text-left text-sm font-medium underline-offset-4 hover:underline"
+						>
+							{summary.title}
+						</button>
+					)}
+					<span className="text-xs text-muted-foreground">
+						{call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`}
+					</span>
+					<time className="text-xs text-muted-foreground" dateTime={call.createdAt}>
+						{time(call.createdAt)}
+					</time>
+					<CopyButton label="Copy input and output" text={payloadOf(call)} />
+				</div>
+
+				{summary.rows.map((row) => (
+					<div key={row.text} className="flex items-center gap-3 p-3">
+						<Medallion className="text-muted-foreground">{row.icon}</Medallion>
+						<span className="min-w-0 flex-1 truncate text-sm font-medium">{row.text}</span>
+						{row.hint && <span className="shrink-0 text-xs text-muted-foreground">{row.hint}</span>}
+					</div>
+				))}
+
+				{call.error && <p className="p-3 text-sm text-destructive">{call.error}</p>}
+
+				<details className="text-xs">
+					<summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-muted-foreground hover:text-foreground">
+						<ChevronDown className="size-4 transition-transform [details[open]_&]:rotate-180" />
+						Details
+					</summary>
+					<div className="flex flex-col gap-2 px-3 pb-3">
+						<Payload label="Input" value={call.input} />
+						{call.output && <Payload label="Output" value={call.output} />}
+					</div>
+				</details>
+			</article>
+		);
+	}
+
 	return (
 		<article className="group flex flex-col gap-2 rounded-lg border border-border p-3">
 			<div className="flex items-baseline gap-2 text-xs">
@@ -504,33 +568,13 @@ function ToolCallView({
 				<time className="text-muted-foreground" dateTime={call.createdAt}>
 					{time(call.createdAt)}
 				</time>
-				<CopyButton
-					label="Copy input and output"
-					text={JSON.stringify({ input: call.input, ...(call.output && { output: call.output }) }, null, 2)}
-				/>
+				<CopyButton label="Copy input and output" text={payloadOf(call)} />
 			</div>
 
 			{call.reason && <p className="text-xs text-muted-foreground">{call.reason}</p>}
 
-			{summary === undefined ? (
-				<>
-					<Payload label="Input" value={call.input} />
-					{call.output && <Payload label="Output" value={call.output} />}
-				</>
-			) : (
-				<>
-					{summary}
-					<details className="text-xs">
-						<summary className="w-fit cursor-pointer text-muted-foreground hover:text-foreground">
-							Details
-						</summary>
-						<div className="flex flex-col gap-2 pt-2">
-							<Payload label="Input" value={call.input} />
-							{call.output && <Payload label="Output" value={call.output} />}
-						</div>
-					</details>
-				</>
-			)}
+			<Payload label="Input" value={call.input} />
+			{call.output && <Payload label="Output" value={call.output} />}
 			{call.error && <p className="text-sm text-destructive">{call.error}</p>}
 			{call.denyMessage && <p className="text-sm text-destructive">{call.denyMessage}</p>}
 
@@ -550,12 +594,7 @@ function ToolCallView({
 						className="h-8 flex-1 text-xs"
 						onChange={(event) => setDenyMessage(event.target.value)}
 					/>
-					<Button
-						size="sm"
-						variant="outline"
-						className="border-success text-success"
-						onClick={() => decide(true)}
-					>
+					<Button size="sm" variant="outline" className="border-success text-success" onClick={() => decide(true)}>
 						Approve
 					</Button>
 					<Button
@@ -570,6 +609,33 @@ function ToolCallView({
 			)}
 		</article>
 	);
+}
+
+/** The round badge each row wears, which is what makes a call read as a thing that happened. */
+function Medallion({ className, children }: { className?: string; children: React.ReactNode }) {
+	return (
+		<span
+			className={cn(
+				"flex size-8 shrink-0 items-center justify-center rounded-full border [&_svg]:size-4",
+				className,
+			)}
+		>
+			{children}
+		</span>
+	);
+}
+
+const statusIcons: Record<ToolCall["status"], React.ReactNode> = {
+	pending: <Clock />,
+	running: <Clock />,
+	success: <Check />,
+	error: <X />,
+	denied: <X />,
+	canceled: <CircleSlash />,
+};
+
+function payloadOf(call: ToolCall): string {
+	return JSON.stringify({ input: call.input, ...(call.output && { output: call.output }) }, null, 2);
 }
 
 function Payload({ label, value }: { label: string; value: Record<string, unknown> }) {

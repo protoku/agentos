@@ -2,16 +2,22 @@ import { Boxes, FolderOpen, GitBranch, MessagesSquare } from "lucide-react";
 import type { MountSource, ToolCall } from "../../shared/types";
 
 const icons: Record<MountSource["type"], React.ReactNode> = {
-	directory: <FolderOpen className="size-3.5" />,
-	git: <GitBranch className="size-3.5" />,
-	conversations: <MessagesSquare className="size-3.5" />,
+	directory: <FolderOpen />,
+	git: <GitBranch />,
+	conversations: <MessagesSquare />,
 };
 
+/** What a call did, said as rows: what happened, then what it happened to. */
+export interface CallSummary {
+	title: string;
+	rows: { icon: React.ReactNode; text: string; hint?: string }[];
+}
+
 /**
- * What a settled built-in call did, in a line. A tool whose output has no summary here keeps its
- * input and output as they are, which is what every script tool does: only its shape is known.
+ * What a settled built-in call did. A tool with no summary here keeps its input and output as
+ * they are, which is what every script tool does: only its shape is known, never its meaning.
  */
-export function summarise(call: ToolCall, sources: MountSource[]): React.ReactNode | undefined {
+export function summarise(call: ToolCall, sources: MountSource[]): CallSummary | undefined {
 	if (call.toolId !== "mount" || call.output === undefined) return undefined;
 
 	const { source, path, mode, readOnly, startedFrom } = call.output;
@@ -20,15 +26,16 @@ export function summarise(call: ToolCall, sources: MountSource[]): React.ReactNo
 		(term) => term !== undefined,
 	);
 
-	return (
-		<span className="flex min-w-0 items-center gap-2 text-sm">
-			{kind === undefined ? <Boxes className="size-3.5" /> : icons[kind]}
-			<span className="truncate">
-				{String(source)} → {String(path)}
-			</span>
-			<span className="shrink-0 text-xs text-muted-foreground">({terms.join(", ")})</span>
-		</span>
-	);
+	return {
+		title: "Mounted",
+		rows: [
+			{
+				icon: kind === undefined ? <Boxes /> : icons[kind],
+				text: `${String(source)} → ${String(path)}`,
+				hint: terms.join(", "),
+			},
+		],
+	};
 }
 
 function from(startedFrom: unknown): string | undefined {
