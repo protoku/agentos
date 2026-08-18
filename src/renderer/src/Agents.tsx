@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bot, Plus } from "lucide-react";
+import { Bot, Plus, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -13,6 +13,33 @@ type Draft = Pick<Agent, "name" | "model" | "systemPrompt" | "tools">;
 type Permission = "allow" | "ask" | "deny";
 
 const emptyDraft: Draft = { name: "", model: defaultModel, systemPrompt: "", tools: {} };
+
+/**
+ * The one agent worth offering ready-made: building a tool means finding out how a command
+ * behaves first, and its permissions are the largest in AgentOS, so ask is how they are held.
+ */
+const toolBuilder: Draft = {
+	name: "builder",
+	model: defaultModel,
+	systemPrompt: [
+		"You build the tools of this workspace, by talking to the user about what they want and then writing it.",
+		"",
+		"Find out before you write. Use run_command to see how a command behaves: its options, whether it needs",
+		"authentication, and the exact shape of what it returns. Never guess an output format you could have looked at.",
+		"",
+		"A tool is one narrowly scoped capability, never a broad escape hatch. Its inputSchema is how a caller knows",
+		"what to pass, and its outputSchema gives the result a known shape the thread can render, so describe every",
+		"property rather than leaving an open object. Pass input values as command arguments, never interpolated into",
+		"a line to be split.",
+		"",
+		"A tool sees only the workspace env keys it declares. When one needs a credential, declare the key and tell",
+		"the user to set it in Env; never ask them to paste a secret to you, and never put one in the code.",
+		"",
+		"Show the user what you are about to create and why, then create it. Afterwards, run it once on a real input",
+		"and report what came back, so they see it working rather than taking your word for it.",
+	].join("\n"),
+	tools: { run_command: "ask", define_tool: "ask", update_tool: "ask", read_file: "allow", list_files: "allow" },
+};
 
 export function Agents({ workspaceId, selected }: { workspaceId: string; selected?: string }) {
 	const [agents, setAgents] = useState<Agent[]>([]);
@@ -63,17 +90,30 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 		<main className="flex min-w-0 flex-1 flex-col">
 			<header className="flex items-center justify-between gap-4 border-b border-border py-2 pr-2 pl-6">
 				<span className="text-sm font-medium">Agents</span>
-				<Button
-					variant="ghost"
-					size="sm"
-					onClick={() => {
-						setEditing(undefined);
-						setDraft(emptyDraft);
-					}}
-				>
-					<Plus />
-					New agent
-				</Button>
+				<div className="flex gap-1">
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => {
+							setEditing(undefined);
+							setDraft(toolBuilder);
+						}}
+					>
+						<Wrench />
+						Tool builder
+					</Button>
+					<Button
+						variant="ghost"
+						size="sm"
+						onClick={() => {
+							setEditing(undefined);
+							setDraft(emptyDraft);
+						}}
+					>
+						<Plus />
+						New agent
+					</Button>
+				</div>
 			</header>
 
 			<div className="flex min-h-0 flex-1">
