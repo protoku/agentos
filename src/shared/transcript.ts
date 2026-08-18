@@ -1,12 +1,31 @@
-import type { Agent, Entry } from "../../shared/types";
+import type { Agent, Entry } from "./types";
 
 /** Every agent sees the whole thread, so a turn's prompt is the thread rendered as text. */
 export function transcript(entries: Entry[], agents: Agent[], acting: Agent): string {
-	const lines = [
+	return [
 		`You are the agent @${acting.name} in a conversation with a user and possibly other agents.`,
 		"Below is everything said and done in it so far. Reply as yourself, in plain text.",
 		"",
-	];
+		...threadLines(entries, agents),
+	].join("\n");
+}
+
+/**
+ * What the conversation costs an agent, measured on the very text a turn sends.
+ * Four characters a token is a rule of thumb: the exact count belongs to the model's
+ * tokenizer, and one thread can go to agents on different models, so this is approximate.
+ */
+export function tokens(entries: Entry[], agents: Agent[]): number {
+	return Math.round(threadLines(entries.filter(settled), agents).join("\n").length / 4);
+}
+
+/** A call still pending or running is no part of the thread a turn is built from. */
+function settled(entry: Entry): boolean {
+	return entry.type !== "toolCall" || (entry.status !== "pending" && entry.status !== "running");
+}
+
+function threadLines(entries: Entry[], agents: Agent[]): string[] {
+	const lines = [];
 
 	for (const entry of entries) {
 		switch (entry.type) {
@@ -27,7 +46,7 @@ export function transcript(entries: Entry[], agents: Agent[], acting: Agent): st
 		}
 	}
 
-	return lines.join("\n");
+	return lines;
 }
 
 function name(agents: Agent[], agentId: string): string {

@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Boxes, Check, Copy, FolderOpen, Square, Users } from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { ArrowUp, Boxes, Check, Copy, FolderOpen, Gauge, Square, Users } from "lucide-react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -29,6 +29,7 @@ import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
+import { tokens } from "../../shared/transcript";
 import type { Agent, Entry, Mount, Tool, ToolCall } from "../../shared/types";
 
 export function Thread({
@@ -80,6 +81,9 @@ export function Thread({
 			(entry) => (entry.type === "turnStart" || entry.type === "agentMessage") && entry.agentId === agent.id,
 		),
 	);
+
+	// Measuring walks every entry and stringifies every call, which no keystroke should redo.
+	const size = useMemo(() => tokens(entries, agents), [entries, agents]);
 
 	// A different list starts at its first name, never at wherever the last one was left.
 	useEffect(() => {
@@ -153,6 +157,9 @@ export function Thread({
 							{present.map((agent) => `@${agent.name}`).join(", ")}
 						</Bound>
 					)}
+					<Bound label="Conversation size" icon={<Gauge className="size-3.5" />}>
+						{`~${thousands(size)} tokens`}
+					</Bound>
 				</div>
 
 				{sandbox && (
@@ -540,6 +547,13 @@ function withMentions(content: string, agents: Agent[]) {
 	parts.push(content.slice(cursor));
 
 	return parts;
+}
+
+/** An estimate, so it reads at a glance rather than carrying digits it cannot stand behind. */
+function thousands(count: number): string {
+	if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}m`;
+
+	return count < 1000 ? `${count}` : `${(count / 1000).toFixed(1)}k`;
 }
 
 function time(iso: string): string {

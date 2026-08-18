@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { transcript } from "./transcript";
-import type { Agent, Entry } from "../../shared/types";
+import { tokens, transcript } from "./transcript";
+import type { Agent, Entry } from "./types";
 
 const ops: Agent = {
 	id: "agent-ops",
@@ -39,5 +39,34 @@ describe("transcript", () => {
 
 	it("leaves turn markers out, since they carry nothing to read", () => {
 		expect(transcript(entries, [ops], ops)).not.toContain("turnStart");
+	});
+});
+
+describe("tokens", () => {
+	it("counts four characters to the token, on the thread's own lines", () => {
+		const one: Entry[] = [{ type: "userMessage", id: "m1", content: "0123456789", createdAt: "" }];
+
+		// The line is "user: 0123456789": sixteen characters, and nothing of the turn around it.
+		expect(tokens(one, [ops])).toBe(4);
+		expect(tokens([], [ops])).toBe(0);
+	});
+
+	it("counts nothing for a call that has not settled, which no turn is sent", () => {
+		const pending: Entry = {
+			type: "toolCall",
+			id: "c2",
+			toolId: "read_file",
+			input: { path: "big.txt" },
+			status: "pending",
+			createdAt: "",
+		};
+
+		expect(tokens([...entries, pending], [ops])).toBe(tokens(entries, [ops]));
+	});
+
+	it("adds nothing for turn markers, which carry no content", () => {
+		const spoken = entries.filter((entry) => entry.type !== "turnStart" && entry.type !== "turnEnd");
+
+		expect(tokens(entries, [ops])).toBe(tokens(spoken, [ops]));
 	});
 });
