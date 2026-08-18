@@ -1,4 +1,4 @@
-import { Boxes, FolderOpen, GitBranch, MessagesSquare } from "lucide-react";
+import { Boxes, File, Folder, FolderOpen, GitBranch, MessagesSquare } from "lucide-react";
 import type { MountSource, ToolCall } from "../../shared/types";
 
 const icons: Record<MountSource["type"], React.ReactNode> = {
@@ -7,11 +7,16 @@ const icons: Record<MountSource["type"], React.ReactNode> = {
 	conversations: <MessagesSquare />,
 };
 
-/** What a call did, said as rows: what happened, then what it happened to. */
+/** How a call reads on one line, and what is worth seeing when that line is opened. */
 export interface CallSummary {
-	/** Past tense, and subjectless: whoever made the call is put in front of it. */
-	verb: string;
-	rows: { icon: React.ReactNode; text: string; hint?: string }[];
+	/** The tool as a thing it does: Mount, List files. */
+	label: string;
+	icon?: React.ReactNode;
+	/** What it acted on. */
+	subject?: string;
+	/** What became of it, sitting at the far right. */
+	hint?: string;
+	rows?: { icon: React.ReactNode; text: string }[];
 }
 
 /**
@@ -27,34 +32,61 @@ type Summary = (output: Record<string, unknown>, sources: MountSource[]) => Call
 
 const summaries: Record<string, Summary> = {
 	mount: ({ source, path, mode, readOnly, startedFrom }, sources) => ({
-		verb: "mounted",
-		rows: [
-			{
-				icon: iconFor(source, sources),
-				text: `${String(source)} → ${String(path)}`,
-				hint: [String(mode), readOnly === true ? "read-only" : undefined, from(startedFrom)]
-					.filter((term) => term !== undefined)
-					.join(", "),
-			},
-		],
+		label: "Mount",
+		icon: iconFor(source, sources),
+		subject: `${String(source)} → ${String(path)}`,
+		hint: [String(mode), readOnly === true ? "read-only" : undefined, from(startedFrom)]
+			.filter((term) => term !== undefined)
+			.join(", "),
 	}),
+	list_files: ({ path, entries }) => {
+		const listed = Array.isArray(entries) ? (entries as { name: string; type: string }[]) : [];
+		const directories = listed.filter((entry) => entry.type === "directory");
+
+		return {
+			label: "List files",
+			icon: <Folder />,
+			subject: String(path),
+			hint: counted(directories.length, listed.length),
+			// Opening the line is worth something: the names, directories first.
+			rows: [...directories, ...listed.filter((entry) => entry.type !== "directory")].map((entry) => ({
+				icon: entry.type === "directory" ? <Folder /> : <File />,
+				text: entry.name,
+			})),
+		};
+	},
 	unmount: ({ source, path, mode }, sources) => ({
-		verb: "unmounted",
-		rows: [
-			{
-				icon: iconFor(source, sources),
-				text: source === undefined ? String(path) : `${String(source)} at ${String(path)}`,
-				// The isolated case is the destructive one: its worktree and its branches go with it.
-				hint:
-					mode === "isolated"
-						? "isolated, worktree discarded"
-						: mode === undefined
-							? undefined
-							: "the data behind it untouched",
-			},
-		],
+		label: "Unmount",
+		icon: iconFor(source, sources),
+		subject: source === undefined ? String(path) : `${String(source)} at ${String(path)}`,
+		// The isolated case is the destructive one: its worktree and its branches go with it.
+		hint:
+			mode === "isolated"
+				? "isolated, worktree discarded"
+				: mode === undefined
+					? undefined
+					: "the data behind it untouched",
 	}),
 };
+
+function counted(directories: number, all: number): string {
+	if (all === 0) return "empty";
+
+	const files = all - directories;
+	const parts = [
+		directories > 0 ? `${directories} ${directories === 1 ? "directory" : "directories"}` : undefined,
+		files > 0 ? `${files} ${files === 1 ? "file" : "files"}` : undefined,
+	];
+
+	return parts.filter((part) => part !== undefined).join(", ");
+}
+
+/** A tool with no summary of its own still gets its name back: git_create_branch, Git create branch. */
+export function labelOf(toolId: string): string {
+	const words = toolId.replace(/_/g, " ");
+
+	return words.charAt(0).toUpperCase() + words.slice(1);
+}
 
 function iconFor(source: unknown, sources: MountSource[]): React.ReactNode {
 	const kind = sources.find((candidate) => candidate.name === source)?.type;

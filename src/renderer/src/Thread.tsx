@@ -1,16 +1,18 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	ArrowUp,
+	Bot,
 	Boxes,
 	Check,
-	ChevronDown,
 	CircleSlash,
 	Clock,
 	Copy,
 	FolderOpen,
 	Gauge,
 	GitCompare,
+	PanelRight,
 	Square,
+	User,
 	Users,
 	X,
 } from "lucide-react";
@@ -39,7 +41,7 @@ import {
 	MessageScrollerProvider,
 	MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
-import { summarise } from "./calls";
+import { labelOf, summarise } from "./calls";
 import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
@@ -233,14 +235,14 @@ export function Thread({
 			<MessageScrollerProvider autoScroll defaultScrollPosition="end">
 				<MessageScroller className="flex-1">
 					<MessageScrollerViewport>
-						<MessageScrollerContent className="flex flex-col gap-5 px-6 py-5">
-							{entries.filter((entry) => shows(entry, endedTurns)).map((entry) => (
-								<MessageScrollerItem key={entry.id} messageId={entry.id}>
-									<EntryView
-										entry={entry}
+						<MessageScrollerContent className="flex flex-col px-6 py-5">
+							{blocksOf(entries, endedTurns).map((block, index) => (
+								<MessageScrollerItem key={block.entries[0].id} messageId={block.entries[0].id}>
+									<Block
+										block={block}
+										first={index === 0}
 										agents={agents}
 										sources={sources}
-										endedTurns={endedTurns}
 										onOpenPath={onOpenPath}
 									/>
 								</MessageScrollerItem>
@@ -384,48 +386,109 @@ function shows(entry: Entry, endedTurns: Set<string>): boolean {
 	return true;
 }
 
+interface ActorBlock {
+	/** The agent whose doing this is, or nothing at all when it is the user's. */
+	agentId?: string;
+	working: boolean;
+	entries: Entry[];
+}
+
+/** One person or agent acts, then another: the thread reads as their turns at it, not as entries. */
+function blocksOf(entries: Entry[], endedTurns: Set<string>): ActorBlock[] {
+	const blocks: ActorBlock[] = [];
+
+	for (const entry of entries) {
+		const agentId = entry.type === "userMessage" ? undefined : "agentId" in entry ? entry.agentId : undefined;
+		const last = blocks.at(-1);
+		const block = last?.agentId === agentId && last !== undefined ? last : undefined;
+
+		if (block === undefined) blocks.push({ agentId, working: false, entries: [] });
+		const current = blocks.at(-1) as ActorBlock;
+
+		// A start with no end is what makes a block say it is still going.
+		if (entry.type === "turnStart" && !endedTurns.has(entry.id)) current.working = true;
+		if (shows(entry, endedTurns)) current.entries.push(entry);
+	}
+
+	return blocks.filter((block) => block.entries.length > 0);
+}
+
+function Block({
+	block,
+	first,
+	agents,
+	sources,
+	onOpenPath,
+}: {
+	block: ActorBlock;
+	first: boolean;
+	agents: Agent[];
+	sources: MountSource[];
+	onOpenPath: (path: string) => void;
+}) {
+	const began = block.entries[0];
+
+	return (
+		<section className={cn("flex flex-col gap-3 py-4", !first && "border-t border-border")}>
+			<div className="flex items-center gap-2 text-sm">
+				<Medallion className="text-muted-foreground">
+					{block.agentId === undefined ? <User /> : <Bot />}
+				</Medallion>
+				<span className="font-medium">
+					{block.agentId === undefined ? "You" : `@${agentName(agents, block.agentId)}`}
+				</span>
+				<time className="text-xs text-muted-foreground" dateTime={began.createdAt}>
+					{time(began.createdAt)}
+				</time>
+				{block.working && <span className="text-xs text-muted-foreground">working…</span>}
+			</div>
+
+			<div className="flex flex-col gap-3 pl-7">
+				{block.entries.map((entry) => (
+					<EntryView key={entry.id} entry={entry} agents={agents} sources={sources} onOpenPath={onOpenPath} />
+				))}
+			</div>
+		</section>
+	);
+}
+
 function EntryView({
 	entry,
 	agents,
 	sources,
-	endedTurns,
 	onOpenPath,
 }: {
 	entry: Entry;
 	agents: Agent[];
 	sources: MountSource[];
-	endedTurns: Set<string>;
 	onOpenPath: (path: string) => void;
 }) {
 	switch (entry.type) {
 		case "toolCall":
-			return <ToolCallView call={entry} agents={agents} sources={sources} onOpenPath={onOpenPath} />;
+			return <CallRow call={entry} sources={sources} onOpenPath={onOpenPath} />;
 		case "turnStart":
-			return endedTurns.has(entry.id) ? null : (
-				<p className="text-sm text-muted-foreground">@{agentName(agents, entry.agentId)} is working…</p>
-			);
+			return null;
 		case "turnEnd":
-			return entry.status === "finished" ? null : (
-				<p className="text-sm text-destructive">
-					Turn {entry.status}. {entry.error}
+			return (
+				<p className="flex items-center gap-2 text-sm text-muted-foreground">
+					<Badge variant="outline" className={statusColors[entry.status === "failed" ? "error" : "canceled"]}>
+						turn {entry.status}
+					</Badge>
+					{entry.error}
 				</p>
 			);
 		case "userMessage":
 		case "agentMessage":
 			return (
-				<article className="group flex flex-col gap-1">
-					<div className="flex items-baseline gap-2 text-xs text-muted-foreground">
-						<span className="font-medium text-foreground">
-							{entry.type === "userMessage" ? "You" : `@${agentName(agents, entry.agentId)}`}
-						</span>
-						<time dateTime={entry.createdAt}>{time(entry.createdAt)}</time>
-						<CopyButton label="Copy message" text={entry.content} />
+				<article className="group flex items-start gap-2">
+					<div className="min-w-0 flex-1">
+						{entry.type === "userMessage" ? (
+							<p className="text-sm whitespace-pre-wrap">{withMentions(entry.content, agents)}</p>
+						) : (
+							<Markdown content={entry.content} />
+						)}
 					</div>
-					{entry.type === "userMessage" ? (
-						<p className="text-sm whitespace-pre-wrap">{withMentions(entry.content, agents)}</p>
-					) : (
-						<Markdown content={entry.content} />
-					)}
+					<CopyButton label="Copy message" text={entry.content} />
 				</article>
 			);
 	}
@@ -471,22 +534,20 @@ const statusColors: Record<ToolCall["status"], string> = {
 	canceled: "border-border text-muted-foreground",
 };
 
-function ToolCallView({
+function CallRow({
 	call,
-	agents,
 	sources,
 	onOpenPath,
 }: {
 	call: ToolCall;
-	agents: Agent[];
 	sources: MountSource[];
 	onOpenPath: (path: string) => void;
 }) {
 	const [denyMessage, setDenyMessage] = useState("");
+	// A call being decided, or one still running, is open already: one needs reading, the other stopping.
+	const [open, setOpen] = useState(call.status === "pending" || call.status === "running");
 	const path = pathOf(call);
-	// Pending and running keep their payloads and their controls: one is being decided, the other stopped.
-	const settled = call.status !== "pending" && call.status !== "running";
-	const summary = settled ? summarise(call, sources) : undefined;
+	const summary = summarise(call, sources);
 
 	function decide(allowed: boolean) {
 		const message = denyMessage.trim();
@@ -497,90 +558,63 @@ function ToolCallView({
 		});
 	}
 
-	if (summary !== undefined) {
-		return (
-			<article className="group flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
-				<div className="flex items-center gap-3 p-3">
+	return (
+		<article className="group flex flex-col gap-2">
+			<div className="flex items-center gap-2 text-sm">
+				<button
+					type="button"
+					aria-expanded={open}
+					onClick={() => setOpen(!open)}
+					className="flex min-w-0 flex-1 items-center gap-2 text-left"
+				>
 					<Medallion className={statusColors[call.status]}>{statusIcons[call.status]}</Medallion>
-					{path === undefined ? (
-						<span className="flex-1 text-sm font-medium">{said(call, agents, summary.verb)}</span>
-					) : (
-						<button
-							type="button"
-							title={`Open ${path}`}
-							onClick={() => onOpenPath(path)}
-							className="flex-1 text-left text-sm font-medium underline-offset-4 hover:underline"
-						>
-							{said(call, agents, summary.verb)}
-						</button>
+					<span className="shrink-0 text-muted-foreground">{summary?.label ?? labelOf(call.toolId)}</span>
+					{summary?.icon && <span className="shrink-0 text-muted-foreground [&_svg]:size-3.5">{summary.icon}</span>}
+					{summary?.subject !== undefined && (
+						<span className="min-w-0 truncate font-medium">{summary.subject}</span>
 					)}
 					<time className="shrink-0 text-xs text-muted-foreground" dateTime={call.createdAt}>
 						{time(call.createdAt)}
 					</time>
-				</div>
+				</button>
 
-				{summary.rows.map((row) => (
-					<div key={row.text} className="flex items-center gap-3 p-3">
-						<Medallion className="text-muted-foreground">{row.icon}</Medallion>
-						<span className="min-w-0 flex-1 truncate text-sm font-medium">{row.text}</span>
-						{row.hint && <span className="shrink-0 text-xs text-muted-foreground">{row.hint}</span>}
-					</div>
-				))}
-
-				{call.error && <p className="p-3 text-sm text-destructive">{call.error}</p>}
-				{call.denyMessage && <p className="p-3 text-sm text-destructive">{call.denyMessage}</p>}
-
-				<details className="bg-elevated text-xs">
-					<summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-muted-foreground hover:text-foreground">
-						<ChevronDown className="size-4 transition-transform [details[open]_&]:rotate-180" />
-						<span className="flex-1">Details</span>
-						<CopyButton label="Copy input and output" text={payloadOf(call)} />
-					</summary>
-					<div className="flex flex-col gap-2 px-3 pb-3">
-						<Payload label="Input" value={call.input} />
-						{call.output && <Payload label="Output" value={call.output} />}
-					</div>
-				</details>
-			</article>
-		);
-	}
-
-	return (
-		<article className="group flex flex-col gap-2 rounded-lg border border-border bg-surface p-3">
-			<div className="flex items-baseline gap-2 text-xs">
-				<span className="font-medium">
-					{call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`}
-				</span>
-				{path === undefined ? (
-					<span className="font-medium">{call.toolId}</span>
-				) : (
+				{summary?.hint !== undefined && summary.hint.length > 0 && (
+					<span className="shrink-0 text-xs text-muted-foreground">{summary.hint}</span>
+				)}
+				{path !== undefined && (
 					<button
 						type="button"
 						title={`Open ${path}`}
-						className="font-medium underline-offset-4 hover:underline"
 						onClick={() => onOpenPath(path)}
+						className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
 					>
-						{call.toolId}
+						<PanelRight className="size-3.5" />
 					</button>
 				)}
-				<Badge variant="outline" className={statusColors[call.status]}>
-					{call.status}
-				</Badge>
-				<time className="text-muted-foreground" dateTime={call.createdAt}>
-					{time(call.createdAt)}
-				</time>
 				<CopyButton label="Copy input and output" text={payloadOf(call)} />
 			</div>
 
-			{call.reason && <p className="text-xs text-muted-foreground">{call.reason}</p>}
+			{call.reason && <p className="pl-7 text-xs text-muted-foreground">{call.reason}</p>}
 
-			<Payload label="Input" value={call.input} />
-			{call.output && <Payload label="Output" value={call.output} />}
-			{call.error && <p className="text-sm text-destructive">{call.error}</p>}
-			{call.denyMessage && <p className="text-sm text-destructive">{call.denyMessage}</p>}
+			{open && (
+				<div className="flex flex-col gap-2 pl-7">
+					{summary?.rows?.map((row) => (
+						<span key={row.text} className="flex items-center gap-2 text-xs text-muted-foreground">
+							<span className="[&_svg]:size-3.5">{row.icon}</span>
+							{row.text}
+						</span>
+					))}
+
+					<Payload label="Input" value={call.input} />
+					{call.output && <Payload label="Output" value={call.output} />}
+				</div>
+			)}
+
+			{call.error && <p className="pl-7 text-sm text-destructive">{call.error}</p>}
+			{call.denyMessage && <p className="pl-7 text-sm text-destructive">{call.denyMessage}</p>}
 
 			{call.status === "running" && (
-				<div>
+				<div className="pl-7">
 					<Button size="sm" variant="outline" onClick={() => void window.agentOS.cancelToolCall(call.id)}>
 						Cancel
 					</Button>
@@ -588,7 +622,7 @@ function ToolCallView({
 			)}
 
 			{call.status === "pending" && (
-				<div className="flex items-center gap-2">
+				<div className="flex items-center gap-2 pl-7">
 					<Input
 						value={denyMessage}
 						placeholder="Why not, if you deny"
@@ -610,14 +644,6 @@ function ToolCallView({
 			)}
 		</article>
 	);
-}
-
-/** Who did it and what became of it: "You mounted", "@ops tried to git push". */
-function said(call: ToolCall, agents: Agent[], verb: string): string {
-	const actor = call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`;
-	const what = call.status === "success" ? verb : `tried to ${call.toolId.replace(/_/g, " ")}`;
-
-	return `${actor} ${what}`;
 }
 
 /** The round badge each row wears, which is what makes a call read as a thing that happened. */
