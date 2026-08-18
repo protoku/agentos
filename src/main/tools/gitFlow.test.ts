@@ -109,6 +109,59 @@ describe("branch, commit, push", () => {
 	});
 });
 
+describe("git_checkout", () => {
+	it("reaches a branch that exists only on the remote", async () => {
+		await invoke("git_create_branch", { path: "api", name: "work" });
+		await invoke("write_file", { path: "api/notes.md", content: "Mine" });
+		await invoke("git_commit", { path: "api", message: "Add notes" });
+		await invoke("git_push", { path: "api" });
+		// Discards that worktree and its local branch, so only the remote still has the work.
+		await invoke("unmount", { path: "api" });
+
+		// A conversation that has never heard of that branch.
+		const other = (await startConversation(root, workspaceId, "Continuing")).conversation.id;
+		await invoke("mount", { source: "api", path: "api", mode: "isolated" }, other);
+
+		const call = await invoke("git_checkout", { path: "api", name: "work" }, other);
+
+		expect(call).toMatchObject({ status: "success", output: { branch: "work" } });
+		expect(await invoke("read_file", { path: "api/notes.md" }, other)).toMatchObject({ status: "success" });
+	});
+
+	it("refuses a branch another worktree is already holding", async () => {
+		await invoke("git_create_branch", { path: "api", name: "work" });
+
+		const other = (await startConversation(root, workspaceId, "Fighting over it")).conversation.id;
+		await invoke("mount", { source: "api", path: "api", mode: "isolated" }, other);
+
+		expect(await invoke("git_checkout", { path: "api", name: "work" }, other)).toMatchObject({ status: "error" });
+	});
+
+	it("is not for a shared mount, which never leaves its default branch", async () => {
+		const other = (await startConversation(root, workspaceId, "Shared")).conversation.id;
+		await invoke("mount", { source: "api", path: "api" }, other);
+
+		expect(await invoke("git_checkout", { path: "api", name: "main" }, other)).toMatchObject({
+			error: "api is a shared mount, which never leaves its default branch",
+		});
+	});
+
+	it("leaves a visited branch alone when the conversation is archived", async () => {
+		await invoke("git_create_branch", { path: "api", name: "work" });
+		await invoke("write_file", { path: "api/notes.md", content: "Mine" });
+		await invoke("git_commit", { path: "api", message: "Add notes" });
+		await invoke("git_push", { path: "api" });
+
+		const other = (await startConversation(root, workspaceId, "Visiting")).conversation.id;
+		await invoke("mount", { source: "api", path: "api", mode: "isolated" }, other);
+		await invoke("git_checkout", { path: "api", name: "work" }, other);
+		await archiveConversation(root, workspaceId, other);
+
+		// It created nothing, so it destroys nothing: the branch is still on the remote.
+		expect(await git(["log", "--pretty=%s", "-n1", "work"], remote)).toContain("Add notes");
+	});
+});
+
 describe("what a mount's mode and readOnly allow", () => {
 	it("keeps a shared mount on its default branch, so it never branches", async () => {
 		const other = (await startConversation(root, workspaceId, "Shared work")).conversation.id;

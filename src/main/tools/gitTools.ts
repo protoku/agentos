@@ -116,6 +116,25 @@ export const gitTools: BuiltinToolImplementation[] = [
 		},
 	}),
 	define({
+		id: "git_checkout",
+		description: "Switch an isolated git mount onto a branch that already exists.",
+		input: z.object({ path: mountPath, name: z.string().describe("Branch to switch onto") }),
+		outputSchema: {
+			type: "object",
+			properties: { path: { type: "string" }, branch: { type: "string" } },
+			required: ["path", "branch"],
+		},
+		async run({ path, name }, context) {
+			const { directory } = await gitMount(context, path, { writable: true, isolated: true });
+
+			// Fetch first, so a branch that exists only on the remote is one this mount can reach.
+			await git(["fetch", "origin"], directory).catch(() => undefined);
+			await git(["switch", name], directory);
+
+			return { path, branch: name };
+		},
+	}),
+	define({
 		id: "git_commit",
 		description: "Commit everything that changed on a git mount.",
 		input: z.object({ path: mountPath, message: z.string().describe("Commit message") }),

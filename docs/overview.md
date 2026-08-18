@@ -209,7 +209,7 @@ For a git source the workspace keeps one base clone, and both modes derive from 
 
 Mounting a git source fetches first, which moves no file anywhere. An isolated git mount is its own worktree added from the base clone, starting at the tip of the default branch as the remote has it, so a conversation always begins from what is really there; when the remote cannot be reached it starts at the clone's own tip and the call says so. A shared mount is never moved by mounting it, since other conversations may be standing on that checkout with work in it: moving it stays an explicit pull. From there, branching, committing, pulling, and pushing happen through the built-in git tools: branch names follow whatever convention the project uses, and every git action becomes a recorded tool call in the thread. Until a branch is created, an isolated mount is treated as read-only and the editing tools refuse to change it, so work can never begin on the default branch itself. Archiving the conversation removes the worktree and any branches created from it, which is why only pushed work survives.
 
-Mode decides which git tools apply. The inspection tools, git_status, git_diff, and git_log, work on any git mount, and git_pull on any writable one. git_create_branch exists only for isolated mounts: the shared checkout never leaves the default branch, so on a writable shared mount git_commit and git_push operate directly on it, which is exactly what choosing shared means. On a read-only mount the mutating git tools are unavailable. git_push sets a new branch's upstream on its first push; until then, git_pull on that branch fails with a clear error.
+Mode decides which git tools apply. The inspection tools, git_status, git_diff, and git_log, work on any git mount, and git_pull on any writable one. git_create_branch and git_checkout exist only for isolated mounts: the shared checkout never leaves the default branch, so on a writable shared mount git_commit and git_push operate directly on it, which is exactly what choosing shared means. Checking out fetches first, so a branch that exists only on the remote is one the mount can reach; a branch another conversation is already working on is refused, since two worktrees cannot hold the same branch. What archiving takes with the worktree is unchanged: the branches this conversation created, never one it merely visited. On a read-only mount the mutating git tools are unavailable. git_push sets a new branch's upstream on its first push; until then, git_pull on that branch fails with a clear error.
 
 ```ts
 interface Mount {
@@ -270,6 +270,7 @@ Built-in tools act on the conversation's sandbox and respect read-only mounts; t
 - git_diff: show a git mount's changes
 - git_log: show recent history of a git mount's branch
 - git_create_branch: create a branch on a git mount and switch the mount onto it
+- git_checkout: switch a git mount onto a branch that already exists, its own or the remote's
 - git_commit: commit changes on a git mount
 - git_pull: pull a git mount's branch from the remote
 - git_push: push a git mount's branch to the remote
