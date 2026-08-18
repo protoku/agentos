@@ -16,7 +16,12 @@ export function transcript(entries: Entry[], agents: Agent[], acting: Agent): st
  * tokenizer, and one thread can go to agents on different models, so this is approximate.
  */
 export function tokens(entries: Entry[], agents: Agent[]): number {
-	return Math.round(threadLines(entries, agents).join("\n").length / 4);
+	return Math.round(threadLines(entries.filter(settled), agents).join("\n").length / 4);
+}
+
+/** A call still pending or running is no part of the thread a turn is built from. */
+function settled(entry: Entry): boolean {
+	return entry.type !== "toolCall" || (entry.status !== "pending" && entry.status !== "running");
 }
 
 function threadLines(entries: Entry[], agents: Agent[]): string[] {

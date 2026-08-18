@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { ArrowUp, Boxes, Check, Copy, FolderOpen, Gauge, Square, Users } from "lucide-react";
 import {
 	AlertDialog,
@@ -82,6 +82,9 @@ export function Thread({
 		),
 	);
 
+	// Measuring walks every entry and stringifies every call, which no keystroke should redo.
+	const size = useMemo(() => tokens(entries, agents), [entries, agents]);
+
 	// A different list starts at its first name, never at wherever the last one was left.
 	useEffect(() => {
 		setHighlight(0);
@@ -154,11 +157,9 @@ export function Thread({
 							{present.map((agent) => `@${agent.name}`).join(", ")}
 						</Bound>
 					)}
-					{entries.length > 0 && (
-						<Bound label="Conversation size" icon={<Gauge className="size-3.5" />}>
-							{`~${thousands(tokens(entries, agents))} tokens`}
-						</Bound>
-					)}
+					<Bound label="Conversation size" icon={<Gauge className="size-3.5" />}>
+						{`~${thousands(size)} tokens`}
+					</Bound>
 				</div>
 
 				{sandbox && (
@@ -550,6 +551,8 @@ function withMentions(content: string, agents: Agent[]) {
 
 /** An estimate, so it reads at a glance rather than carrying digits it cannot stand behind. */
 function thousands(count: number): string {
+	if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}m`;
+
 	return count < 1000 ? `${count}` : `${(count / 1000).toFixed(1)}k`;
 }
 

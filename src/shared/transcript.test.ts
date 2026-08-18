@@ -43,10 +43,25 @@ describe("transcript", () => {
 });
 
 describe("tokens", () => {
-	it("measures the thread, and an empty one costs nothing", () => {
+	it("counts four characters to the token, on the thread's own lines", () => {
+		const one: Entry[] = [{ type: "userMessage", id: "m1", content: "0123456789", createdAt: "" }];
+
+		// The line is "user: 0123456789": sixteen characters, and nothing of the turn around it.
+		expect(tokens(one, [ops])).toBe(4);
 		expect(tokens([], [ops])).toBe(0);
-		expect(tokens(entries, [ops])).toBeGreaterThan(0);
-		expect(tokens([...entries, ...entries], [ops])).toBeGreaterThan(tokens(entries, [ops]));
+	});
+
+	it("counts nothing for a call that has not settled, which no turn is sent", () => {
+		const pending: Entry = {
+			type: "toolCall",
+			id: "c2",
+			toolId: "read_file",
+			input: { path: "big.txt" },
+			status: "pending",
+			createdAt: "",
+		};
+
+		expect(tokens([...entries, pending], [ops])).toBe(tokens(entries, [ops]));
 	});
 
 	it("adds nothing for turn markers, which carry no content", () => {
