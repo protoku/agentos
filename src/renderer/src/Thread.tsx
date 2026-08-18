@@ -492,9 +492,11 @@ function Block({
 				{block.working && <span className="text-xs text-muted-foreground">working…</span>}
 			</div>
 
-			<div className="flex flex-col gap-3 pl-7">
+			<div className="flex flex-col divide-y divide-border pl-7">
 				{block.entries.map((entry) => (
-					<EntryView key={entry.id} entry={entry} agents={agents} sources={sources} onOpenPath={onOpenPath} />
+					<div key={entry.id} className="py-2 first:pt-0 last:pb-0">
+						<EntryView entry={entry} agents={agents} sources={sources} onOpenPath={onOpenPath} />
+					</div>
 				))}
 			</div>
 		</section>
@@ -646,11 +648,11 @@ function CallRow({
 			{call.reason && <p className="pl-7 text-xs text-muted-foreground">{call.reason}</p>}
 
 			{open && (
-				<div className="flex flex-col gap-2 pl-7">
+				<div className="ml-7 flex flex-col gap-3 rounded-lg border border-border bg-elevated p-3">
 					{summary?.rows?.map((row) => (
 						<span key={row.text} className="flex items-center gap-2 text-xs text-muted-foreground">
 							<span className="[&_svg]:size-3.5">{row.icon}</span>
-							{row.text}
+							<span className="truncate">{row.text}</span>
 						</span>
 					))}
 
@@ -722,11 +724,12 @@ function payloadOf(call: ToolCall): string {
 	return JSON.stringify({ input: call.input, ...(call.output && { output: call.output }) }, null, 2);
 }
 
+/** Inside the box a line opens, so it carries no box of its own. */
 function Payload({ label, value }: { label: string; value: Record<string, unknown> }) {
 	return (
 		<div className="flex flex-col gap-1">
 			<span className="text-xs tracking-wide text-muted-foreground uppercase">{label}</span>
-			<pre className="overflow-x-auto rounded-md bg-muted p-2 text-xs">{JSON.stringify(value, null, 2)}</pre>
+			<pre className="overflow-x-auto text-xs">{JSON.stringify(value, null, 2)}</pre>
 		</div>
 	);
 }
