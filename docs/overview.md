@@ -255,7 +255,9 @@ The scope is deliberately actions, not definitions. Agent prompts, permissions, 
 
 ## Built-in tools
 
-Built-in tools act on the conversation's sandbox and respect read-only mounts; the git remote tools reach exactly as far as the mount's remote, and the mount tools reshape the sandbox itself. The git tools name the mount they target by its sandbox path. There is deliberately no general command runner: running anything is authorized per command, by defining a script tool for it.
+Built-in tools act on the conversation's sandbox and respect read-only mounts; the git remote tools reach exactly as far as the mount's remote, and the mount tools reshape the sandbox itself. The git tools name the mount they target by its sandbox path. Running anything is authorized per command, by defining a script tool for it, and no agent is handed a general command runner as a matter of course.
+
+The exception is the work of building tools, which cannot be done blind: finding out what a command does, what its options are and what shape its output takes is how a tool gets written at all. So there are three tools for that work, define_tool, update_tool and run_command, and they are ordinary tools an agent is granted or not. Granting them is the largest permission in AgentOS and the doc is blunt about why: a tool is trusted code with no boundary around what it spawns, so an agent that may define a tool can already run anything, and withholding a command runner from it would only push the same power into a code blob that is harder to read. Granted as ask, every command and every tool arrives as a pending call carrying the exact command line, or the exact code, for the user to read before it happens.
 
 - read_file: read a file
 - write_file: create a file
@@ -266,6 +268,9 @@ Built-in tools act on the conversation's sandbox and respect read-only mounts; t
 - search_files: search file contents by pattern, returning at most a hundred matches, skipping whatever git ignores where it is searching a checkout, and never .git or node_modules
 - mount: attach a workspace mount source into the sandbox at a path
 - unmount: detach a mount, discarding an isolated mount's worktree
+- define_tool: add a script tool to the workspace
+- update_tool: change a script tool of the workspace
+- run_command: run one command in the sandbox, its arguments given as a list and never as a line to be split
 - git_status: show what changed on a git mount, and how far its branch is ahead of or behind the remote
 - git_diff: show a git mount's changes
 - git_log: show recent history of a git mount's branch
