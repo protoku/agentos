@@ -42,7 +42,7 @@
 
 /* Dark only: near-black ground, surfaces lift by getting lighter, color stays semantic. */
 :root {
-	--background: #0a0a0a;
+	--background: #0b0c0f;
 	--foreground: #fafafa;
 	--surface: #141414;
 	--elevated: #1a1a1a;
@@ -67,7 +67,7 @@
 	--radius: 0.5rem;
 
 	/* The sidebar is the surface it always was; these only give shadcn's sidebar its names for it. */
-	--sidebar: var(--surface);
+	--sidebar: #0e1011;
 	--sidebar-foreground: var(--foreground);
 	--sidebar-accent: var(--accent);
 	--sidebar-accent-foreground: var(--accent-foreground);
