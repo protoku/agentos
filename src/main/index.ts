@@ -1,7 +1,13 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from "electron";
 import { join } from "node:path";
 import { claudeCodeMissing, claudeCodePath } from "./agents/claudeCode";
-import { createWorkspace, loadWorkspace, loadWorkspaces, recoverAllInterruptedTurns } from "./storage/workspaceStore";
+import {
+	createWorkspace,
+	deleteWorkspace,
+	loadWorkspace,
+	loadWorkspaces,
+	recoverAllInterruptedTurns,
+} from "./storage/workspaceStore";
 import {
 	archiveConversation,
 	listConversations,
@@ -76,6 +82,16 @@ void app.whenReady().then(async () => {
 	}));
 	ipcMain.handle("workspaces:list", () => loadWorkspaces(root));
 	ipcMain.handle("workspaces:create", (_event, name: string) => createWorkspace(root, name));
+	ipcMain.handle("workspaces:delete", async (_event, workspaceId: string) => {
+		// Deleting is never blocked: it cancels what is in flight in every conversation, as archiving would.
+		const workspace = await loadWorkspace(root, workspaceId);
+		for (const conversation of workspace.conversations) {
+			cancelTurn(conversation.id);
+			cancelRulings(conversation.id);
+		}
+
+		await deleteWorkspace(root, workspaceId);
+	});
 	ipcMain.handle("conversations:list", (_event, workspaceId: string) => listConversations(root, workspaceId));
 	ipcMain.handle("conversations:read", (_event, workspaceId: string, conversationId: string) =>
 		readConversation(root, workspaceId, conversationId),

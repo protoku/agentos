@@ -6,6 +6,7 @@ const api: AgentOSApi = {
 	agentRuntime: () => ipcRenderer.invoke("agents:runtime"),
 	listWorkspaces: () => ipcRenderer.invoke("workspaces:list"),
 	createWorkspace: (name) => ipcRenderer.invoke("workspaces:create", name),
+	deleteWorkspace: (workspaceId) => ipcRenderer.invoke("workspaces:delete", workspaceId),
 	listConversations: (workspaceId) => ipcRenderer.invoke("conversations:list", workspaceId),
 	readConversation: (workspaceId, conversationId) =>
 		ipcRenderer.invoke("conversations:read", workspaceId, conversationId),

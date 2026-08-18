@@ -237,17 +237,19 @@ interface MountSource {
 }
 ```
 
-## Archiving
+## Archiving and deletion
 
-Nothing in AgentOS is deleted, and only conversations archive. Archiving a conversation closes it for good: there is no unarchive, its thread stays readable forever, and its sandbox and checkouts are removed, so work that was never pushed is gone. Archiving is available at any moment, blocked or not: it cancels whatever call is pending or running, exactly as if the user had canceled the turn, and those entries keep their canceled status in the closed thread. Because none of it can be undone, archiving asks first, and says what goes with the conversation.
+A conversation archives and a workspace is deleted; nothing else ends. Archiving a conversation closes it for good: there is no unarchive, its thread stays readable forever, and its sandbox and checkouts are removed, so work that was never pushed is gone. Archiving is available at any moment, blocked or not: it cancels whatever call is pending or running, exactly as if the user had canceled the turn, and those entries keep their canceled status in the closed thread. Because none of it can be undone, archiving asks first, and says what goes with the conversation.
 
-Everything else, workspaces, agents, tools, and mount sources, simply persists; since records never disappear, history always stays renderable. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery.
+Deleting a workspace destroys the whole boundary at once: its conversations and their threads, its sandboxes, base clones and isolated worktrees, its agents, tools, mount sources, and env. Like archiving, it is never blocked: it cancels whatever call is pending or running and whatever turn is acting, in every conversation of the workspace. What it never touches is data AgentOS does not own: a directory source's directory and a git source's remote stay exactly as they were, and only the workspace's own clone of a repository goes, so work that was never pushed is gone with it. Nothing survives to say it happened, and the workspace's threads stop being renderable: that is the cost of deleting, which is why it asks first and says what goes.
+
+Deletion is whole or not at all: nothing inside a workspace can be removed piecemeal, so its agents, tools, and mount sources simply persist for as long as it does, and since records never disappear while their workspace exists, its history always stays renderable. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery.
 
 ## Auditability
 
 Every record carries createdAt; tool calls record decidedAt when the user rules on a pending call and completedAt when they reach a terminal status, a turn's timing is carried by its start and end entries, and a conversation's archiving is recorded as archivedAt rather than a flag, so closing it is itself an audited event.
 
-Built-in tools carry no timestamps: they are part of the app, not records. All timestamps are ISO 8601. Together with append-only conversations and the archive-only lifecycle, every action in AgentOS is traceable to a moment in time.
+Built-in tools carry no timestamps: they are part of the app, not records. All timestamps are ISO 8601. Together with append-only conversations and a lifecycle that only archives, every action in AgentOS is traceable to a moment in time, for as long as its workspace exists.
 
 The scope is deliberately actions, not definitions. Agent prompts, permissions, and script tool code are edited in place without version history: a past entry tells you exactly what happened and when, while the agent or tool it points at is whatever that definition is today.
 
