@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { mkdir, readFile, readdir, rename, rm, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { recoverInterruptedTurns } from "./conversationFile";
 import type { TurnEnd, Workspace } from "../../shared/types";
@@ -8,7 +8,7 @@ function workspacesDirectory(root: string): string {
 	return join(root, "workspaces");
 }
 
-function workspaceDirectory(root: string, workspaceId: string): string {
+export function workspaceDirectory(root: string, workspaceId: string): string {
 	return join(workspacesDirectory(root), workspaceId);
 }
 
@@ -33,17 +33,6 @@ export async function createWorkspace(root: string, name: string): Promise<Works
 	};
 	await saveWorkspace(root, workspace);
 	return workspace;
-}
-
-/**
- * The one deletion in AgentOS: threads, sandboxes, clones and worktrees all live under the
- * workspace directory and go with it. Symlinked directory mounts inside sandboxes are removed
- * as links, since rm never follows them, so the directories they point at stay untouched.
- */
-export async function deleteWorkspace(root: string, workspaceId: string): Promise<void> {
-	// Loaded first so an id that is not there is refused instead of removing nothing quietly.
-	await loadWorkspace(root, workspaceId);
-	await rm(workspaceDirectory(root, workspaceId), { recursive: true, force: true });
 }
 
 /** Written beside the target and renamed onto it, so a crash never leaves a half written record. */

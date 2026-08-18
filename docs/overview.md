@@ -33,7 +33,7 @@ A new conversation starts as a draft: it is visible in the interface and nothing
 
 Each mentioned agent's activity on a message is a turn: it begins when the agent starts acting and covers everything it does, several messages and several tool calls included, until it has nothing further to do. A turn ends on its own when the agent finishes, and the next mentioned agent's turn begins; a canceled or failed turn ends the whole chain instead, so agents not yet started never act.
 
-While a turn is running the conversation belongs to the acting agent: the user can neither add messages nor invoke slash commands, whether the agent is working or waiting on a pending call. What the user can always do are the exits: decide a pending call by allowing or denying it, cancel a running call, cancel the whole turn, which stops its current call and skips every later-mentioned agent that has not yet started, or archive the conversation. The thread has exactly one writer at any moment: the user between turns, the acting agent during one. A user-invoked tool call occupies the conversation the same way: until it finishes or is canceled, no message can be sent and no turn can start.
+While a turn is running the conversation belongs to the acting agent: the user can neither add messages nor invoke slash commands, whether the agent is working or waiting on a pending call. What the user can always do are the exits: decide a pending call by allowing or denying it, cancel a running call, cancel the whole turn, which stops its current call and skips every later-mentioned agent that has not yet started, archive the conversation, or delete the workspace it belongs to. The thread has exactly one writer at any moment: the user between turns, the acting agent during one. A user-invoked tool call occupies the conversation the same way: until it finishes or is canceled, no message can be sent and no turn can start.
 
 A conversation can have a sandbox: its own directory, created the first time a tool or a mount needs it. With no mounts it is plain scratch space where agents can work; mounts attach the workspace's data sources into it. With isolated mounts, conversations run in parallel without interfering with each other.
 
@@ -249,7 +249,7 @@ Deletion is whole or not at all: nothing inside a workspace can be removed piece
 
 Every record carries createdAt; tool calls record decidedAt when the user rules on a pending call and completedAt when they reach a terminal status, a turn's timing is carried by its start and end entries, and a conversation's archiving is recorded as archivedAt rather than a flag, so closing it is itself an audited event.
 
-Built-in tools carry no timestamps: they are part of the app, not records. All timestamps are ISO 8601. Together with append-only conversations and a lifecycle that only archives, every action in AgentOS is traceable to a moment in time, for as long as its workspace exists.
+Built-in tools carry no timestamps: they are part of the app, not records. All timestamps are ISO 8601. Together with append-only conversations and a lifecycle that only archives or deletes a workspace whole, every action in AgentOS is traceable to a moment in time, for as long as its workspace exists.
 
 The scope is deliberately actions, not definitions. Agent prompts, permissions, and script tool code are edited in place without version history: a past entry tells you exactly what happened and when, while the agent or tool it points at is whatever that definition is today.
 

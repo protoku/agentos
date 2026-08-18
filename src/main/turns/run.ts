@@ -13,6 +13,7 @@ export type EntrySink = (entry: Entry) => void;
 
 interface Chain {
 	canceled: boolean;
+	settled?: Promise<void>;
 	turn?: { id: string; stop: AbortController };
 }
 
@@ -35,8 +36,13 @@ export function cancelTurn(conversationId: string): void {
 	chain.turn.stop.abort();
 }
 
+/** Canceling only asks: the turn still has its end entry to write, and this waits for that. */
+export function whenTurnSettles(conversationId: string): Promise<void> | undefined {
+	return chains.get(conversationId)?.settled;
+}
+
 /** Mentioned agents act one at a time; a turn that does not finish ends the chain. */
-export async function runMentionedTurns(
+export function runMentionedTurns(
 	root: string,
 	workspaceId: string,
 	conversationId: string,
@@ -45,16 +51,26 @@ export async function runMentionedTurns(
 ): Promise<void> {
 	const chain: Chain = { canceled: false };
 	chains.set(conversationId, chain);
+	chain.settled = runChain(root, workspaceId, conversationId, mentions, chain, emit).finally(() =>
+		chains.delete(conversationId),
+	);
 
-	try {
-		for (const agentId of mentions) {
-			if (chain.canceled) return;
+	return chain.settled;
+}
 
-			const end = await runTurn(root, workspaceId, conversationId, agentId, chain, emit);
-			if (end.status !== "finished") return;
-		}
-	} finally {
-		chains.delete(conversationId);
+async function runChain(
+	root: string,
+	workspaceId: string,
+	conversationId: string,
+	mentions: string[],
+	chain: Chain,
+	emit: EntrySink,
+): Promise<void> {
+	for (const agentId of mentions) {
+		if (chain.canceled) return;
+
+		const end = await runTurn(root, workspaceId, conversationId, agentId, chain, emit);
+		if (end.status !== "finished") return;
 	}
 }
 

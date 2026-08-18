@@ -1,4 +1,4 @@
-import { mkdir, mkdtemp, readdir, rm, symlink, writeFile } from "node:fs/promises";
+import { mkdtemp, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -6,7 +6,6 @@ import { appendEntry, readEntries } from "./conversationFile";
 import {
 	conversationFile,
 	createWorkspace,
-	deleteWorkspace,
 	loadWorkspaces,
 	recoverAllInterruptedTurns,
 	saveWorkspace,
@@ -39,47 +38,6 @@ describe("createWorkspace", () => {
 		const created = await createWorkspace(root, "Acme API");
 
 		expect(await readdir(join(root, "workspaces"))).toEqual([created.id]);
-	});
-});
-
-describe("deleteWorkspace", () => {
-	it("takes the workspace and everything it owns", async () => {
-		const workspace = await createWorkspace(root, "Acme API");
-		await appendEntry(conversationFile(root, workspace.id, "c1"), turnStart("t1"));
-		await mkdir(join(root, "workspaces", workspace.id, "clones", "source-1"), { recursive: true });
-
-		await deleteWorkspace(root, workspace.id);
-
-		expect(await loadWorkspaces(root)).toEqual([]);
-		expect(await readdir(join(root, "workspaces"))).toEqual([]);
-	});
-
-	it("leaves the other workspaces standing", async () => {
-		const deleted = await createWorkspace(root, "Gone");
-		const kept = await createWorkspace(root, "Kept");
-
-		await deleteWorkspace(root, deleted.id);
-
-		expect((await loadWorkspaces(root)).map((workspace) => workspace.name)).toEqual(["Kept"]);
-		expect(kept.name).toBe("Kept");
-	});
-
-	it("removes a mounted directory as a link, not what it points at", async () => {
-		const workspace = await createWorkspace(root, "Acme API");
-		const outside = join(root, "notes");
-		await mkdir(outside, { recursive: true });
-		await writeFile(join(outside, "todo.md"), "Ship it", "utf8");
-		const sandbox = join(root, "workspaces", workspace.id, "sandboxes", "c1");
-		await mkdir(sandbox, { recursive: true });
-		await symlink(outside, join(sandbox, "notes"));
-
-		await deleteWorkspace(root, workspace.id);
-
-		expect(await readdir(outside)).toEqual(["todo.md"]);
-	});
-
-	it("refuses an id that is not there", async () => {
-		await expect(deleteWorkspace(root, "nope")).rejects.toThrow("No workspace nope");
 	});
 });
 
