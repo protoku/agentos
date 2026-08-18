@@ -480,7 +480,7 @@ function Block({
 	return (
 		<section className={cn("flex flex-col gap-3 py-4", !first && "border-t border-border")}>
 			<div className="flex items-center gap-2 text-sm">
-				<Medallion className="text-muted-foreground">
+				<Medallion className="size-7 text-muted-foreground [&_svg]:size-4">
 					{block.agentId === undefined ? <User /> : <Bot />}
 				</Medallion>
 				<span className="font-medium">
