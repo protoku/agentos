@@ -27,6 +27,15 @@ export type SandboxView =
 	| { kind: "binary"; path: string; bytes: number }
 	| { kind: "missing"; path: string };
 
+/** A mount as it stands now: a git one carries the branch and commit it currently sits on. */
+export interface MountState {
+	path: string;
+	source: string;
+	readOnly: boolean;
+	branch?: string;
+	commit?: string;
+}
+
 export interface AgentOSApi {
 	/** Whether the machine's Claude Code was found, and what to say when it was not. */
 	agentRuntime(): Promise<{ found: boolean; missing: string }>;
@@ -45,6 +54,7 @@ export interface AgentOSApi {
 	/** Shows the conversation's sandbox in the file manager. */
 	openSandbox(workspaceId: string, conversationId: string): Promise<void>;
 	viewSandboxPath(workspaceId: string, conversationId: string, path: string): Promise<SandboxView>;
+	mountStates(workspaceId: string, conversationId: string): Promise<MountState[]>;
 	listAgents(workspaceId: string): Promise<Agent[]>;
 	createAgent(workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt" | "tools">): Promise<Agent>;
 	updateAgent(workspaceId: string, agent: Agent): Promise<Agent>;

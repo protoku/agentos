@@ -38,7 +38,7 @@ import { Tools } from "./Tools";
 import { pathOf, Thread } from "./Thread";
 import { Viewer } from "./Viewer";
 import { parseSlashCommand } from "../../shared/slash";
-import type { ConversationSummary } from "../../shared/api";
+import type { ConversationSummary, MountState } from "../../shared/api";
 import type { Agent, Entry, MountSource, Tool, ToolCall, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "sources", "env"] as const;
@@ -114,6 +114,7 @@ export function App() {
 	const [runtime, setRuntime] = useState<{ found: boolean; missing: string }>();
 	const [viewing, setViewing] = useState<string>();
 	const [sources, setSources] = useState<MountSource[]>([]);
+	const [mounts, setMounts] = useState<MountState[]>([]);
 	const [selected, setSelected] = useState<string>();
 
 	useEffect(() => {
@@ -150,6 +151,12 @@ export function App() {
 			if (entry.type === "turnEnd") void window.agentOS.listConversations(forWorkspace).then(setConversations);
 		});
 	}, [workspaceId, conversationId]);
+
+	useEffect(() => {
+		if (workspaceId === undefined || conversationId === undefined) return setMounts([]);
+
+		void window.agentOS.mountStates(workspaceId, conversationId).then(setMounts);
+	}, [workspaceId, conversationId, entries.filter((entry) => entry.type === "toolCall").length]);
 
 	useEffect(() => {
 		setConversationId(undefined);
@@ -430,7 +437,7 @@ export function App() {
 					entries={entries}
 					agents={agents}
 					tools={tools}
-					mounts={openConversation?.mounts ?? []}
+					mounts={mounts}
 					sandbox={openConversation?.sandbox}
 					archivedAt={openConversation?.archivedAt}
 					onSend={send}

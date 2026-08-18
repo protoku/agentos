@@ -21,6 +21,7 @@ import {
 } from "./storage/scriptTools";
 import { builtinToolMetadata } from "./tools/builtin";
 import { invokeTool, isCallRunning } from "./tools/invoke";
+import { mountStates } from "./tools/mountState";
 import { viewSandboxPath } from "./tools/viewer";
 import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
 import { cancelTurn, isTurnRunning, runMentionedTurns } from "./turns/run";
@@ -112,6 +113,9 @@ void app.whenReady().then(async () => {
 		const failure = await shell.openPath(sandbox);
 		if (failure.length > 0) throw new Error(failure);
 	});
+	ipcMain.handle("conversations:mountStates", (_event, workspaceId: string, conversationId: string) =>
+		mountStates(root, workspaceId, conversationId),
+	);
 	ipcMain.handle("sandbox:view", (_event, workspaceId: string, conversationId: string, path: string) =>
 		viewSandboxPath(root, workspaceId, conversationId, path),
 	);

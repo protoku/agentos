@@ -30,7 +30,8 @@ import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
 import { tokens } from "../../shared/transcript";
-import type { Agent, Entry, Mount, Tool, ToolCall } from "../../shared/types";
+import type { MountState } from "../../shared/api";
+import type { Agent, Entry, Tool, ToolCall } from "../../shared/types";
 
 export function Thread({
 	title,
@@ -50,7 +51,7 @@ export function Thread({
 	entries: Entry[];
 	agents: Agent[];
 	tools: Tool[];
-	mounts: Mount[];
+	mounts: MountState[];
 	sandbox?: string;
 	archivedAt?: string;
 	onSend: (content: string) => Promise<void>;
@@ -149,7 +150,7 @@ export function Thread({
 				<div className="flex min-w-0 flex-1 items-center gap-4 text-xs text-muted-foreground">
 					{mounts.length > 0 && (
 						<Bound label="Mounted" icon={<Boxes className="size-3.5" />}>
-							{mounts.map((mount) => `${mount.path}${mount.readOnly ? " (read-only)" : ""}`).join(", ")}
+							{mounts.map(describeMount).join(", ")}
 						</Bound>
 					)}
 					{present.length > 0 && (
@@ -315,6 +316,14 @@ export function Thread({
 
 		</main>
 	);
+}
+
+/** A git mount says where it stands, since that is what moves while a conversation works. */
+function describeMount(mount: MountState): string {
+	const at = [mount.branch, mount.commit].filter((part) => part !== undefined).join(" • ");
+	const read = mount.readOnly ? ", read-only" : "";
+
+	return at.length > 0 ? `${mount.source} (${at}${read})` : `${mount.source}${read.replace(", ", " ")}`;
 }
 
 function Bound({ label, icon, children }: { label: string; icon: React.ReactNode; children: string }) {
