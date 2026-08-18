@@ -500,9 +500,7 @@ function ToolCallView({
 		return (
 			<article className="group flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
 				<div className="flex items-center gap-3 p-3">
-					<Medallion className={cn("size-6 [&_svg]:size-3.5", statusColors[call.status])}>
-						{statusIcons[call.status]}
-					</Medallion>
+					<Medallion className={statusColors[call.status]}>{statusIcons[call.status]}</Medallion>
 					{path === undefined ? (
 						<span className="flex-1 text-sm font-medium">{said(call, agents, summary.verb)}</span>
 					) : (
@@ -622,7 +620,7 @@ function Medallion({ className, children }: { className?: string; children: Reac
 	return (
 		<span
 			className={cn(
-				"flex size-8 shrink-0 items-center justify-center rounded-full border [&_svg]:size-4",
+				"flex size-5 shrink-0 items-center justify-center rounded-full border [&_svg]:size-3",
 				className,
 			)}
 		>
