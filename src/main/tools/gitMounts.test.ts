@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, readFile, rm, stat, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -164,6 +164,33 @@ describe("an isolated git mount", () => {
 		expect((await git(["worktree", "list"], clone())).includes(worktree(conversationId))).toBe(false);
 		expect(await exists(join(root, "workspaces", workspaceId, "sandboxes", conversationId))).toBe(false);
 		expect((await loadWorkspace(root, workspaceId)).conversations[0].mounts).toEqual([]);
+	});
+});
+
+describe("searching a checkout", () => {
+	it("skips what git ignores, and finds what it does not", async () => {
+		await git(["config", "user.email", "test@example.com"], remote);
+		await git(["config", "user.name", "Test"], remote);
+		await writeFile(join(remote, ".gitignore"), "node_modules/\nbuilt.log\n", "utf8");
+		await writeFile(join(remote, "kept.ts"), "const needle = 1;", "utf8");
+		await git(["add", "."], remote);
+		await git(["commit", "-m", "Ignore some things"], remote);
+
+		await invoke(conversationId, "mount", { source: "api", path: "api" });
+		const clone = join(root, "workspaces", workspaceId, "clones", sourceId);
+		await mkdir(join(clone, "node_modules", "left-pad"), { recursive: true });
+		await writeFile(join(clone, "node_modules", "left-pad", "index.js"), "const needle = 2;", "utf8");
+		await writeFile(join(clone, "built.log"), "const needle = 3;", "utf8");
+		await writeFile(join(clone, "fresh.ts"), "const needle = 4;", "utf8");
+
+		const call = await invoke(conversationId, "search_files", { pattern: "needle", path: "api" });
+		const found = (call.output?.matches as { path: string }[]).map((match) => match.path);
+
+		// Tracked and untracked-but-not-ignored, never the ignored ones.
+		expect(found.some((path) => path.endsWith("kept.ts"))).toBe(true);
+		expect(found.some((path) => path.endsWith("fresh.ts"))).toBe(true);
+		expect(found.some((path) => path.includes("node_modules"))).toBe(false);
+		expect(found.some((path) => path.endsWith("built.log"))).toBe(false);
 	});
 });
 

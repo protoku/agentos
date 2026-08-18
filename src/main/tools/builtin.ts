@@ -1,10 +1,11 @@
 import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
-import { dirname, join, relative } from "node:path";
+import { dirname, join, relative, sep } from "node:path";
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
 import { gitTools } from "./gitTools";
 import { mountTools, resolveWritable } from "./mounts";
 import { resolveInSandbox } from "./sandbox";
+import { git } from "../git/git";
 import type { BuiltinTool } from "../../shared/types";
 
 const searchLimit = 100;
@@ -158,10 +159,9 @@ const fileTools: BuiltinToolImplementation[] = [
 			const root = resolveInSandbox(sandbox, input.path);
 			const matches: { path: string; line: number; text: string }[] = [];
 
-			for (const entry of await readdir(root, { recursive: true, withFileTypes: true })) {
-				if (!entry.isFile() || matches.length > searchLimit) continue;
+			for (const file of await searchable(root)) {
+				if (matches.length > searchLimit) break;
 
-				const file = join(entry.parentPath, entry.name);
 				const content = await readFile(file, "utf8").catch(() => undefined);
 				if (content === undefined) continue;
 
@@ -187,6 +187,34 @@ export function builtinTool(toolId: string): BuiltinToolImplementation {
 	if (tool === undefined) throw new Error(`No tool ${toolId}`);
 
 	return tool;
+}
+
+/**
+ * What a search is allowed to see. Inside a checkout that is whatever git would show you, which
+ * is the one definition of ignored that a repository already agrees on; anywhere else it is
+ * everything, minus the two directories nobody means to search.
+ */
+async function searchable(root: string): Promise<string[]> {
+	const listed = await git(["ls-files", "--cached", "--others", "--exclude-standard", "-z"], root).catch(
+		() => undefined,
+	);
+
+	if (listed !== undefined) {
+		return listed
+			.split("\0")
+			.filter((path) => path.length > 0)
+			.map((path) => join(root, path));
+	}
+
+	const found = await readdir(root, { recursive: true, withFileTypes: true });
+
+	return found
+		.filter((entry) => entry.isFile() && !ignoredEverywhere(entry.parentPath))
+		.map((entry) => join(entry.parentPath, entry.name));
+}
+
+function ignoredEverywhere(path: string): boolean {
+	return path.split(sep).some((part) => part === ".git" || part === "node_modules");
 }
 
 async function exists(path: string): Promise<boolean> {

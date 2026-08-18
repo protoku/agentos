@@ -259,7 +259,7 @@ Built-in tools act on the conversation's sandbox and respect read-only mounts; t
 - move_file: move or rename a file, refusing to overwrite what is already there
 - delete_file: remove a file, never a directory
 - list_files: list files under a path
-- search_files: search file contents by pattern, returning at most a hundred matches
+- search_files: search file contents by pattern, returning at most a hundred matches, skipping whatever git ignores where it is searching a checkout, and never .git or node_modules
 - mount: attach a workspace mount source into the sandbox at a path
 - unmount: detach a mount, discarding an isolated mount's worktree
 - git_status: show what changed on a git mount
