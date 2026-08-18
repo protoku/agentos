@@ -85,6 +85,27 @@ export async function sendMessage(
 	return message;
 }
 
+/** The title is a label for finding this again, so changing it changes nothing else. */
+export async function renameConversation(
+	root: string,
+	workspaceId: string,
+	conversationId: string,
+	title: string,
+): Promise<Conversation> {
+	const workspace = await loadWorkspace(root, workspaceId);
+	const conversation = workspace.conversations.find((candidate) => candidate.id === conversationId);
+	if (conversation === undefined) throw new Error(`No conversation ${conversationId}`);
+	if (conversation.archivedAt !== undefined) throw new Error("This conversation is closed");
+
+	const named = title.trim();
+	if (named.length === 0) throw new Error("A conversation needs a name");
+
+	conversation.title = named;
+	await saveWorkspace(root, workspace);
+
+	return conversation;
+}
+
 /** Closing a conversation for good: there is no unarchive, and the thread stays readable. */
 export async function archiveConversation(
 	root: string,

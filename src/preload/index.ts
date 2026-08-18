@@ -15,6 +15,8 @@ const api: AgentOSApi = {
 		ipcRenderer.invoke("conversations:startWithTool", workspaceId, content),
 	sendMessage: (workspaceId, conversationId, content) =>
 		ipcRenderer.invoke("conversations:send", workspaceId, conversationId, content),
+	renameConversation: (workspaceId, conversationId, title) =>
+		ipcRenderer.invoke("conversations:rename", workspaceId, conversationId, title),
 	archiveConversation: (workspaceId, conversationId) =>
 		ipcRenderer.invoke("conversations:archive", workspaceId, conversationId),
 	openSandbox: (workspaceId, conversationId) =>

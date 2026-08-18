@@ -7,10 +7,13 @@ import {
 	CircleSlash,
 	Clock,
 	Copy,
+	Archive,
 	FolderOpen,
 	Gauge,
 	GitCompare,
+	Lock,
 	PanelRight,
+	Pencil,
 	Square,
 	User,
 	Users,
@@ -64,6 +67,7 @@ export function Thread({
 	onOpenSandbox,
 	onOpenPath,
 	onOpenDiff,
+	onRename,
 	onArchive,
 }: {
 	title: string;
@@ -79,6 +83,7 @@ export function Thread({
 	onOpenSandbox: () => Promise<void>;
 	onOpenPath: (path: string) => void;
 	onOpenDiff: (path: string) => void;
+	onRename?: (title: string) => Promise<void>;
 	onArchive?: () => Promise<void>;
 }) {
 	const [draft, setDraft] = useState("");
@@ -86,6 +91,7 @@ export function Thread({
 	const [highlight, setHighlight] = useState(0);
 	const [dismissed, setDismissed] = useState(false);
 	const composer = useRef<HTMLTextAreaElement>(null);
+	const [naming, setNaming] = useState<string>();
 
 	// A start with no end is a turn running right now, and the thread belongs to that agent.
 	const endedTurns = new Set(entries.filter((entry) => entry.type === "turnEnd").map((entry) => entry.turnId));
@@ -153,6 +159,14 @@ export function Thread({
 		}
 	}
 
+	async function rename() {
+		const named = naming?.trim();
+		setNaming(undefined);
+		if (named === undefined || named.length === 0 || named === title) return;
+
+		await onRename?.(named);
+	}
+
 	async function send() {
 		const content = draft.trim();
 		if (content.length === 0) return;
@@ -165,41 +179,75 @@ export function Thread({
 
 	return (
 		<main className="flex min-w-0 flex-1 flex-col">
-			<header className="flex items-center gap-4 border-b border-border py-2 pr-2 pl-6">
-				<span className="shrink-0 truncate text-sm font-medium">{title}</span>
-
-				<div className="flex min-w-0 flex-1 items-center gap-4 text-xs text-muted-foreground">
-					{mounts.map((mount) =>
-						mount.commit === undefined ? (
-							<Bound key={mount.path} label="Mounted" icon={<Boxes className="size-3.5" />}>
-								{describeMount(mount)}
-							</Bound>
+			<header className="flex items-start gap-4 border-b border-border py-3 pr-3 pl-6">
+				<div className="flex min-w-0 flex-1 flex-col gap-1">
+					<div className="group flex min-w-0 items-center gap-2">
+						{naming === undefined ? (
+							<>
+								<h1 className="min-w-0 truncate text-base font-medium">{title}</h1>
+								{archivedAt === undefined ? (
+									onRename && (
+										<button
+											type="button"
+											aria-label="Rename this conversation"
+											onClick={() => setNaming(title)}
+											className="shrink-0 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground"
+										>
+											<Pencil className="size-3.5" />
+										</button>
+									)
+								) : (
+									<Lock className="size-3.5 shrink-0 text-muted-foreground" aria-label="Archived" />
+								)}
+							</>
 						) : (
-							// A git mount is where the work is, so it opens what has changed in it.
-							<button
-								key={mount.path}
-								type="button"
-								title={`What has changed in ${mount.path}`}
-								onClick={() => onOpenDiff(mount.path)}
-								className="flex min-w-0 items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
-							>
-								<GitCompare className="size-3.5" />
-								<span className="truncate">{describeMount(mount)}</span>
-							</button>
-						),
-					)}
-					{present.length > 0 && (
-						<Bound label="In this conversation" icon={<Users className="size-3.5" />}>
-							{present.map((agent) => `@${agent.name}`).join(", ")}
+							<Input
+								autoFocus
+								value={naming}
+								className="h-8 max-w-md text-base"
+								onChange={(event) => setNaming(event.target.value)}
+								onBlur={() => void rename()}
+								onKeyDown={(event) => {
+									if (event.key === "Enter") void rename();
+									if (event.key === "Escape") setNaming(undefined);
+								}}
+							/>
+						)}
+					</div>
+
+					<div className="flex min-w-0 items-center gap-4 text-xs text-muted-foreground">
+						{mounts.map((mount) =>
+							mount.commit === undefined ? (
+								<Bound key={mount.path} label="Mounted" icon={<Boxes className="size-3.5" />}>
+									{describeMount(mount)}
+								</Bound>
+							) : (
+								// A git mount is where the work is, so it opens what has changed in it.
+								<button
+									key={mount.path}
+									type="button"
+									title={`What has changed in ${mount.path}`}
+									onClick={() => onOpenDiff(mount.path)}
+									className="flex min-w-0 items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
+								>
+									<GitCompare className="size-3.5" />
+									<span className="truncate">{describeMount(mount)}</span>
+								</button>
+							),
+						)}
+						{present.length > 0 && (
+							<Bound label="In this conversation" icon={<Users className="size-3.5" />}>
+								{present.map((agent) => `@${agent.name}`).join(", ")}
+							</Bound>
+						)}
+						<Bound label="Conversation size" icon={<Gauge className="size-3.5" />}>
+							{`~${thousands(size)} tokens`}
 						</Bound>
-					)}
-					<Bound label="Conversation size" icon={<Gauge className="size-3.5" />}>
-						{`~${thousands(size)} tokens`}
-					</Bound>
+					</div>
 				</div>
 
 				{sandbox && (
-					<Button variant="ghost" size="sm" title={sandbox} onClick={() => void onOpenSandbox()}>
+					<Button variant="outline" size="sm" title={sandbox} onClick={() => void onOpenSandbox()}>
 						<FolderOpen />
 						Sandbox
 					</Button>
@@ -207,7 +255,8 @@ export function Thread({
 				{onArchive && archivedAt === undefined && (
 					<AlertDialog>
 						<AlertDialogTrigger asChild>
-							<Button variant="ghost" size="sm">
+							<Button variant="outline" size="sm">
+								<Archive />
 								Archive
 							</Button>
 						</AlertDialogTrigger>

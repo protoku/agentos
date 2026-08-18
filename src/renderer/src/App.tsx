@@ -239,6 +239,13 @@ export function App() {
 		await window.agentOS.openSandbox(workspaceId, conversationId);
 	}
 
+	async function rename(title: string) {
+		if (workspaceId === undefined || conversationId === undefined) return;
+
+		await window.agentOS.renameConversation(workspaceId, conversationId, title);
+		setConversations(await window.agentOS.listConversations(workspaceId));
+	}
+
 	async function archive() {
 		if (workspaceId === undefined || conversationId === undefined) return;
 
@@ -495,6 +502,7 @@ export function App() {
 					onOpenSandbox={openSandbox}
 					onOpenPath={(path) => setViewing({ kind: "file", path })}
 					onOpenDiff={(path) => setViewing({ kind: "diff", path })}
+					onRename={openConversation ? rename : undefined}
 					onArchive={openConversation ? archive : undefined}
 				/>
 			) : (

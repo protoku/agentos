@@ -7,6 +7,7 @@ import {
 	archiveConversation,
 	listConversations,
 	readConversation,
+	renameConversation,
 	sendMessage,
 	startConversation,
 	startConversationWithTool,
@@ -107,6 +108,9 @@ void app.whenReady().then(async () => {
 		startTurns(root, workspaceId, conversationId, message.mentions);
 		return message;
 	});
+	ipcMain.handle("conversations:rename", (_event, workspaceId: string, conversationId: string, title: string) =>
+		renameConversation(root, workspaceId, conversationId, title),
+	);
 	ipcMain.handle("conversations:archive", (_event, workspaceId: string, conversationId: string) => {
 		// Archiving is never blocked: it cancels whatever is in flight, as canceling the turn would.
 		cancelTurn(conversationId);
