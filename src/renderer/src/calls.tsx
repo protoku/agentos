@@ -9,7 +9,8 @@ const icons: Record<MountSource["type"], React.ReactNode> = {
 
 /** What a call did, said as rows: what happened, then what it happened to. */
 export interface CallSummary {
-	title: string;
+	/** Past tense, and subjectless: whoever made the call is put in front of it. */
+	verb: string;
 	rows: { icon: React.ReactNode; text: string; hint?: string }[];
 }
 
@@ -27,7 +28,7 @@ export function summarise(call: ToolCall, sources: MountSource[]): CallSummary |
 	);
 
 	return {
-		title: "Mounted",
+		verb: "mounted",
 		rows: [
 			{
 				icon: kind === undefined ? <Boxes /> : icons[kind],

@@ -444,7 +444,9 @@ function CopyButton({ label, text }: { label: string; text: string }) {
 				"rounded-md p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground",
 				copied && "text-success opacity-100",
 			)}
-			onClick={() => {
+			onClick={(event) => {
+				event.preventDefault();
+				event.stopPropagation();
 				void navigator.clipboard.writeText(text);
 				setCopied(true);
 				setTimeout(() => setCopied(false), 1200);
@@ -498,9 +500,11 @@ function ToolCallView({
 		return (
 			<article className="group flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
 				<div className="flex items-center gap-3 p-3">
-					<Medallion className={statusColors[call.status]}>{statusIcons[call.status]}</Medallion>
+					<Medallion className={cn("size-6 [&_svg]:size-3.5", statusColors[call.status])}>
+						{statusIcons[call.status]}
+					</Medallion>
 					{path === undefined ? (
-						<span className="flex-1 text-sm font-medium">{summary.title}</span>
+						<span className="flex-1 text-sm font-medium">{said(call, agents, summary.verb)}</span>
 					) : (
 						<button
 							type="button"
@@ -508,16 +512,12 @@ function ToolCallView({
 							onClick={() => onOpenPath(path)}
 							className="flex-1 text-left text-sm font-medium underline-offset-4 hover:underline"
 						>
-							{summary.title}
+							{said(call, agents, summary.verb)}
 						</button>
 					)}
-					<span className="text-xs text-muted-foreground">
-						{call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`}
-					</span>
-					<time className="text-xs text-muted-foreground" dateTime={call.createdAt}>
+					<time className="shrink-0 text-xs text-muted-foreground" dateTime={call.createdAt}>
 						{time(call.createdAt)}
 					</time>
-					<CopyButton label="Copy input and output" text={payloadOf(call)} />
 				</div>
 
 				{summary.rows.map((row) => (
@@ -533,7 +533,8 @@ function ToolCallView({
 				<details className="bg-elevated text-xs">
 					<summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-muted-foreground hover:text-foreground">
 						<ChevronDown className="size-4 transition-transform [details[open]_&]:rotate-180" />
-						Details
+						<span className="flex-1">Details</span>
+						<CopyButton label="Copy input and output" text={payloadOf(call)} />
 					</summary>
 					<div className="flex flex-col gap-2 px-3 pb-3">
 						<Payload label="Input" value={call.input} />
@@ -609,6 +610,11 @@ function ToolCallView({
 			)}
 		</article>
 	);
+}
+
+/** Who did it and what they did: "You mounted", "@ops committed". */
+function said(call: ToolCall, agents: Agent[], verb: string): string {
+	return `${call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`} ${verb}`;
 }
 
 /** The round badge each row wears, which is what makes a call read as a thing that happened. */
