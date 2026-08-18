@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bot, Boxes, ChevronRight, ChevronsUpDown, Database, KeyRound, MessagesSquare, Plus, Trash2, TriangleAlert, Wrench } from "lucide-react";
+import { Bot, Boxes, ChevronRight, ChevronsUpDown, Database, KeyRound, MessageSquare, MessagesSquare, Plus, Trash2, TriangleAlert, Wrench } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
 	AlertDialog,
@@ -388,7 +388,10 @@ export function App() {
 										<SidebarMenu>
 											{drafting && (
 												<SidebarMenuItem>
-													<SidebarMenuButton isActive>New conversation</SidebarMenuButton>
+													<SidebarMenuButton isActive>
+														<MessageSquare />
+														New conversation
+													</SidebarMenuButton>
 												</SidebarMenuItem>
 											)}
 											{listed.map((conversation) => (
@@ -397,12 +400,14 @@ export function App() {
 														isActive={conversation.id === conversationId && section === undefined}
 														onClick={() => void openThread(conversation.id)}
 													>
+														<MessageSquare />
 														<span className="truncate">{conversation.title}</span>
 													</SidebarMenuButton>
 												</SidebarMenuItem>
 											))}
 											<SidebarMenuItem>
 												<SidebarMenuButton
+													className="mt-2"
 													isActive={section === "conversations"}
 													onClick={() => setSection(section === "conversations" ? undefined : "conversations")}
 												>
