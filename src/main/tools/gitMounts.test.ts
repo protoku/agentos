@@ -167,6 +167,52 @@ describe("an isolated git mount", () => {
 	});
 });
 
+async function commitToRemote(name: string, content: string): Promise<void> {
+	await git(["config", "user.email", "test@example.com"], remote);
+	await git(["config", "user.name", "Test"], remote);
+	await writeFile(join(remote, name), content, "utf8");
+	await git(["add", "."], remote);
+	await git(["commit", "-m", `Add ${name}`], remote);
+}
+
+describe("mounting a git source", () => {
+	it("starts an isolated worktree at the remote's tip, not the clone's", async () => {
+		// The clone is made here, and the remote moves afterwards.
+		await invoke(conversationId, "mount", { source: "api", path: "api", mode: "isolated" });
+		await commitToRemote("later.md", "Written after the clone");
+
+		const other = await conversationIn("Another");
+		const call = await invoke(other, "mount", { source: "api", path: "api", mode: "isolated" });
+
+		expect(call.output).toMatchObject({ startedFrom: "origin/main" });
+		expect(await invoke(other, "read_file", { path: "api/later.md" })).toMatchObject({ status: "success" });
+	});
+
+	it("never moves a shared checkout, since other conversations are standing on it", async () => {
+		await invoke(conversationId, "mount", { source: "api", path: "api" });
+		await commitToRemote("later.md", "Written after the clone");
+
+		const other = await conversationIn("Another");
+		await invoke(other, "mount", { source: "api", path: "api" });
+
+		expect(await invoke(conversationId, "read_file", { path: "api/later.md" })).toMatchObject({ status: "error" });
+	});
+
+	it("tells a shared checkout how far behind it has fallen", async () => {
+		await invoke(conversationId, "mount", { source: "api", path: "api" });
+		await commitToRemote("later.md", "Written after the clone");
+
+		// A second mount fetches, which is what lets status count the distance.
+		const other = await conversationIn("Another");
+		await invoke(other, "mount", { source: "api", path: "repo" });
+
+		expect((await invoke(conversationId, "git_status", { path: "api" })).output).toMatchObject({
+			ahead: 0,
+			behind: 1,
+		});
+	});
+});
+
 describe("searching a checkout", () => {
 	it("skips what git ignores, and finds what it does not", async () => {
 		await git(["config", "user.email", "test@example.com"], remote);
@@ -204,7 +250,13 @@ describe("the git inspection tools", () => {
 
 		const call = await invoke(conversationId, "git_status", { path: "api" });
 
-		expect(call.output).toEqual({ path: "api", branch: "main", changes: [{ change: "??", file: "notes.md" }] });
+		expect(call.output).toEqual({
+			path: "api",
+			branch: "main",
+			ahead: 0,
+			behind: 0,
+			changes: [{ change: "??", file: "notes.md" }],
+		});
 	});
 
 	it("show the changes themselves", async () => {

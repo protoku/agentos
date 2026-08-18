@@ -18,6 +18,8 @@ export const gitTools: BuiltinToolImplementation[] = [
 			properties: {
 				path: { type: "string" },
 				branch: { type: "string" },
+				ahead: { type: "number" },
+				behind: { type: "number" },
 				changes: {
 					type: "array",
 					items: {
@@ -36,6 +38,7 @@ export const gitTools: BuiltinToolImplementation[] = [
 			return {
 				path,
 				...(branch !== undefined && { branch }),
+				...(await distance(directory)),
 				changes: lines.map((line) => ({ change: line.slice(0, 2).trim(), file: line.slice(3) })),
 			};
 		},
@@ -198,6 +201,16 @@ async function gitMount(
 	if (needs.branch === true && branch === undefined) throw new Error(`${path} is on no branch: create one first`);
 
 	return { directory: found.directory, branch };
+}
+
+/** How far this branch has drifted from what it tracks, when it tracks anything at all. */
+async function distance(directory: string): Promise<{ ahead: number; behind: number } | undefined> {
+	const counted = await git(["rev-list", "--left-right", "--count", "@{u}...HEAD"], directory).catch(() => undefined);
+	if (counted === undefined) return undefined;
+
+	const [behind, ahead] = counted.trim().split(/\s+/).map(Number);
+
+	return { ahead, behind };
 }
 
 async function upstreamOf(directory: string): Promise<string | undefined> {

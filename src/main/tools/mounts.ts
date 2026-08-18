@@ -5,6 +5,7 @@ import { define, sandboxPath, type BuiltinToolImplementation, type ToolTarget } 
 import { resolveInSandbox } from "./sandbox";
 import { branchesCreatedOn, deleteBranches } from "../git/branches";
 import { baseClonePath, ensureBaseClone, gitConfigOf } from "../git/clone";
+import { git } from "../git/git";
 import { addWorktree, currentBranch, removeWorktree } from "../git/worktree";
 import { readEntries } from "../storage/conversationFile";
 import { conversationFile, conversationsDirectory, loadWorkspace, saveWorkspace } from "../storage/workspaceStore";
@@ -29,6 +30,7 @@ export const mountTools: BuiltinToolImplementation[] = [
 				path: { type: "string" },
 				mode: { enum: ["shared", "isolated"] },
 				readOnly: { type: "boolean" },
+				startedFrom: { type: "string", description: "Which tip an isolated worktree began at" },
 			},
 			required: ["source", "path", "mode", "readOnly"],
 		},
@@ -40,13 +42,13 @@ export const mountTools: BuiltinToolImplementation[] = [
 			const { mode, readOnly } = settle(source, asked);
 
 			refuseCollision(conversation.mounts, path);
-			await attach(context, source, mode, resolveInSandbox(context.sandbox, path));
+			const startedFrom = await attach(context, source, mode, resolveInSandbox(context.sandbox, path));
 
 			const mount: Mount = { sourceId: source.id, path, mode, readOnly, createdAt: new Date().toISOString() };
 			conversation.mounts.push(mount);
 			await saveWorkspace(context.root, workspace);
 
-			return { source: name, path, mode, readOnly };
+			return { source: name, path, mode, readOnly, ...(startedFrom !== undefined && { startedFrom }) };
 		},
 	}),
 	define({
@@ -168,24 +170,48 @@ function isInside(path: string, parent: string): boolean {
  * How a mount materializes: a link to the directory or to the workspace's clone, except for an
  * isolated mount, which is a worktree of that clone and so is the checkout rather than pointing at one.
  */
-async function attach(context: ToolTarget, source: MountSource, mode: Mount["mode"], link: string): Promise<void> {
+async function attach(
+	context: ToolTarget,
+	source: MountSource,
+	mode: Mount["mode"],
+	link: string,
+): Promise<string | undefined> {
 	await mkdir(dirname(link), { recursive: true });
 
 	if (source.type === "git") {
 		const clone = await ensureBaseClone(context.root, context.workspaceId, source);
-		if (mode === "isolated") return addWorktree(clone, link, gitConfigOf(source).defaultBranch);
+		const { defaultBranch } = gitConfigOf(source);
 
-		return symlink(clone, link);
+		// Refs only, so a conversation already standing on the shared checkout sees nothing move.
+		const fetched = await git(["fetch", "origin"], clone).then(
+			() => true,
+			() => false,
+		);
+
+		if (mode === "isolated") {
+			const from = fetched ? `origin/${defaultBranch}` : defaultBranch;
+			await addWorktree(clone, link, from);
+
+			return from;
+		}
+
+		await symlink(clone, link);
+
+		return undefined;
 	}
 
 	if (source.type === "conversations") {
-		return symlink(conversationsDirectory(context.root, context.workspaceId), link);
+		await symlink(conversationsDirectory(context.root, context.workspaceId), link);
+
+		return undefined;
 	}
 
 	const path = directoryOf(source);
 	if (!(await isDirectory(path))) throw new Error(`${path} is not a directory`);
 
-	return symlink(path, link);
+	await symlink(path, link);
+
+	return undefined;
 }
 
 /** Unmounting a link leaves the data behind it; unmounting a worktree discards it and its branches. */
