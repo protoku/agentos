@@ -484,8 +484,9 @@ function ToolCallView({
 }) {
 	const [denyMessage, setDenyMessage] = useState("");
 	const path = pathOf(call);
-	// A pending call shows everything: its input is what is being approved.
-	const summary = call.status === "pending" ? undefined : summarise(call, sources);
+	// Pending and running keep their payloads and their controls: one is being decided, the other stopped.
+	const settled = call.status !== "pending" && call.status !== "running";
+	const summary = settled ? summarise(call, sources) : undefined;
 
 	function decide(allowed: boolean) {
 		const message = denyMessage.trim();
@@ -527,6 +528,7 @@ function ToolCallView({
 				))}
 
 				{call.error && <p className="p-3 text-sm text-destructive">{call.error}</p>}
+				{call.denyMessage && <p className="p-3 text-sm text-destructive">{call.denyMessage}</p>}
 
 				<details className="bg-elevated text-xs">
 					<summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-muted-foreground hover:text-foreground">
@@ -610,9 +612,12 @@ function ToolCallView({
 	);
 }
 
-/** Who did it and what they did: "You mounted", "@ops committed". */
+/** Who did it and what became of it: "You mounted", "@ops tried to git push". */
 function said(call: ToolCall, agents: Agent[], verb: string): string {
-	return `${call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`} ${verb}`;
+	const actor = call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`;
+	const what = call.status === "success" ? verb : `tried to ${call.toolId.replace(/_/g, " ")}`;
+
+	return `${actor} ${what}`;
 }
 
 /** The round badge each row wears, which is what makes a call read as a thing that happened. */

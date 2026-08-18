@@ -19,9 +19,8 @@ export interface CallSummary {
  * they are, which is what every script tool does: only its shape is known, never its meaning.
  */
 export function summarise(call: ToolCall, sources: MountSource[]): CallSummary | undefined {
-	if (call.output === undefined) return undefined;
-
-	return summaries[call.toolId]?.(call.output, sources);
+	// A call that failed has no output, and what it was trying to do is still worth reading.
+	return summaries[call.toolId]?.({ ...call.input, ...call.output }, sources);
 }
 
 type Summary = (output: Record<string, unknown>, sources: MountSource[]) => CallSummary;
@@ -44,9 +43,14 @@ const summaries: Record<string, Summary> = {
 		rows: [
 			{
 				icon: iconFor(source, sources),
-				text: `${String(source)} at ${String(path)}`,
+				text: source === undefined ? String(path) : `${String(source)} at ${String(path)}`,
 				// The isolated case is the destructive one: its worktree and its branches go with it.
-				hint: mode === "isolated" ? "isolated, worktree discarded" : "the data behind it untouched",
+				hint:
+					mode === "isolated"
+						? "isolated, worktree discarded"
+						: mode === undefined
+							? undefined
+							: "the data behind it untouched",
 			},
 		],
 	}),
