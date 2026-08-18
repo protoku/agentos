@@ -496,7 +496,7 @@ function ToolCallView({
 
 	if (summary !== undefined) {
 		return (
-			<article className="group flex flex-col divide-y divide-border rounded-lg border border-border">
+			<article className="group flex flex-col divide-y divide-border overflow-hidden rounded-lg border border-border bg-surface">
 				<div className="flex items-center gap-3 p-3">
 					<Medallion className={statusColors[call.status]}>{statusIcons[call.status]}</Medallion>
 					{path === undefined ? (
@@ -530,7 +530,7 @@ function ToolCallView({
 
 				{call.error && <p className="p-3 text-sm text-destructive">{call.error}</p>}
 
-				<details className="text-xs">
+				<details className="bg-elevated text-xs">
 					<summary className="flex cursor-pointer list-none items-center gap-2 p-3 text-muted-foreground hover:text-foreground">
 						<ChevronDown className="size-4 transition-transform [details[open]_&]:rotate-180" />
 						Details
@@ -545,7 +545,7 @@ function ToolCallView({
 	}
 
 	return (
-		<article className="group flex flex-col gap-2 rounded-lg border border-border p-3">
+		<article className="group flex flex-col gap-2 rounded-lg border border-border bg-surface p-3">
 			<div className="flex items-baseline gap-2 text-xs">
 				<span className="font-medium">
 					{call.agentId === undefined ? "You" : `@${agentName(agents, call.agentId)}`}
