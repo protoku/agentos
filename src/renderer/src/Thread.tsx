@@ -494,7 +494,11 @@ function Block({
 
 			<div className="flex flex-col divide-y divide-border pl-7">
 				{block.entries.map((entry) => (
-					<div key={entry.id} className="py-2 first:pt-0 last:pb-0">
+					// Prose wants room to breathe; a row of calls reads better tight.
+					<div
+						key={entry.id}
+						className={cn("first:pt-0 last:pb-0", entry.type === "toolCall" ? "py-2" : "py-4")}
+					>
 						<EntryView entry={entry} agents={agents} sources={sources} onOpenPath={onOpenPath} />
 					</div>
 				))}
