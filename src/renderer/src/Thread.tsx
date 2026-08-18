@@ -291,6 +291,7 @@ export function Thread({
 										block={block}
 										first={index === 0}
 										agents={agents}
+										tools={tools}
 										sources={sources}
 										onOpenPath={onOpenPath}
 									/>
@@ -466,12 +467,14 @@ function Block({
 	block,
 	first,
 	agents,
+	tools,
 	sources,
 	onOpenPath,
 }: {
 	block: ActorBlock;
 	first: boolean;
 	agents: Agent[];
+	tools: Tool[];
 	sources: MountSource[];
 	onOpenPath: (path: string) => void;
 }) {
@@ -499,7 +502,13 @@ function Block({
 						key={entry.id}
 						className={cn("first:pt-0 last:pb-0", entry.type === "toolCall" ? "py-2" : "py-4")}
 					>
-						<EntryView entry={entry} agents={agents} sources={sources} onOpenPath={onOpenPath} />
+						<EntryView
+							entry={entry}
+							agents={agents}
+							tools={tools}
+							sources={sources}
+							onOpenPath={onOpenPath}
+						/>
 					</div>
 				))}
 			</div>
@@ -510,17 +519,19 @@ function Block({
 function EntryView({
 	entry,
 	agents,
+	tools,
 	sources,
 	onOpenPath,
 }: {
 	entry: Entry;
 	agents: Agent[];
+	tools: Tool[];
 	sources: MountSource[];
 	onOpenPath: (path: string) => void;
 }) {
 	switch (entry.type) {
 		case "toolCall":
-			return <CallRow call={entry} sources={sources} onOpenPath={onOpenPath} />;
+			return <CallRow call={entry} tools={tools} sources={sources} onOpenPath={onOpenPath} />;
 		case "turnStart":
 			return null;
 		case "turnEnd":
@@ -591,10 +602,12 @@ const statusColors: Record<ToolCall["status"], string> = {
 
 function CallRow({
 	call,
+	tools,
 	sources,
 	onOpenPath,
 }: {
 	call: ToolCall;
+	tools: Tool[];
 	sources: MountSource[];
 	onOpenPath: (path: string) => void;
 }) {
@@ -603,6 +616,8 @@ function CallRow({
 	const [open, setOpen] = useState(call.status === "pending" || call.status === "running");
 	const path = pathOf(call);
 	const summary = summarise(call, sources);
+	// A call records the tool's id, which for a script tool is nothing anybody wants to read.
+	const named = tools.find((tool) => tool.id === call.toolId)?.name ?? call.toolId;
 
 	function decide(allowed: boolean) {
 		const message = denyMessage.trim();
@@ -623,7 +638,7 @@ function CallRow({
 					className="flex min-w-0 flex-1 items-center gap-2 text-left"
 				>
 					<Medallion className={statusColors[call.status]}>{statusIcons[call.status]}</Medallion>
-					<span className="shrink-0 text-muted-foreground">{summary?.label ?? labelOf(call.toolId)}</span>
+					<span className="shrink-0 text-muted-foreground">{summary?.label ?? labelOf(named)}</span>
 					{summary?.icon && <span className="shrink-0 text-muted-foreground [&_svg]:size-3.5">{summary.icon}</span>}
 					{summary?.subject !== undefined && (
 						<span className="min-w-0 truncate font-medium">{summary.subject}</span>
