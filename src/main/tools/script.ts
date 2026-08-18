@@ -10,6 +10,10 @@ import type { ScriptTool } from "../../shared/types";
  * input, only the env keys the tool declares, and the sandbox as the working directory.
  */
 const runner = `
+// How AgentOS runs itself is nobody else's business: a tool sees the machine, not the app.
+delete process.env.ELECTRON_RUN_AS_NODE;
+delete process.env.NODE_ENV;
+
 let payload = "";
 process.stdin.setEncoding("utf8");
 process.stdin.on("data", (chunk) => { payload += chunk; });

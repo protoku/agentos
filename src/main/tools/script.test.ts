@@ -137,6 +137,27 @@ describe("a script tool", () => {
 		expect(existsSync(join(root, "workspaces", workspaceId, "sandboxes", conversationId, "finished.txt"))).toBe(false);
 	}, 15_000);
 
+	it("is not handed the settings AgentOS runs itself under", async () => {
+		process.env.ELECTRON_RUN_AS_NODE = "1";
+		process.env.NODE_ENV = "production";
+
+		await createScriptTool(root, workspaceId, {
+			...draft,
+			name: "environment",
+			code: "return { node: process.env.NODE_ENV ?? 'unset', electron: process.env.ELECTRON_RUN_AS_NODE ?? 'unset' };",
+			inputSchema: object({}, []),
+			outputSchema: object({ node: { type: "string" }, electron: { type: "string" } }),
+		});
+
+		const call = await invoke("environment", {});
+
+		delete process.env.ELECTRON_RUN_AS_NODE;
+		delete process.env.NODE_ENV;
+
+		// Otherwise npm inside a tool omits devDependencies, because the app happens to be packaged.
+		expect(call.output).toEqual({ node: "unset", electron: "unset" });
+	});
+
 	it("records what the function threw", async () => {
 		await createScriptTool(root, workspaceId, {
 			...draft,
