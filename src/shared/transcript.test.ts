@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { transcript } from "./transcript";
-import type { Agent, Entry } from "../../shared/types";
+import { tokens, transcript } from "./transcript";
+import type { Agent, Entry } from "./types";
 
 const ops: Agent = {
 	id: "agent-ops",
@@ -39,5 +39,19 @@ describe("transcript", () => {
 
 	it("leaves turn markers out, since they carry nothing to read", () => {
 		expect(transcript(entries, [ops], ops)).not.toContain("turnStart");
+	});
+});
+
+describe("tokens", () => {
+	it("measures the thread, and an empty one costs nothing", () => {
+		expect(tokens([], [ops])).toBe(0);
+		expect(tokens(entries, [ops])).toBeGreaterThan(0);
+		expect(tokens([...entries, ...entries], [ops])).toBeGreaterThan(tokens(entries, [ops]));
+	});
+
+	it("adds nothing for turn markers, which carry no content", () => {
+		const spoken = entries.filter((entry) => entry.type !== "turnStart" && entry.type !== "turnEnd");
+
+		expect(tokens(entries, [ops])).toBe(tokens(spoken, [ops]));
 	});
 });

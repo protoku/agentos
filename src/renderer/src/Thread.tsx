@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Boxes, Check, Copy, FolderOpen, Square, Users } from "lucide-react";
+import { ArrowUp, Boxes, Check, Copy, FolderOpen, Gauge, Square, Users } from "lucide-react";
 import {
 	AlertDialog,
 	AlertDialogAction,
@@ -29,6 +29,7 @@ import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
+import { tokens } from "../../shared/transcript";
 import type { Agent, Entry, Mount, Tool, ToolCall } from "../../shared/types";
 
 export function Thread({
@@ -151,6 +152,11 @@ export function Thread({
 					{present.length > 0 && (
 						<Bound label="In this conversation" icon={<Users className="size-3.5" />}>
 							{present.map((agent) => `@${agent.name}`).join(", ")}
+						</Bound>
+					)}
+					{entries.length > 0 && (
+						<Bound label="Conversation size" icon={<Gauge className="size-3.5" />}>
+							{`~${thousands(tokens(entries, agents))} tokens`}
 						</Bound>
 					)}
 				</div>
@@ -540,6 +546,11 @@ function withMentions(content: string, agents: Agent[]) {
 	parts.push(content.slice(cursor));
 
 	return parts;
+}
+
+/** An estimate, so it reads at a glance rather than carrying digits it cannot stand behind. */
+function thousands(count: number): string {
+	return count < 1000 ? `${count}` : `${(count / 1000).toFixed(1)}k`;
 }
 
 function time(iso: string): string {

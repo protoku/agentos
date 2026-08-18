@@ -27,6 +27,8 @@ interface Workspace {
 
 A conversation is a thread of messages, tool calls, and turn markers between the user and one or more agents of the workspace. The user brings agents in by @-mentioning them, and every agent in the conversation sees the full thread, every entry included. A message can mention several agents: each acts on it in mention order, one at a time, so later agents see the work of earlier ones. Mentioning the same agent again queues it again: every mention is its own turn. Agents act only when mentioned.
 
+Because every agent is sent the whole thread, a conversation has a size: the tokens that thread costs an agent. It is measured on exactly what agents receive, every message and every tool call with its input, output and error; turn markers carry no content and add nothing. The figure is an estimate and is shown as approximate, since the exact count depends on the tokenizer of the model being asked, and one thread can be sent to agents on different models.
+
 A new conversation starts as a draft: it is visible in the interface and nothing about it is recorded. Its first entry is what creates it, a message or a tool call the user invokes, and that entry gives it its title, shortened to fit the list. A draft that never receives one leaves no trace.
 
 Each mentioned agent's activity on a message is a turn: it begins when the agent starts acting and covers everything it does, several messages and several tool calls included, until it has nothing further to do. A turn ends on its own when the agent finishes, and the next mentioned agent's turn begins; a canceled or failed turn ends the whole chain instead, so agents not yet started never act.
@@ -288,6 +290,7 @@ Features of the app around the model above.
 - The viewer is as wide as you drag it, and stays that width next time.
 - The viewer never edits. Work on a file happens through the conversation, so that every change is a tool call somebody can read; a change made beside the thread would be a change nobody recorded. It follows the file it shows: a later call touching that path refreshes it, and a file that has since been deleted says so.
 - A conversation's header carries what the conversation is bound to: the paths it has mounted, the agents that have taken part in it, and its sandbox, which opens in the file manager.
+- After the agents, the header shows the conversation's size as an approximate token count, rounded to a readable figure such as ~12.4k, and it grows with the thread.
 - Conversations, agents, script tools, mount sources and env each open in a pane that replaces the thread.
 - A tool is invoked in the composer as a slash command with key=value arguments, quoting any value that contains spaces: /write_file path=notes/todo.md content="Ship it". Invoking one in a draft creates the conversation, exactly as sending a message does, and the call is its first entry.
 - The sidebar lists the twenty conversations with the most recent activity, archived ones left out; a conversation's activity is the time of its last entry. The conversations pane lists every conversation, archived included, in that same order.
