@@ -284,6 +284,7 @@ The exception is the work of building tools, which cannot be done blind: finding
 
 Features of the app around the model above.
 
+- A built-in tool call is shown as what it did, with its full input and output a fold away. A call still waiting on a decision shows everything instead, since the input is what is being approved. A script tool's call shows its input and output as they are: its schema says what shape they take, never what they mean.
 - Messages and tool calls offer copy to clipboard: a message copies its text, a tool call its input and output as JSON. Turn entries have nothing to copy.
 - Agents run on the Claude Code installed on the machine, found wherever it put itself. When it is not there the app says so and where to get it, rather than letting every turn fail on its own.
 - The thread follows its newest entry while you are at the bottom of it, and stops following the moment you scroll away to read, offering a way back to the newest. A conversation opens at its newest entry.

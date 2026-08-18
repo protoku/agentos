@@ -25,19 +25,21 @@ import {
 	MessageScrollerProvider,
 	MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
+import { summarise } from "./calls";
 import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
 import { tokens } from "../../shared/transcript";
 import type { MountState } from "../../shared/api";
-import type { Agent, Entry, Tool, ToolCall } from "../../shared/types";
+import type { Agent, Entry, MountSource, Tool, ToolCall } from "../../shared/types";
 
 export function Thread({
 	title,
 	entries,
 	agents,
 	tools,
+	sources,
 	mounts,
 	sandbox,
 	archivedAt,
@@ -52,6 +54,7 @@ export function Thread({
 	entries: Entry[];
 	agents: Agent[];
 	tools: Tool[];
+	sources: MountSource[];
 	mounts: MountState[];
 	sandbox?: string;
 	archivedAt?: string;
@@ -222,6 +225,7 @@ export function Thread({
 									<EntryView
 										entry={entry}
 										agents={agents}
+										sources={sources}
 										endedTurns={endedTurns}
 										onOpenPath={onOpenPath}
 									/>
@@ -369,17 +373,19 @@ function shows(entry: Entry, endedTurns: Set<string>): boolean {
 function EntryView({
 	entry,
 	agents,
+	sources,
 	endedTurns,
 	onOpenPath,
 }: {
 	entry: Entry;
 	agents: Agent[];
+	sources: MountSource[];
 	endedTurns: Set<string>;
 	onOpenPath: (path: string) => void;
 }) {
 	switch (entry.type) {
 		case "toolCall":
-			return <ToolCallView call={entry} agents={agents} onOpenPath={onOpenPath} />;
+			return <ToolCallView call={entry} agents={agents} sources={sources} onOpenPath={onOpenPath} />;
 		case "turnStart":
 			return endedTurns.has(entry.id) ? null : (
 				<p className="text-sm text-muted-foreground">@{agentName(agents, entry.agentId)} is working…</p>
@@ -452,14 +458,18 @@ const statusColors: Record<ToolCall["status"], string> = {
 function ToolCallView({
 	call,
 	agents,
+	sources,
 	onOpenPath,
 }: {
 	call: ToolCall;
 	agents: Agent[];
+	sources: MountSource[];
 	onOpenPath: (path: string) => void;
 }) {
 	const [denyMessage, setDenyMessage] = useState("");
 	const path = pathOf(call);
+	// A pending call shows everything: its input is what is being approved.
+	const summary = call.status === "pending" ? undefined : summarise(call, sources);
 
 	function decide(allowed: boolean) {
 		const message = denyMessage.trim();
@@ -502,8 +512,25 @@ function ToolCallView({
 
 			{call.reason && <p className="text-xs text-muted-foreground">{call.reason}</p>}
 
-			<Payload label="Input" value={call.input} />
-			{call.output && <Payload label="Output" value={call.output} />}
+			{summary === undefined ? (
+				<>
+					<Payload label="Input" value={call.input} />
+					{call.output && <Payload label="Output" value={call.output} />}
+				</>
+			) : (
+				<>
+					{summary}
+					<details className="text-xs">
+						<summary className="w-fit cursor-pointer text-muted-foreground hover:text-foreground">
+							Details
+						</summary>
+						<div className="flex flex-col gap-2 pt-2">
+							<Payload label="Input" value={call.input} />
+							{call.output && <Payload label="Output" value={call.output} />}
+						</div>
+					</details>
+				</>
+			)}
 			{call.error && <p className="text-sm text-destructive">{call.error}</p>}
 			{call.denyMessage && <p className="text-sm text-destructive">{call.denyMessage}</p>}
 

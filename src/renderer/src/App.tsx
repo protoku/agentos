@@ -486,6 +486,7 @@ export function App() {
 					entries={entries}
 					agents={agents}
 					tools={tools}
+					sources={sources}
 					mounts={mounts}
 					sandbox={openConversation?.sandbox}
 					archivedAt={openConversation?.archivedAt}
