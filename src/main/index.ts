@@ -32,7 +32,11 @@ import type { Agent, ScriptTool } from "../shared/types";
 
 const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
 
-Menu.setApplicationMenu(null);
+// macOS dispatches the clipboard shortcuts through the Edit menu's roles, so with no menu at all
+// there is no copy or paste. Its menu bar is the system's, not the window's, so nothing appears here.
+Menu.setApplicationMenu(
+	process.platform === "darwin" ? Menu.buildFromTemplate([{ role: "appMenu" }, { role: "editMenu" }]) : null,
+);
 // The theme is dark by design, so the OS preference never gets a say.
 nativeTheme.themeSource = "dark";
 
