@@ -57,8 +57,12 @@ export const mountTools: BuiltinToolImplementation[] = [
 		input: z.object({ path: mountPath }),
 		outputSchema: {
 			type: "object",
-			properties: { source: { type: "string" }, path: { type: "string" } },
-			required: ["source", "path"],
+			properties: {
+				source: { type: "string" },
+				path: { type: "string" },
+				mode: { enum: ["shared", "isolated"] },
+			},
+			required: ["source", "path", "mode"],
 		},
 		async run({ path }, context) {
 			const { workspace, conversation } = await open(context);
@@ -71,7 +75,7 @@ export const mountTools: BuiltinToolImplementation[] = [
 			conversation.mounts = conversation.mounts.filter((candidate) => candidate !== mount);
 			await saveWorkspace(context.root, workspace);
 
-			return { source: nameOf(workspace, mount.sourceId), path };
+			return { source: nameOf(workspace, mount.sourceId), path, mode: mount.mode };
 		},
 	}),
 ];

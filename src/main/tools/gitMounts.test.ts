@@ -151,8 +151,10 @@ describe("an isolated git mount", () => {
 		expect(await invoke(other, "read_file", { path: "api/notes.md" })).toMatchObject({ status: "error" });
 	});
 
-	it("discards the worktree when unmounted", async () => {
-		await invoke(conversationId, "unmount", { path: "api" });
+	it("discards the worktree when unmounted, and says that is what it did", async () => {
+		const call = await invoke(conversationId, "unmount", { path: "api" });
+
+		expect(call.output).toEqual({ source: "api", path: "api", mode: "isolated" });
 
 		expect((await git(["worktree", "list"], clone())).includes(worktree(conversationId))).toBe(false);
 		expect(await exists(worktree(conversationId))).toBe(false);
