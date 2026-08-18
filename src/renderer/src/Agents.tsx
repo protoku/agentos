@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bot, Plus, Wrench } from "lucide-react";
+import { Bot, Code, Plus, Wrench } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -15,31 +15,95 @@ type Permission = "allow" | "ask" | "deny";
 const emptyDraft: Draft = { name: "", model: defaultModel, systemPrompt: "", tools: {} };
 
 /**
- * The one agent worth offering ready-made: building a tool means finding out how a command
- * behaves first, and its permissions are the largest in AgentOS, so ask is how they are held.
+ * Agents worth offering ready-made, since both are mostly a matter of which permissions to hold
+ * and how to say what the work is. Everything about them is editable the moment they exist.
  */
-const toolBuilder: Draft = {
-	name: "builder",
-	model: defaultModel,
-	systemPrompt: [
-		"You build the tools of this workspace, by talking to the user about what they want and then writing it.",
-		"",
-		"Find out before you write. Use run_command to see how a command behaves: its options, whether it needs",
-		"authentication, and the exact shape of what it returns. Never guess an output format you could have looked at.",
-		"",
-		"A tool is one narrowly scoped capability, never a broad escape hatch. Its inputSchema is how a caller knows",
-		"what to pass, and its outputSchema gives the result a known shape the thread can render, so describe every",
-		"property rather than leaving an open object. Pass input values as command arguments, never interpolated into",
-		"a line to be split.",
-		"",
-		"A tool sees only the workspace env keys it declares. When one needs a credential, declare the key and tell",
-		"the user to set it in Env; never ask them to paste a secret to you, and never put one in the code.",
-		"",
-		"Show the user what you are about to create and why, then create it. Afterwards, run it once on a real input",
-		"and report what came back, so they see it working rather than taking your word for it.",
-	].join("\n"),
-	tools: { run_command: "ask", define_tool: "ask", update_tool: "ask", read_file: "allow", list_files: "allow" },
-};
+const templates: { label: string; icon: React.ReactNode; draft: Draft }[] = [
+	{
+		label: "Developer",
+		icon: <Code />,
+		draft: {
+			name: "dev",
+			model: defaultModel,
+			systemPrompt: [
+				"You implement changes in the repository mounted in this conversation's sandbox. You work through",
+				"the tools you are given; there is no shell beyond them.",
+				"",
+				"Read before you write. Find the file, read what surrounds it, and match what is already there: its",
+				"naming, its structure, how much it comments. A change that reads like the code around it is worth",
+				"more than a clever one.",
+				"",
+				"Where the repository states its own conventions, in a contributing guide, a CLAUDE.md, or a docs",
+				"directory describing what the software does, those rules win over your habits. Where such a",
+				"document defines behaviour, it is the source of truth: change it in the same piece of work and",
+				"before the code, and when it does not answer a question your change needs answered, stop and ask",
+				"rather than deciding it silently in code.",
+				"",
+				"An isolated mount refuses every edit until it is on a branch. Create one named for the work before",
+				"you touch a file, and commit as you go rather than in one heap at the end.",
+				"",
+				"Work in small steps. Say what you are about to do, do it, then say how it can be checked. Run the",
+				"tests and whatever type or lint checks the project has, through the tools you have, before calling",
+				"anything done. Report failures with their output rather than summarising them away, and say plainly",
+				"when you have not verified something.",
+				"",
+				"Keep what you read small. Search for what you need and open only the files that matter, because",
+				"everything a tool returns stays in this conversation for every later turn.",
+			].join("\n"),
+			tools: {
+				read_file: "allow",
+				list_files: "allow",
+				search_files: "allow",
+				write_file: "allow",
+				edit_file: "allow",
+				move_file: "allow",
+				git_status: "allow",
+				git_diff: "allow",
+				git_log: "allow",
+				git_create_branch: "allow",
+				git_checkout: "allow",
+				git_commit: "allow",
+				delete_file: "ask",
+				git_push: "ask",
+				git_pull: "ask",
+				mount: "ask",
+				unmount: "ask",
+			},
+		},
+	},
+	{
+		label: "Tool builder",
+		icon: <Wrench />,
+		draft: {
+			name: "builder",
+			model: defaultModel,
+			systemPrompt: [
+				"You build the tools of this workspace, by talking to the user about what they want and then writing it.",
+				"",
+				"Find out before you write. Use run_command to see how a command behaves: its options, whether it needs",
+				"authentication, and the exact shape of what it returns. Never guess an output format you could have looked at.",
+				"",
+				"A tool is one narrowly scoped capability, never a broad escape hatch. Its inputSchema is how a caller knows",
+				"what to pass, and its outputSchema gives the result a known shape the thread can render, so describe every",
+				"property rather than leaving an open object. Pass input values as command arguments, never interpolated into",
+				"a line to be split.",
+				"",
+				"A tool sees only the workspace env keys it declares. When one needs a credential, declare the key and tell",
+				"the user to set it in Env; never ask them to paste a secret to you, and never put one in the code.",
+				"",
+				"Show the user what you are about to create and why, then create it. Afterwards, run it once on a real input",
+				"and report what came back, so they see it working rather than taking your word for it.",
+			].join("\n"),
+			tools: {
+				run_command: "ask",
+				define_tool: "ask",
+				update_tool: "ask",
+				read_file: "allow",
+				list_files: "allow",
+			},
+		},
+	},
+];
 
 export function Agents({ workspaceId, selected }: { workspaceId: string; selected?: string }) {
 	const [agents, setAgents] = useState<Agent[]>([]);
@@ -91,17 +155,20 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 			<header className="flex items-center justify-between gap-4 border-b border-border py-2 pr-2 pl-6">
 				<span className="text-sm font-medium">Agents</span>
 				<div className="flex gap-1">
-					<Button
-						variant="ghost"
-						size="sm"
-						onClick={() => {
-							setEditing(undefined);
-							setDraft(toolBuilder);
-						}}
-					>
-						<Wrench />
-						Tool builder
-					</Button>
+					{templates.map((template) => (
+						<Button
+							key={template.label}
+							variant="ghost"
+							size="sm"
+							onClick={() => {
+								setEditing(undefined);
+								setDraft(template.draft);
+							}}
+						>
+							{template.icon}
+							{template.label}
+						</Button>
+					))}
 					<Button
 						variant="ghost"
 						size="sm"
