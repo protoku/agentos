@@ -350,7 +350,7 @@ export function Thread({
 						</div>
 					)}
 
-					<div className="flex flex-col gap-1 rounded-xl border border-border p-2 focus-within:border-ring">
+					<div className="flex flex-col gap-1 rounded-xl border border-border bg-elevated p-2 focus-within:border-ring">
 						<Textarea
 							autoFocus
 							ref={composer}
@@ -363,7 +363,7 @@ export function Thread({
 										? "A tool call is running in this conversation"
 										: "Message"
 							}
-							className="max-h-48 min-h-10 resize-none border-0 px-2 py-1.5 shadow-none focus-visible:border-0 focus-visible:ring-0 dark:bg-transparent"
+							className="max-h-48 min-h-10 resize-none border-0 bg-transparent px-2 py-1.5 shadow-none focus-visible:border-0 focus-visible:ring-0 disabled:bg-transparent disabled:opacity-100 dark:bg-transparent dark:disabled:bg-transparent"
 							onChange={(event) => {
 								setDraft(event.target.value);
 								setCaret(event.target.selectionStart);
