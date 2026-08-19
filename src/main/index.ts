@@ -15,6 +15,7 @@ import {
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
 import { createSource, listSources, type SourceDraft } from "./storage/sources";
+import { createMemory, deleteMemory, listMemories, updateMemory } from "./storage/memories";
 import { readEnv, setEnv } from "./storage/env";
 import {
 	createScriptTool,
@@ -31,7 +32,8 @@ import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
 import { cancelTurn, isTurnRunning, runMentionedTurns } from "./turns/run";
 import { parseSlashCommand } from "../shared/slash";
 import type { Entry } from "../shared/types";
-import type { Agent, ScriptTool } from "../shared/types";
+import type { MemoryDraft } from "../shared/api";
+import type { Agent, Memory, ScriptTool } from "../shared/types";
 
 const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
 
@@ -146,6 +148,17 @@ void app.whenReady().then(async () => {
 	);
 	ipcMain.handle("agents:update", (_event, workspaceId: string, agent: Agent) =>
 		updateAgent(root, workspaceId, agent),
+	);
+	ipcMain.handle("memories:list", (_event, workspaceId: string) => listMemories(root, workspaceId));
+	ipcMain.handle("memories:create", (_event, workspaceId: string, draft: MemoryDraft) =>
+		createMemory(root, workspaceId, draft),
+	);
+	ipcMain.handle("memories:update", (_event, workspaceId: string, memory: Memory) =>
+		updateMemory(root, workspaceId, memory),
+	);
+	// The one thing inside a workspace that goes on its own, since a wrong memory keeps being told.
+	ipcMain.handle("memories:delete", (_event, workspaceId: string, memoryId: string) =>
+		deleteMemory(root, workspaceId, memoryId),
 	);
 	ipcMain.handle("env:read", (_event, workspaceId: string) => readEnv(root, workspaceId));
 	ipcMain.handle("env:set", (_event, workspaceId: string, key: string, value?: string) =>

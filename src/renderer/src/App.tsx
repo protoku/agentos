@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bot, Boxes, ChevronRight, ChevronsUpDown, Database, KeyRound, MessageSquare, MessagesSquare, Plus, Trash2, TriangleAlert, Wrench } from "lucide-react";
+import { Bot, Boxes, Brain, ChevronRight, ChevronsUpDown, Database, KeyRound, MessageSquare, MessagesSquare, Plus, Trash2, TriangleAlert, Wrench } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
 	AlertDialog,
@@ -45,15 +45,16 @@ import { Conversations } from "./Conversations";
 import { Env } from "./Env";
 import { Sources } from "./Sources";
 import { Tools } from "./Tools";
+import { Memories } from "./Memories";
 import { Thread } from "./Thread";
 import { pathOf } from "../../shared/render";
 import { Diff } from "./Diff";
 import { SidePane, Viewer } from "./Viewer";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary, MountState } from "../../shared/api";
-import type { Agent, Entry, MountSource, Tool, ToolCall, Workspace } from "../../shared/types";
+import type { Agent, Entry, Memory, MountSource, Tool, ToolCall, Workspace } from "../../shared/types";
 
-const sections = ["conversations", "agents", "tools", "sources", "env"] as const;
+const sections = ["conversations", "agents", "tools", "sources", "memories", "env"] as const;
 
 type Section = (typeof sections)[number];
 
@@ -106,6 +107,15 @@ function Listing({
 	);
 }
 
+/** A settled memory call changed what the workspace knows, whatever conversation it happened in. */
+function remembers(entry: Entry): boolean {
+	return (
+		entry.type === "toolCall" &&
+		entry.status === "success" &&
+		["create_memory", "update_memory", "delete_memory"].includes(entry.toolId)
+	);
+}
+
 /** A call that acted on the open path is a new version of what the viewer is showing. */
 function touches(call: ToolCall, path: string, tools: Tool[]): boolean {
 	return pathOf(call, tools.find((tool) => tool.id === call.toolId)) === path;
@@ -127,6 +137,7 @@ export function App() {
 	const [runtime, setRuntime] = useState<{ found: boolean; missing: string }>();
 	const [viewing, setViewing] = useState<{ kind: "file" | "diff"; path: string }>();
 	const [sources, setSources] = useState<MountSource[]>([]);
+	const [memories, setMemories] = useState<Memory[]>([]);
 	const [mounts, setMounts] = useState<MountState[]>([]);
 	const [selected, setSelected] = useState<string>();
 
@@ -149,6 +160,13 @@ export function App() {
 			([builtin, scripts]) => setTools([...builtin, ...scripts]),
 		);
 	}, [workspaceId, section]);
+
+	// What the workspace knows changes from two directions: this pane, and an agent writing one down.
+	useEffect(() => {
+		if (workspaceId === undefined) return;
+
+		void window.agentOS.listMemories(workspaceId).then(setMemories);
+	}, [workspaceId, section, entries.filter(remembers).length]);
 
 	// Entries an acting agent adds arrive here, not from the call that started its turn.
 	useEffect(() => {
@@ -454,6 +472,16 @@ export function App() {
 												onPick={setSelected}
 												selected={selected}
 											/>
+											<Listing
+												section="memories"
+												label="Memories"
+												icon={<Brain />}
+												items={memories.map((memory) => ({ id: memory.id, name: memory.title }))}
+												open={section}
+												onOpen={setSection}
+												onPick={setSelected}
+												selected={selected}
+											/>
 											<SidebarMenuItem>
 												<SidebarMenuButton
 													isActive={section === "env"}
@@ -489,6 +517,8 @@ export function App() {
 				<Sources workspaceId={workspace.id} />
 			) : section === "env" ? (
 				<Env workspaceId={workspace.id} />
+			) : section === "memories" ? (
+				<Memories workspaceId={workspace.id} selected={selected} />
 			) : section === "tools" ? (
 				<Tools workspaceId={workspace.id} selected={selected} />
 			) : drafting || openConversation ? (

@@ -3,6 +3,7 @@ import type {
 	BuiltinTool,
 	Conversation,
 	Entry,
+	Memory,
 	MountSource,
 	ScriptTool,
 	ToolCall,
@@ -14,6 +15,9 @@ export type ScriptToolDraft = Pick<
 	ScriptTool,
 	"name" | "description" | "code" | "env" | "inputSchema" | "outputSchema"
 >;
+
+/** What the pane writes: the user is not an agent, so nothing records one. */
+export type MemoryDraft = Pick<Memory, "title" | "body" | "tags">;
 
 /** A conversation record plus the time of its last entry, which is what the lists order by. */
 export interface ConversationSummary extends Conversation {
@@ -71,6 +75,10 @@ export interface AgentOSApi {
 	readEnv(workspaceId: string): Promise<Record<string, string>>;
 	/** Sets a key, or drops it when given no value. */
 	setEnv(workspaceId: string, key: string, value?: string): Promise<Record<string, string>>;
+	listMemories(workspaceId: string): Promise<Memory[]>;
+	createMemory(workspaceId: string, draft: MemoryDraft): Promise<Memory>;
+	updateMemory(workspaceId: string, memory: Memory): Promise<Memory>;
+	deleteMemory(workspaceId: string, memoryId: string): Promise<Memory>;
 	listSources(workspaceId: string): Promise<MountSource[]>;
 	createSource(workspaceId: string, draft: Pick<MountSource, "name" | "type" | "config">): Promise<MountSource>;
 	listTools(): Promise<BuiltinTool[]>;
