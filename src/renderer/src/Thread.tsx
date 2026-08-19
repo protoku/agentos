@@ -759,6 +759,9 @@ function Payload({ label, value }: { label: string; value: Record<string, unknow
 	);
 }
 
+/** Fields that are text whatever they happen to hold today, so they always read as text. */
+const prose = new Set(["content", "find", "replace", "code", "diff", "output", "summary", "systemPrompt"]);
+
 /**
  * A value read rather than dumped: text that has lines keeps them instead of showing \n, and
  * nothing scrolls sideways, since a command line or a path is exactly what you came to read.
@@ -766,8 +769,10 @@ function Payload({ label, value }: { label: string; value: Record<string, unknow
  */
 function Held({ name, value }: { name: string; value: unknown }) {
 	const written = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+	// find and replace are the same kind of thing, so one cannot sit in a block while the other does.
+	const text = written.includes("\n") || written.length > 120 || prose.has(name);
 
-	if (!written.includes("\n")) {
+	if (!text) {
 		return (
 			<div className="flex min-w-0 items-baseline gap-3 text-xs">
 				<span className="w-24 shrink-0 truncate text-right text-muted-foreground" title={name}>
