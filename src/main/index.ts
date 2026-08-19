@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, Menu, nativeTheme, shell } from "electron";
 import { join } from "node:path";
 import { claudeCodeMissing, claudeCodePath } from "./agents/claudeCode";
+import { adoptShellPath } from "./environment";
 import { createWorkspace, loadWorkspace, loadWorkspaces, recoverAllInterruptedTurns } from "./storage/workspaceStore";
 import { deleteWorkspace } from "./storage/workspaces";
 import {
@@ -76,6 +77,9 @@ function createWindow(): void {
 
 void app.whenReady().then(async () => {
 	const root = app.getPath("userData");
+
+	// Before anything can spawn a command, so tools and git hooks see the path you have in a shell.
+	await adoptShellPath();
 
 	ipcMain.handle("agents:runtime", async () => ({
 		found: (await claudeCodePath()) !== undefined,
