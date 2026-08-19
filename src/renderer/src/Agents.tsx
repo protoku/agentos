@@ -9,10 +9,10 @@ import { Nothing } from "./Nothing";
 import { defaultModel, models } from "../../shared/models";
 import type { Agent, Tool } from "../../shared/types";
 
-type Draft = Pick<Agent, "name" | "model" | "systemPrompt" | "tools">;
+type Draft = Pick<Agent, "name" | "model" | "systemPrompt" | "tools" | "carries">;
 type Permission = "allow" | "ask" | "deny";
 
-const emptyDraft: Draft = { name: "", model: defaultModel, systemPrompt: "", tools: {} };
+const emptyDraft: Draft = { name: "", model: defaultModel, systemPrompt: "", tools: {}, carries: [] };
 
 /**
  * Agents worth offering ready-made, since both are mostly a matter of which permissions to hold
@@ -70,6 +70,7 @@ const templates: { label: string; icon: React.ReactNode; draft: Draft }[] = [
 				mount: "ask",
 				unmount: "ask",
 			},
+			carries: [],
 		},
 	},
 	{
@@ -106,6 +107,7 @@ const templates: { label: string; icon: React.ReactNode; draft: Draft }[] = [
 				read_file: "allow",
 				list_files: "allow",
 			},
+			carries: [],
 		},
 	},
 ];
@@ -141,6 +143,7 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 			model: agent.model,
 			systemPrompt: agent.systemPrompt,
 			tools: agent.tools,
+			carries: agent.carries,
 		});
 	}
 

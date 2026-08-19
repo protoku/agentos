@@ -6,6 +6,7 @@ export interface Workspace {
 	tools: ScriptTool[];
 	env: Record<string, string>;
 	sources: MountSource[];
+	memories: Memory[];
 	conversations: Conversation[];
 }
 
@@ -26,6 +27,20 @@ export interface Agent {
 	model: string;
 	systemPrompt: string;
 	tools: Record<string, "allow" | "ask" | "deny">;
+	/** Memory tags: everything filed under one of these is given to the agent before every turn. */
+	carries: string[];
+}
+
+/** What the workspace knows, which outlives the conversation it was learned in. */
+export interface Memory {
+	id: string;
+	title: string;
+	body: string;
+	tags: string[];
+	/** The agent that wrote it, absent when the user wrote it in the pane. */
+	agentId?: string;
+	createdAt: string;
+	updatedAt: string;
 }
 
 export type Tool = BuiltinTool | ScriptTool;

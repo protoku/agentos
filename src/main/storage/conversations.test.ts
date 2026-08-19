@@ -51,7 +51,7 @@ describe("startConversation", () => {
 
 describe("mentions", () => {
 	it("resolves @names to agent ids when the message is sent", async () => {
-		const ops = await createAgent(root, workspaceId, { name: "ops", model: "m", systemPrompt: "", tools: {} });
+		const ops = await createAgent(root, workspaceId, { name: "ops", model: "m", systemPrompt: "", tools: {}, carries: [] });
 
 		const { message } = await startConversation(root, workspaceId, "@ops deploy please");
 

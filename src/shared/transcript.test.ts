@@ -9,6 +9,7 @@ const ops: Agent = {
 	model: "claude-opus-5",
 	systemPrompt: "You watch deploys.",
 	tools: {},
+	carries: [],
 };
 
 const entries: Entry[] = [

@@ -66,7 +66,7 @@ export interface AgentOSApi {
 	mountStates(workspaceId: string, conversationId: string): Promise<MountState[]>;
 	sandboxDiff(workspaceId: string, conversationId: string, path: string): Promise<SandboxDiff>;
 	listAgents(workspaceId: string): Promise<Agent[]>;
-	createAgent(workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt" | "tools">): Promise<Agent>;
+	createAgent(workspaceId: string, draft: Pick<Agent, "name" | "model" | "systemPrompt" | "tools" | "carries">): Promise<Agent>;
 	updateAgent(workspaceId: string, agent: Agent): Promise<Agent>;
 	readEnv(workspaceId: string): Promise<Record<string, string>>;
 	/** Sets a key, or drops it when given no value. */

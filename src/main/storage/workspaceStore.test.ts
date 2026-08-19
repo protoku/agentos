@@ -1,4 +1,4 @@
-import { mkdtemp, readdir, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, readdir, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -6,6 +6,7 @@ import { appendEntry, readEntries } from "./conversationFile";
 import {
 	conversationFile,
 	createWorkspace,
+	loadWorkspace,
 	loadWorkspaces,
 	recoverAllInterruptedTurns,
 	saveWorkspace,
@@ -34,10 +35,38 @@ describe("createWorkspace", () => {
 		expect(created).toMatchObject({ name: "Acme API", env: {}, agents: [], conversations: [] });
 	});
 
+	it("starts knowing nothing, with a pool to remember into", async () => {
+		expect((await createWorkspace(root, "Acme API")).memories).toEqual([]);
+	});
+
 	it("names the folder by id, not by name", async () => {
 		const created = await createWorkspace(root, "Acme API");
 
 		expect(await readdir(join(root, "workspaces"))).toEqual([created.id]);
+	});
+});
+
+describe("a record written before a workspace could remember", () => {
+	it("loads with an empty pool and agents that carry nothing", async () => {
+		const written = {
+			id: "old",
+			name: "Acme API",
+			createdAt: "2026-08-01T10:00:00.000Z",
+			agents: [
+				{ id: "agent-1", name: "ops", createdAt: "2026-08-01T10:00:00.000Z", model: "m", systemPrompt: "", tools: {} },
+			],
+			tools: [],
+			env: {},
+			sources: [],
+			conversations: [],
+		};
+		await mkdir(join(root, "workspaces", "old"), { recursive: true });
+		await writeFile(join(root, "workspaces", "old", "workspace.json"), JSON.stringify(written), "utf8");
+
+		const loaded = await loadWorkspace(root, "old");
+
+		expect(loaded.memories).toEqual([]);
+		expect(loaded.agents[0]?.carries).toEqual([]);
 	});
 });
 

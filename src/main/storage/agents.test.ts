@@ -22,6 +22,7 @@ const draft = {
 	model: "claude-opus-5",
 	systemPrompt: "You keep the pipeline healthy.",
 	tools: { read_file: "allow" } as const,
+	carries: [],
 };
 
 describe("createAgent", () => {
@@ -30,6 +31,15 @@ describe("createAgent", () => {
 
 		expect(agent).toMatchObject(draft);
 		expect(await listAgents(root, workspaceId)).toEqual([agent]);
+	});
+});
+
+describe("carrying", () => {
+	it("keeps the memory tags an agent was created with", async () => {
+		const agent = await createAgent(root, workspaceId, { ...draft, carries: ["ops", "deploy"] });
+
+		expect(agent.carries).toEqual(["ops", "deploy"]);
+		expect((await listAgents(root, workspaceId))[0]?.carries).toEqual(["ops", "deploy"]);
 	});
 });
 

@@ -29,6 +29,7 @@ export async function createWorkspace(root: string, name: string): Promise<Works
 		tools: [],
 		env: {},
 		sources: [],
+		memories: [],
 		conversations: [],
 	};
 	await saveWorkspace(root, workspace);
@@ -50,7 +51,7 @@ export async function loadWorkspace(root: string, workspaceId: string): Promise<
 	const text = await readIfPresent(join(workspaceDirectory(root, workspaceId), "workspace.json"));
 	if (text === undefined) throw new Error(`No workspace ${workspaceId}`);
 
-	return JSON.parse(text) as Workspace;
+	return asWorkspace(text);
 }
 
 export async function loadWorkspaces(root: string): Promise<Workspace[]> {
@@ -58,7 +59,7 @@ export async function loadWorkspaces(root: string): Promise<Workspace[]> {
 
 	for (const entry of await directories(workspacesDirectory(root))) {
 		const text = await readIfPresent(join(workspacesDirectory(root), entry, "workspace.json"));
-		if (text !== undefined) workspaces.push(JSON.parse(text) as Workspace);
+		if (text !== undefined) workspaces.push(asWorkspace(text));
 	}
 
 	return workspaces.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
@@ -76,6 +77,20 @@ export async function recoverAllInterruptedTurns(root: string): Promise<TurnEnd[
 	}
 
 	return ends;
+}
+
+/**
+ * A record written before a workspace could remember anything is missing both collections, and a
+ * turn would read carries as undefined rather than as an agent that carries nothing.
+ */
+function asWorkspace(text: string): Workspace {
+	const workspace = JSON.parse(text) as Workspace;
+
+	return {
+		...workspace,
+		memories: workspace.memories ?? [],
+		agents: workspace.agents.map((agent) => ({ ...agent, carries: agent.carries ?? [] })),
+	};
 }
 
 async function directories(path: string): Promise<string[]> {

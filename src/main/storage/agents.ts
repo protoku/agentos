@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { loadWorkspace, saveWorkspace } from "./workspaceStore";
 import type { Agent } from "../../shared/types";
 
-export type AgentDraft = Pick<Agent, "name" | "model" | "systemPrompt" | "tools">;
+export type AgentDraft = Pick<Agent, "name" | "model" | "systemPrompt" | "tools" | "carries">;
 
 export async function listAgents(root: string, workspaceId: string): Promise<Agent[]> {
 	return (await loadWorkspace(root, workspaceId)).agents;
@@ -17,6 +17,7 @@ export async function createAgent(root: string, workspaceId: string, draft: Agen
 		model: draft.model,
 		systemPrompt: draft.systemPrompt,
 		tools: draft.tools,
+		carries: draft.carries,
 	};
 
 	workspace.agents.push(agent);
