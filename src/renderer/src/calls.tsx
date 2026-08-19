@@ -16,6 +16,7 @@ import {
 	Terminal,
 	Wrench,
 } from "lucide-react";
+import { thousands } from "./format";
 import type { MountSource, ToolCall } from "../../shared/types";
 
 const icons: Record<MountSource["type"], React.ReactNode> = {
@@ -211,10 +212,6 @@ function changed(diff: string): string {
 	const removed = lines.filter((line) => line.startsWith("-") && !line.startsWith("---")).length;
 
 	return `+${added} −${removed}`;
-}
-
-function thousands(count: number): string {
-	return count < 1000 ? String(count) : `${(count / 1000).toFixed(1)}k`;
 }
 
 function counted(directories: number, all: number): string {

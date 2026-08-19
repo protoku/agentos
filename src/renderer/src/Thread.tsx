@@ -45,10 +45,13 @@ import {
 	MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { labelOf, summarise } from "./calls";
+import { FieldRow } from "./Fields";
+import { thousands } from "./format";
 import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
+import { fieldsOf } from "../../shared/render";
 import { tokens } from "../../shared/transcript";
 import type { MountState } from "../../shared/api";
 import type { Agent, Entry, MountSource, Tool, ToolCall } from "../../shared/types";
@@ -616,8 +619,9 @@ function CallRow({
 	const [open, setOpen] = useState(call.status === "pending" || call.status === "running");
 	const path = pathOf(call);
 	const summary = summarise(call, sources);
+	const tool = tools.find((candidate) => candidate.id === call.toolId);
 	// A call records the tool's id, which for a script tool is nothing anybody wants to read.
-	const named = tools.find((tool) => tool.id === call.toolId)?.name ?? call.toolId;
+	const named = tool?.name ?? call.toolId;
 
 	function decide(allowed: boolean) {
 		const message = denyMessage.trim();
@@ -675,10 +679,10 @@ function CallRow({
 						</span>
 					))}
 
-					<Payload label="Input" value={call.input} />
+					<Payload label="Input" schema={tool?.inputSchema} value={call.input} />
 					{call.output && (
 						<div className="border-t border-border pt-3">
-							<Payload label="Output" value={call.output} />
+							<Payload label="Output" schema={tool?.outputSchema} value={call.output} />
 						</div>
 					)}
 				</div>
@@ -748,49 +752,21 @@ function payloadOf(call: ToolCall): string {
 }
 
 /** Inside the box a line opens, so it carries no box of its own. */
-function Payload({ label, value }: { label: string; value: Record<string, unknown> }) {
+function Payload({
+	label,
+	schema,
+	value,
+}: {
+	label: string;
+	schema?: Record<string, unknown>;
+	value: Record<string, unknown>;
+}) {
 	return (
 		<div className="flex flex-col gap-2">
 			<span className="text-xs tracking-wide text-muted-foreground uppercase">{label}</span>
-			{Object.entries(value).map(([key, held]) => (
-				<Held key={key} name={key} value={held} />
+			{fieldsOf(schema, value).map((field) => (
+				<FieldRow key={field.name} field={field} />
 			))}
-		</div>
-	);
-}
-
-/** Fields that are text whatever they happen to hold today, so they always read as text. */
-const prose = new Set(["content", "find", "replace", "code", "diff", "output", "summary", "systemPrompt"]);
-
-/**
- * A value read rather than dumped: text that has lines keeps them instead of showing \n, and
- * nothing scrolls sideways, since a command line or a path is exactly what you came to read.
- * A value of one line sits beside its name; one of many gets a block of its own to sit in.
- */
-function Held({ name, value }: { name: string; value: unknown }) {
-	const written = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-	// find and replace are the same kind of thing, so one cannot sit in a block while the other does.
-	const text = written.includes("\n") || written.length > 120 || prose.has(name);
-
-	// One column for names and one for what they hold, whether that is a word or a file.
-	return (
-		<div className="flex min-w-0 items-baseline gap-3 text-xs">
-			<span className="w-24 shrink-0 truncate text-right text-muted-foreground" title={name}>
-				{name}
-			</span>
-
-			{text ? (
-				<div className="flex min-w-0 flex-1 flex-col gap-1">
-					<pre className="min-w-0 rounded-md border border-border bg-background p-2 wrap-anywhere whitespace-pre-wrap">
-						{written}
-					</pre>
-					{written.length > 2000 && (
-						<span className="text-right text-muted-foreground">{`${thousands(written.length)} characters`}</span>
-					)}
-				</div>
-			) : (
-				<span className="min-w-0 flex-1 wrap-anywhere">{written}</span>
-			)}
 		</div>
 	);
 }
@@ -816,12 +792,6 @@ function withMentions(content: string, agents: Agent[]) {
 }
 
 /** An estimate, so it reads at a glance rather than carrying digits it cannot stand behind. */
-function thousands(count: number): string {
-	if (count >= 1_000_000) return `${(count / 1_000_000).toFixed(1)}m`;
-
-	return count < 1000 ? `${count}` : `${(count / 1000).toFixed(1)}k`;
-}
-
 function time(iso: string): string {
 	return new Date(iso).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 }

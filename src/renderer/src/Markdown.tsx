@@ -1,10 +1,11 @@
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import { cn } from "@/lib/utils";
 
 /** How a model writes: rendered as a React tree, so nothing an agent says becomes markup. */
-export function Markdown({ content }: { content: string }) {
+export function Markdown({ content, className }: { content: string; className?: string }) {
 	return (
-		<div className="flex flex-col gap-2 text-sm break-words">
+		<div className={cn("flex flex-col gap-2 break-words", className ?? "text-sm")}>
 			<ReactMarkdown
 				remarkPlugins={[remarkGfm]}
 				components={{
