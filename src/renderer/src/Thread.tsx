@@ -746,9 +746,30 @@ function payloadOf(call: ToolCall): string {
 /** Inside the box a line opens, so it carries no box of its own. */
 function Payload({ label, value }: { label: string; value: Record<string, unknown> }) {
 	return (
-		<div className="flex flex-col gap-1">
+		<div className="flex flex-col gap-2">
 			<span className="text-xs tracking-wide text-muted-foreground uppercase">{label}</span>
-			<pre className="overflow-x-auto text-xs">{JSON.stringify(value, null, 2)}</pre>
+			{Object.entries(value).map(([key, held]) => (
+				<Held key={key} name={key} value={held} />
+			))}
+		</div>
+	);
+}
+
+/**
+ * A value read rather than dumped: text that has lines keeps them instead of showing \n, and
+ * nothing scrolls sideways, since a command line or a path is exactly what you came to read.
+ */
+function Held({ name, value }: { name: string; value: unknown }) {
+	const written = typeof value === "string" ? value : JSON.stringify(value, null, 2);
+	const lines = written.split("\n").length > 1;
+
+	return (
+		<div className="flex min-w-0 flex-col gap-0.5 text-xs">
+			<span className="text-muted-foreground">{name}</span>
+			<pre className="min-w-0 wrap-anywhere whitespace-pre-wrap">{written}</pre>
+			{lines && written.length > 2000 && (
+				<span className="text-muted-foreground">{`${thousands(written.length)} characters`}</span>
+			)}
 		</div>
 	);
 }
