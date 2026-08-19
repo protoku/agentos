@@ -1,5 +1,7 @@
 import {
 	Boxes,
+	Brain,
+	Eraser,
 	FilePen,
 	FilePlus,
 	FileText,
@@ -84,6 +86,29 @@ const summaries: Record<string, Summary> = {
 		icon: <FolderX />,
 		subject: String(path),
 		hint: typeof entries === "number" && entries > 0 ? `${thousands(entries)} removed with it` : undefined,
+	}),
+	search_memory: ({ query, tags, found }) => ({
+		label: "Search memory",
+		icon: <Brain />,
+		subject: asked(query, tags),
+		hint: typeof found === "number" ? `${found} ${found === 1 ? "memory" : "memories"}` : undefined,
+	}),
+	create_memory: ({ title, carriedBy }) => ({
+		label: "Remember",
+		icon: <Brain />,
+		subject: String(title),
+		hint: carried(carriedBy),
+	}),
+	update_memory: ({ title, carriedBy }) => ({
+		label: "Correct memory",
+		icon: <Brain />,
+		subject: title === undefined ? undefined : String(title),
+		hint: carried(carriedBy),
+	}),
+	delete_memory: ({ title }) => ({
+		label: "Forget",
+		icon: <Eraser />,
+		subject: title === undefined ? undefined : String(title),
 	}),
 	search_files: ({ pattern, path, matches, truncated }) => ({
 		label: "Search files",
@@ -200,6 +225,19 @@ function counted(directories: number, all: number): string {
 	];
 
 	return parts.filter((part) => part !== undefined).join(", ");
+}
+
+/** What a search was for: the words, else the tags, else the whole of what the workspace knows. */
+function asked(query: unknown, tags: unknown): string {
+	if (typeof query === "string" && query.length > 0) return query;
+	if (Array.isArray(tags) && tags.length > 0) return tags.join(", ");
+
+	return "everything";
+}
+
+/** Whose turns a written memory just joined, which is the consequence worth reading on the line. */
+function carried(carriedBy: unknown): string | undefined {
+	return typeof carriedBy === "string" && carriedBy !== "nobody" ? `carried by ${carriedBy}` : undefined;
 }
 
 /** A tool with no summary of its own still gets its name back: git_create_branch, Git create branch. */
