@@ -27,7 +27,7 @@ export const mountTools: BuiltinToolImplementation[] = [
 			type: "object",
 			properties: {
 				source: { type: "string" },
-				path: { type: "string" },
+				path: { type: "string", render: "path" },
 				mode: { enum: ["shared", "isolated"] },
 				readOnly: { type: "boolean" },
 				startedFrom: { type: "string", description: "Which tip an isolated worktree began at" },
@@ -59,7 +59,7 @@ export const mountTools: BuiltinToolImplementation[] = [
 			type: "object",
 			properties: {
 				source: { type: "string" },
-				path: { type: "string" },
+				path: { type: "string", render: "path" },
 				mode: { enum: ["shared", "isolated"] },
 			},
 			required: ["source", "path", "mode"],

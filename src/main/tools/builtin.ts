@@ -15,10 +15,10 @@ const fileTools: BuiltinToolImplementation[] = [
 	define({
 		id: "write_file",
 		description: "Create a file, replacing it if it already exists.",
-		input: z.object({ path: sandboxPath, content: z.string() }),
+		input: z.object({ path: sandboxPath, content: z.string().meta({ render: "text" }) }),
 		outputSchema: {
 			type: "object",
-			properties: { path: { type: "string" }, bytes: { type: "number" } },
+			properties: { path: { type: "string", render: "path" }, bytes: { type: "number" } },
 			required: ["path", "bytes"],
 		},
 		async run({ path, content }, context) {
@@ -36,7 +36,7 @@ const fileTools: BuiltinToolImplementation[] = [
 		input: z.object({ path: sandboxPath }),
 		outputSchema: {
 			type: "object",
-			properties: { path: { type: "string" }, content: { type: "string" } },
+			properties: { path: { type: "string", render: "path" }, content: { type: "string", render: "text" } },
 			required: ["path", "content"],
 		},
 		async run({ path }, { sandbox }) {
@@ -50,9 +50,10 @@ const fileTools: BuiltinToolImplementation[] = [
 		outputSchema: {
 			type: "object",
 			properties: {
-				path: { type: "string" },
+				path: { type: "string", render: "path" },
 				entries: {
 					type: "array",
+					render: "table",
 					items: {
 						type: "object",
 						properties: { name: { type: "string" }, type: { enum: ["file", "directory"] } },
@@ -77,10 +78,14 @@ const fileTools: BuiltinToolImplementation[] = [
 	define({
 		id: "edit_file",
 		description: "Change a file by replacing a snippet that must appear exactly once.",
-		input: z.object({ path: sandboxPath, find: z.string(), replace: z.string() }),
+		input: z.object({
+			path: sandboxPath,
+			find: z.string().meta({ render: "text" }),
+			replace: z.string().meta({ render: "text" }),
+		}),
 		outputSchema: {
 			type: "object",
-			properties: { path: { type: "string" }, bytes: { type: "number" } },
+			properties: { path: { type: "string", render: "path" }, bytes: { type: "number" } },
 			required: ["path", "bytes"],
 		},
 		async run({ path, find, replace }, context) {
@@ -102,7 +107,7 @@ const fileTools: BuiltinToolImplementation[] = [
 		input: z.object({ from: sandboxPath, to: sandboxPath }),
 		outputSchema: {
 			type: "object",
-			properties: { from: { type: "string" }, to: { type: "string" } },
+			properties: { from: { type: "string", render: "path" }, to: { type: "string", render: "path" } },
 			required: ["from", "to"],
 		},
 		async run({ from, to }, context) {
@@ -121,7 +126,7 @@ const fileTools: BuiltinToolImplementation[] = [
 		id: "delete_file",
 		description: "Remove a file. Directories are refused.",
 		input: z.object({ path: sandboxPath }),
-		outputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] },
+		outputSchema: { type: "object", properties: { path: { type: "string", render: "path" } }, required: ["path"] },
 		async run({ path }, context) {
 			const file = await resolveWritable(context, path);
 
@@ -140,7 +145,7 @@ const fileTools: BuiltinToolImplementation[] = [
 		}),
 		outputSchema: {
 			type: "object",
-			properties: { path: { type: "string" }, entries: { type: "number" } },
+			properties: { path: { type: "string", render: "path" }, entries: { type: "number" } },
 			required: ["path", "entries"],
 		},
 		async run({ path, recursive }, context) {
@@ -172,10 +177,11 @@ const fileTools: BuiltinToolImplementation[] = [
 				truncated: { type: "boolean" },
 				matches: {
 					type: "array",
+					render: "table",
 					items: {
 						type: "object",
 						properties: {
-							path: { type: "string" },
+							path: { type: "string", render: "path" },
 							line: { type: "number" },
 							text: { type: "string" },
 						},

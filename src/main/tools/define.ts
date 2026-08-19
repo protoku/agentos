@@ -26,7 +26,7 @@ export interface ToolImplementation {
 
 export interface BuiltinToolImplementation extends BuiltinTool, ToolImplementation {}
 
-export const sandboxPath = z.string().describe("Path relative to the sandbox");
+export const sandboxPath = z.string().describe("Path relative to the sandbox").meta({ render: "path" });
 
 export function define<Input extends z.ZodObject>(definition: {
 	id: string;

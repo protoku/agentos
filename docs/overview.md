@@ -80,7 +80,7 @@ interface AgentMessage {
 
 ## ToolCall
 
-A tool call is one action performed through a tool, by an agent or by the user invoking the tool directly as a slash command, recorded as its own entry in the conversation. It captures the reason the agent gives for the call, the full input, and the output; because the output follows the tool's outputSchema, it can be rendered natively instead of as text.
+A tool call is one action performed through a tool, by an agent or by the user invoking the tool directly as a slash command, recorded as its own entry in the conversation. It captures the reason the agent gives for the call, the full input, and the output; because the output follows the tool's outputSchema, it can be rendered natively instead of as text, field by field as that schema declares.
 
 The reason is asked of the agent as part of calling: every tool an agent sees takes a required reason argument beside the arguments its inputSchema defines, one short sentence saying why it is making this call. It lands in reason and never in input, so the input stays exactly what the tool received.
 
@@ -165,6 +165,8 @@ Confinement differs by kind: built-in tools enforce it, resolving every path aga
 A script tool is named in one word, uniquely in its workspace and never a name a built-in already uses, since naming a tool is how both the composer and an agent call it.
 
 For both kinds, inputSchema tells the agent how to call the tool and outputSchema gives every result a known shape that can be rendered natively. Everything else in the workspace env is invisible to a tool, so a tool's credential access is exactly its declaration. Stable ids keep permissions and past calls pointing at the exact tool.
+
+A schema also says how a field reads. Any property of either schema may carry render, naming one of six kinds: table for an array of objects, whose columns are the properties its items declare, text for what is read as written whatever its length, markdown, diff, path for a place in the sandbox, and link for an address that opens in the browser. It is presentation and nothing else: a tool behaves the same whether or not its fields are declared, a field that declares nothing reads as what it holds, and a declaration a value does not fit falls back to that rather than failing, as does a kind this version of AgentOS does not know.
 
 ```ts
 type Tool = BuiltinTool | ScriptTool;
@@ -286,7 +288,8 @@ The exception is the work of building tools, which cannot be done blind: finding
 Features of the app around the model above.
 
 - The thread reads as turns at it rather than as a list of entries: whoever is acting is named once, everything they did follows, and a rule separates them from whoever acts next.
-- A tool call is one line, naming the tool and what it acted on, with what became of it at the right. Opening the line shows its input and output, and whatever else is worth seeing, such as the names in a listing. A call waiting on a decision is open already, since its input is what is being approved, and one still running is open too, since it can be stopped. A script tool's call has no line of its own beyond its name: its schema says what shape an output takes, never what it means.
+- A tool call is one line, naming the tool and what it acted on, with what became of it at the right. Opening the line shows its input and output, each field read as its schema declares it. A call waiting on a decision is open already, since its input is what is being approved, and one still running is open too, since it can be stopped.
+- A field is shown as its kind: a table of rows with a column for each property its items declare, text as written, markdown rendered, a diff coloured by what it adds and removes, a path that opens in the viewer, a link that opens in the browser. A field that declares nothing reads as what it holds, a short value beside its name and a long one in a block below it. A rendering hides nothing: a field of a kind nobody named is shown all the same, and copying the call still copies its input and output as JSON. A rendering that would run away is bounded and says how much there is in all, a table by its rows and a diff by its lines, while text is shown whole. A table wider than the thread scrolls inside its own box rather than taking the thread with it.
 - Messages and tool calls offer copy to clipboard: a message copies its text, a tool call its input and output as JSON. Turn entries have nothing to copy.
 - Agents run on the Claude Code installed on the machine, found wherever it put itself. When it is not there the app says so and where to get it, rather than letting every turn fail on its own.
 - The thread follows its newest entry while you are at the bottom of it, and stops following the moment you scroll away to read, offering a way back to the newest. A conversation opens at its newest entry.
@@ -298,7 +301,7 @@ Features of the app around the model above.
 - The sidebar header holds the workspace picker: it names the workspace in view and switches to any other. It also deletes the workspace in view, confirming first like archiving does and naming what goes with it. After deleting, the picker falls back to the first workspace it lists, and when the deleted one was the last there is no workspace in view.
 - The window is two panes, the sidebar with the workspace picker and the conversation list, and the thread beside it, and a third while a file is open in the viewer. The sidebar slides out of the way and back, and stays as you left it.
 - A git mount in the header opens its changes in the viewer: what the working tree has that its last commit does not, additions and deletions marked. A file git has never seen shows as every line added, so new work reads like changed work, and the names of those files are listed together as well.
-- A tool call that names a file opens that file in the viewer, as it is now: markdown rendered, text as written, a directory as the names in it, anything else described rather than drawn. A file too large to read comfortably is shown up to a limit and says so.
+- A tool call opens in the viewer what it names, the field its schema declares a path, as it is now: markdown rendered, text as written, a directory as the names in it, anything else described rather than drawn. A file too large to read comfortably is shown up to a limit and says so.
 - The viewer is as wide as you drag it, and stays that width next time.
 - The viewer never edits. Work on a file happens through the conversation, so that every change is a tool call somebody can read; a change made beside the thread would be a change nobody recorded. It follows the file it shows: a later call touching that path refreshes it, and a file that has since been deleted says so.
 - A conversation's header names it, with a way to rename it while it is open and a closed lock once it is archived, and carries beneath that what the conversation is bound to: what it has mounted, a git mount naming its source with the branch and commit it currently sits on, the agents that have taken part in it, and its sandbox, which opens in the file manager.

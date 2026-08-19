@@ -19,7 +19,10 @@ export const authoringTools: BuiltinToolImplementation[] = [
 		input: z.object({
 			name: z.string().describe("One word, unique in the workspace, never a built-in's name"),
 			description: z.string().describe("What it does, for whoever calls it"),
-			code: z.string().describe("The function body, receiving input and env, returning the output object"),
+			code: z
+				.string()
+				.describe("The function body, receiving input and env, returning the output object")
+				.meta({ render: "text" }),
 			env: declaredEnv,
 			inputSchema: schema,
 			outputSchema: schema,
@@ -41,7 +44,7 @@ export const authoringTools: BuiltinToolImplementation[] = [
 		input: z.object({
 			name: z.string().describe("The tool to change"),
 			description: z.string().optional(),
-			code: z.string().optional(),
+			code: z.string().optional().meta({ render: "text" }),
 			env: z.array(z.string()).optional(),
 			inputSchema: schema.optional(),
 			outputSchema: schema.optional(),
@@ -82,7 +85,7 @@ export const authoringTools: BuiltinToolImplementation[] = [
 			properties: {
 				ok: { type: "boolean" },
 				exitCode: { type: "number" },
-				output: { type: "string" },
+				output: { type: "string", render: "text" },
 			},
 			required: ["ok", "exitCode", "output"],
 		},

@@ -16,12 +16,13 @@ export const gitTools: BuiltinToolImplementation[] = [
 		outputSchema: {
 			type: "object",
 			properties: {
-				path: { type: "string" },
+				path: { type: "string", render: "path" },
 				branch: { type: "string" },
 				ahead: { type: "number" },
 				behind: { type: "number" },
 				changes: {
 					type: "array",
+					render: "table",
 					items: {
 						type: "object",
 						properties: { change: { type: "string" }, file: { type: "string" } },
@@ -49,7 +50,7 @@ export const gitTools: BuiltinToolImplementation[] = [
 		input: z.object({ path: mountPath }),
 		outputSchema: {
 			type: "object",
-			properties: { path: { type: "string" }, diff: { type: "string" } },
+			properties: { path: { type: "string", render: "path" }, diff: { type: "string", render: "diff" } },
 			required: ["path", "diff"],
 		},
 		async run({ path }, context) {
@@ -65,9 +66,10 @@ export const gitTools: BuiltinToolImplementation[] = [
 		outputSchema: {
 			type: "object",
 			properties: {
-				path: { type: "string" },
+				path: { type: "string", render: "path" },
 				commits: {
 					type: "array",
+					render: "table",
 					items: {
 						type: "object",
 						properties: {
@@ -105,7 +107,7 @@ export const gitTools: BuiltinToolImplementation[] = [
 		input: z.object({ path: mountPath, name: z.string().describe("Branch to create") }),
 		outputSchema: {
 			type: "object",
-			properties: { path: { type: "string" }, branch: { type: "string" } },
+			properties: { path: { type: "string", render: "path" }, branch: { type: "string" } },
 			required: ["path", "branch"],
 		},
 		async run({ path, name }, context) {
@@ -121,7 +123,7 @@ export const gitTools: BuiltinToolImplementation[] = [
 		input: z.object({ path: mountPath, name: z.string().describe("Branch to switch onto") }),
 		outputSchema: {
 			type: "object",
-			properties: { path: { type: "string" }, branch: { type: "string" } },
+			properties: { path: { type: "string", render: "path" }, branch: { type: "string" } },
 			required: ["path", "branch"],
 		},
 		async run({ path, name }, context) {
@@ -141,10 +143,10 @@ export const gitTools: BuiltinToolImplementation[] = [
 		outputSchema: {
 			type: "object",
 			properties: {
-				path: { type: "string" },
+				path: { type: "string", render: "path" },
 				branch: { type: "string" },
 				commit: { type: "string" },
-				message: { type: "string" },
+				message: { type: "string", render: "text" },
 			},
 			required: ["path", "branch", "commit", "message"],
 		},
@@ -163,7 +165,11 @@ export const gitTools: BuiltinToolImplementation[] = [
 		input: z.object({ path: mountPath }),
 		outputSchema: {
 			type: "object",
-			properties: { path: { type: "string" }, branch: { type: "string" }, summary: { type: "string" } },
+			properties: {
+				path: { type: "string", render: "path" },
+				branch: { type: "string" },
+				summary: { type: "string", render: "text" },
+			},
 			required: ["path", "branch", "summary"],
 		},
 		async run({ path }, context) {
@@ -181,7 +187,11 @@ export const gitTools: BuiltinToolImplementation[] = [
 		input: z.object({ path: mountPath }),
 		outputSchema: {
 			type: "object",
-			properties: { path: { type: "string" }, branch: { type: "string" }, summary: { type: "string" } },
+			properties: {
+				path: { type: "string", render: "path" },
+				branch: { type: "string" },
+				summary: { type: "string", render: "text" },
+			},
 			required: ["path", "branch", "summary"],
 		},
 		async run({ path }, context) {
