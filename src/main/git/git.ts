@@ -14,6 +14,17 @@ export async function git(args: string[], cwd?: string): Promise<string> {
 	}
 }
 
+/**
+ * Some git commands report what they found through their exit code, so a difference is not a
+ * failure and its output is the answer. Anything that truly failed comes back as nothing.
+ */
+export async function gitReading(args: string[], cwd?: string): Promise<string> {
+	return run("git", args, { cwd, maxBuffer: 16 * 1024 * 1024 }).then(
+		({ stdout }) => stdout,
+		(failure: { stdout?: string }) => String(failure.stdout ?? ""),
+	);
+}
+
 function reasonOf(failure: unknown): string {
 	if (typeof failure === "object" && failure !== null && "stderr" in failure) {
 		const stderr = String(failure.stderr).trim();

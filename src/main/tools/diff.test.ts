@@ -51,12 +51,13 @@ describe("sandboxDiff", () => {
 		expect(changes.diff).toContain("+The repository, changed");
 	});
 
-	it("lists files no diff can see, since git has never heard of them", async () => {
-		await invoke("write_file", { path: "api/notes.md", content: "New" });
+	it("shows a file git has never heard of as every line added", async () => {
+		await invoke("write_file", { path: "api/notes.md", content: "New\n" });
 
 		const changes = await sandboxDiff(root, workspaceId, conversationId, "api");
 
-		expect(changes.diff.trim()).toBe("");
+		expect(changes.diff).toContain("notes.md");
+		expect(changes.diff).toContain("+New");
 		expect(changes.untracked).toEqual(["notes.md"]);
 	});
 
