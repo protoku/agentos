@@ -4,7 +4,14 @@ import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
 import { resolveInSandbox } from "./sandbox";
 import { createScriptTool, listScriptTools, updateScriptTool } from "../storage/scriptTools";
 
-const schema = z.record(z.string(), z.unknown());
+const argumentsSchema = z
+	.record(z.string(), z.unknown())
+	.describe("JSON Schema of the arguments, describing every property so a caller knows what to pass");
+const resultSchema = z
+	.record(z.string(), z.unknown())
+	.describe(
+		"JSON Schema of the result. A property may carry render, one of table, text, markdown, diff, path or link, saying how the thread shows it",
+	);
 const declaredEnv = z.array(z.string()).default([]).describe("Workspace env keys the tool may see");
 const readable = 4000;
 
@@ -24,8 +31,8 @@ export const authoringTools: BuiltinToolImplementation[] = [
 				.describe("The function body, receiving input and env, returning the output object")
 				.meta({ render: "text" }),
 			env: declaredEnv,
-			inputSchema: schema,
-			outputSchema: schema,
+			inputSchema: argumentsSchema,
+			outputSchema: resultSchema,
 		}),
 		outputSchema: {
 			type: "object",
@@ -46,8 +53,8 @@ export const authoringTools: BuiltinToolImplementation[] = [
 			description: z.string().optional(),
 			code: z.string().optional().meta({ render: "text" }),
 			env: z.array(z.string()).optional(),
-			inputSchema: schema.optional(),
-			outputSchema: schema.optional(),
+			inputSchema: argumentsSchema.optional(),
+			outputSchema: resultSchema.optional(),
 			rename: z.string().optional().describe("A new name, if it should have one"),
 		}),
 		outputSchema: {

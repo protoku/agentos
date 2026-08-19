@@ -167,20 +167,22 @@ export function Tools({ workspaceId, selected }: { workspaceId: string; selected
 								/>
 							</TabsContent>
 
-							<TabsContent value="input">
+							<TabsContent value="input" className="flex flex-col gap-2">
 								<Textarea
 									value={draft.inputSchema}
 									className="min-h-80 resize-none font-mono text-xs"
 									onChange={(event) => setDraft({ ...draft, inputSchema: event.target.value })}
 								/>
+								<Declaring />
 							</TabsContent>
 
-							<TabsContent value="output">
+							<TabsContent value="output" className="flex flex-col gap-2">
 								<Textarea
 									value={draft.outputSchema}
 									className="min-h-80 resize-none font-mono text-xs"
 									onChange={(event) => setDraft({ ...draft, outputSchema: event.target.value })}
 								/>
+								<Declaring />
 							</TabsContent>
 						</Tabs>
 
@@ -201,5 +203,15 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 			<span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</span>
 			{children}
 		</label>
+	);
+}
+
+/** What a schema may say beyond shape, since nothing in the editor would otherwise mention it. */
+function Declaring() {
+	return (
+		<p className="text-xs text-muted-foreground">
+			A property may carry render, one of table, text, markdown, diff, path or link, saying how the thread shows it.
+			A property that declares nothing, or declares what its value does not fit, reads as what it holds.
+		</p>
 	);
 }
