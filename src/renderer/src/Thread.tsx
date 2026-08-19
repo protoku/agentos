@@ -772,25 +772,24 @@ function Held({ name, value }: { name: string; value: unknown }) {
 	// find and replace are the same kind of thing, so one cannot sit in a block while the other does.
 	const text = written.includes("\n") || written.length > 120 || prose.has(name);
 
-	if (!text) {
-		return (
-			<div className="flex min-w-0 items-baseline gap-3 text-xs">
-				<span className="w-24 shrink-0 truncate text-right text-muted-foreground" title={name}>
-					{name}
-				</span>
-				<span className="min-w-0 flex-1 wrap-anywhere">{written}</span>
-			</div>
-		);
-	}
-
+	// One column for names and one for what they hold, whether that is a word or a file.
 	return (
-		<div className="flex min-w-0 flex-col gap-1 text-xs">
-			<span className="text-muted-foreground">{name}</span>
-			<pre className="min-w-0 rounded-md border border-border bg-background p-2 wrap-anywhere whitespace-pre-wrap">
-				{written}
-			</pre>
-			{written.length > 2000 && (
-				<span className="text-right text-muted-foreground">{`${thousands(written.length)} characters`}</span>
+		<div className="flex min-w-0 items-baseline gap-3 text-xs">
+			<span className="w-24 shrink-0 truncate text-right text-muted-foreground" title={name}>
+				{name}
+			</span>
+
+			{text ? (
+				<div className="flex min-w-0 flex-1 flex-col gap-1">
+					<pre className="min-w-0 rounded-md border border-border bg-background p-2 wrap-anywhere whitespace-pre-wrap">
+						{written}
+					</pre>
+					{written.length > 2000 && (
+						<span className="text-right text-muted-foreground">{`${thousands(written.length)} characters`}</span>
+					)}
+				</div>
+			) : (
+				<span className="min-w-0 flex-1 wrap-anywhere">{written}</span>
 			)}
 		</div>
 	);
