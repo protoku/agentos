@@ -3,6 +3,7 @@ import { query } from "@anthropic-ai/claude-agent-sdk";
 import { cancelRulings } from "./decisions";
 import { claudeCodeMissing, claudeCodePath } from "../agents/claudeCode";
 import { grantedTools } from "./tools";
+import { carriedMemories, memoryBlock } from "../../shared/memory";
 import { transcript } from "../../shared/transcript";
 import { appendEntry, readEntries } from "../storage/conversationFile";
 import { conversationFile, loadWorkspace } from "../storage/workspaceStore";
@@ -102,6 +103,8 @@ async function runTurn(
 
 		const sandbox = await ensureSandbox(root, workspaceId, conversationId);
 		const prompt = transcript(await readEntries(file), workspace.agents, agent);
+		// Read as the turn starts, so an agent is handed what the workspace knows right now.
+		const carried = memoryBlock(carriedMemories(workspace.memories, agent.carries));
 		const granted = await grantedTools(agent, {
 			root,
 			workspaceId,
@@ -118,7 +121,7 @@ async function runTurn(
 			prompt,
 			options: {
 				model: agent.model,
-				systemPrompt: agent.systemPrompt,
+				systemPrompt: carried.length === 0 ? agent.systemPrompt : `${agent.systemPrompt}\n\n${carried}`,
 				cwd: sandbox,
 				// The machine's own Claude Code drives the turn, rather than a copy shipped with the app.
 				pathToClaudeCodeExecutable: claudeCode,

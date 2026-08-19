@@ -6,6 +6,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Nothing } from "./Nothing";
+import { asTags } from "../../shared/memory";
 import { defaultModel, models } from "../../shared/models";
 import type { Agent, Tool } from "../../shared/types";
 
@@ -117,6 +118,7 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 	const [tools, setTools] = useState<Tool[]>([]);
 	const [editing, setEditing] = useState<Agent>();
 	const [draft, setDraft] = useState<Draft>();
+	const [refused, setRefused] = useState<string>();
 
 	useEffect(() => {
 		void Promise.all([window.agentOS.listTools(), window.agentOS.listScriptTools(workspaceId)]).then(
@@ -150,12 +152,18 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 	async function save() {
 		if (draft === undefined || draft.name.trim().length === 0) return;
 
-		const saved = editing
-			? await window.agentOS.updateAgent(workspaceId, { ...editing, ...draft, name: draft.name.trim() })
-			: await window.agentOS.createAgent(workspaceId, { ...draft, name: draft.name.trim() });
+		try {
+			setRefused(undefined);
+			const written = { ...draft, name: draft.name.trim(), carries: asTags(draft.carries) };
+			const saved = editing
+				? await window.agentOS.updateAgent(workspaceId, { ...editing, ...written })
+				: await window.agentOS.createAgent(workspaceId, written);
 
-		setAgents(await window.agentOS.listAgents(workspaceId));
-		edit(saved);
+			setAgents(await window.agentOS.listAgents(workspaceId));
+			edit(saved);
+		} catch (failure) {
+			setRefused(failure instanceof Error ? failure.message : String(failure));
+		}
 	}
 
 	return (
@@ -241,6 +249,14 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 							</Select>
 						</Field>
 
+						<Field label="Carries">
+							<Input
+								value={draft.carries.join(", ")}
+								placeholder="deploy, ops"
+								onChange={(event) => setDraft({ ...draft, carries: event.target.value.split(",") })}
+							/>
+						</Field>
+
 						<Field label="System prompt">
 							<Textarea
 								value={draft.systemPrompt}
@@ -270,8 +286,9 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 							</div>
 						</section>
 
-						<div>
+						<div className="flex items-center gap-3">
 							<Button onClick={() => void save()}>{editing ? "Save" : "Create agent"}</Button>
+							{refused && <p className="text-sm text-destructive">{refused}</p>}
 						</div>
 					</div>
 				)}
