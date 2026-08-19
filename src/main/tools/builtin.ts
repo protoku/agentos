@@ -4,6 +4,7 @@ import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
 import { authoringTools } from "./authoring";
 import { gitTools } from "./gitTools";
+import { memoryTools } from "./memoryTools";
 import { isMountRoot, mountTools, resolveWritable } from "./mounts";
 import { resolveInSandbox } from "./sandbox";
 import { git } from "../git/git";
@@ -217,6 +218,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 	...mountTools,
 	...gitTools,
 	...authoringTools,
+	...memoryTools,
 ];
 
 /** The metadata alone, since run and input carry functions and IPC cannot carry one. */

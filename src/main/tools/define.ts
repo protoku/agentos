@@ -12,6 +12,8 @@ export interface ToolTarget {
 export interface ToolContext extends ToolTarget {
 	/** Aborted when the call is canceled, so the work behind it stops rather than running on. */
 	signal: AbortSignal;
+	/** Who is acting, absent when the user invoked the call themselves. */
+	agentId?: string;
 }
 
 /** What every tool offers a caller, whichever kind it is. */
