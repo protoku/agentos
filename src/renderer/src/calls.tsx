@@ -7,6 +7,7 @@ import {
 	FileX,
 	Folder,
 	FolderOpen,
+	FolderX,
 	GitBranch,
 	GitCommitHorizontal,
 	GitCompare,
@@ -79,6 +80,12 @@ const summaries: Record<string, Summary> = {
 		subject: `${String(from)} → ${String(to)}`,
 	}),
 	delete_file: ({ path }) => ({ label: "Delete file", icon: <FileX />, subject: String(path) }),
+	delete_directory: ({ path, entries }) => ({
+		label: "Delete directory",
+		icon: <FolderX />,
+		subject: String(path),
+		hint: typeof entries === "number" && entries > 0 ? `${thousands(entries)} removed with it` : undefined,
+	}),
 	search_files: ({ pattern, path, matches, truncated }) => ({
 		label: "Search files",
 		icon: <Search />,

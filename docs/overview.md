@@ -264,6 +264,7 @@ The exception is the work of building tools, which cannot be done blind: finding
 - edit_file: change a file by replacing a snippet that must appear exactly once
 - move_file: move or rename a file, refusing to overwrite what is already there
 - delete_file: remove a file, never a directory
+- delete_directory: remove a directory, refusing one that holds anything unless the call asks for its contents too, and refusing the sandbox itself or a mount's own directory, which unmount is for
 - list_files: list files under a path
 - search_files: search file contents by pattern, returning at most a hundred matches, skipping whatever git ignores where it is searching a checkout, and never .git or node_modules
 - mount: attach a workspace mount source into the sandbox at a path

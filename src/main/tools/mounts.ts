@@ -103,6 +103,13 @@ export async function resolveWritable(context: ToolTarget, path: string): Promis
 	return target;
 }
 
+/** A mount's own directory belongs to the mount, so only unmount may take it away. */
+export async function isMountRoot(context: ToolTarget, directory: string): Promise<boolean> {
+	const { conversation } = await open(context);
+
+	return conversation.mounts.some((mount) => resolveInSandbox(context.sandbox, mount.path) === directory);
+}
+
 export interface MountedAt {
 	mount: Mount;
 	source?: MountSource;

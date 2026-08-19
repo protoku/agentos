@@ -55,6 +55,15 @@ describe("mount", () => {
 		expect(await readFile(join(notes, "new.md"), "utf8")).toBe("Through the mount");
 	});
 
+	it("keeps its own directory: only unmount takes a mount away", async () => {
+		await invoke("mount", { source: "notes", path: "notes" });
+
+		const refused = await invoke("delete_directory", { path: "notes", recursive: true });
+
+		expect(refused).toMatchObject({ status: "error", error: "notes is a mount: unmount it instead" });
+		expect(await readFile(join(notes, "todo.md"), "utf8")).toBe("Ship it");
+	});
+
 	it("refuses a source the workspace does not have", async () => {
 		expect(await invoke("mount", { source: "nope", path: "here" })).toMatchObject({
 			status: "error",

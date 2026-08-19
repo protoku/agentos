@@ -1,4 +1,4 @@
-import { mkdtemp, readFile, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -124,6 +124,34 @@ describe("invokeTool", () => {
 
 		expect(deleted.output).toEqual({ path: "dir/a.txt" });
 		expect(refused).toMatchObject({ status: "error", error: "dir is a directory" });
+	});
+
+	it("deletes an empty directory, and one with content only when asked", async () => {
+		await invoke("write_file", { path: "keep/a.txt", content: "a" });
+		await invoke("write_file", { path: "empty/b.txt", content: "b" });
+		await invoke("delete_file", { path: "empty/b.txt" });
+
+		const emptied = await invoke("delete_directory", { path: "empty" });
+		const refused = await invoke("delete_directory", { path: "keep" });
+		const taken = await invoke("delete_directory", { path: "keep", recursive: true });
+
+		expect(emptied.output).toEqual({ path: "empty", entries: 0 });
+		expect(refused).toMatchObject({
+			status: "error",
+			error: "keep holds 1 entry: pass recursive to remove them with it",
+		});
+		expect(taken.output).toEqual({ path: "keep", entries: 1 });
+		expect(await readdir(await sandboxOf())).toEqual([]);
+	});
+
+	it("refuses to delete a file as a directory, or the sandbox itself", async () => {
+		await invoke("write_file", { path: "a.txt", content: "a" });
+
+		const file = await invoke("delete_directory", { path: "a.txt" });
+		const sandbox = await invoke("delete_directory", { path: ".", recursive: true });
+
+		expect(file).toMatchObject({ status: "error", error: "a.txt is a file" });
+		expect(sandbox).toMatchObject({ status: "error", error: "The sandbox itself cannot be removed" });
 	});
 
 	it("searches file contents and reports where each match sits", async () => {

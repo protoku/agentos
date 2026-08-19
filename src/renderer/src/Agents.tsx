@@ -64,6 +64,7 @@ const templates: { label: string; icon: React.ReactNode; draft: Draft }[] = [
 				git_checkout: "allow",
 				git_commit: "allow",
 				delete_file: "ask",
+				delete_directory: "ask",
 				git_push: "ask",
 				git_pull: "ask",
 				mount: "ask",

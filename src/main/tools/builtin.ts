@@ -1,10 +1,10 @@
-import { mkdir, readFile, readdir, rename, stat, unlink, writeFile } from "node:fs/promises";
+import { mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "node:fs/promises";
 import { dirname, join, relative, sep } from "node:path";
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
 import { authoringTools } from "./authoring";
 import { gitTools } from "./gitTools";
-import { mountTools, resolveWritable } from "./mounts";
+import { isMountRoot, mountTools, resolveWritable } from "./mounts";
 import { resolveInSandbox } from "./sandbox";
 import { git } from "../git/git";
 import type { BuiltinTool } from "../../shared/types";
@@ -129,6 +129,36 @@ const fileTools: BuiltinToolImplementation[] = [
 			await unlink(file);
 
 			return { path };
+		},
+	}),
+	define({
+		id: "delete_directory",
+		description: "Remove a directory. One that holds anything needs recursive, and a mount is refused.",
+		input: z.object({
+			path: sandboxPath,
+			recursive: z.boolean().default(false).describe("Remove what is in the directory along with it"),
+		}),
+		outputSchema: {
+			type: "object",
+			properties: { path: { type: "string" }, entries: { type: "number" } },
+			required: ["path", "entries"],
+		},
+		async run({ path, recursive }, context) {
+			const directory = await resolveWritable(context, path);
+
+			if (directory === context.sandbox) throw new Error("The sandbox itself cannot be removed");
+			if (await isMountRoot(context, directory)) throw new Error(`${path} is a mount: unmount it instead`);
+			if (!(await stat(directory)).isDirectory()) throw new Error(`${path} is a file`);
+
+			const held = await readdir(directory);
+			if (held.length > 0 && !recursive) {
+				const what = held.length === 1 ? "entry" : "entries";
+				throw new Error(`${path} holds ${held.length} ${what}: pass recursive to remove them with it`);
+			}
+
+			await rm(directory, { recursive: true });
+
+			return { path, entries: held.length };
 		},
 	}),
 	define({
