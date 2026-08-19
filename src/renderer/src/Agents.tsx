@@ -6,9 +6,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Nothing } from "./Nothing";
-import { asTags } from "../../shared/memory";
+import { asTags, carriedMemories, memoryBlock } from "../../shared/memory";
 import { defaultModel, models } from "../../shared/models";
-import type { Agent, Tool } from "../../shared/types";
+import { estimateTokens } from "../../shared/transcript";
+import { thousands } from "./format";
+import type { Agent, Memory, Tool } from "../../shared/types";
 
 type Draft = Pick<Agent, "name" | "model" | "systemPrompt" | "tools" | "carries">;
 type Permission = "allow" | "ask" | "deny";
@@ -116,6 +118,7 @@ const templates: { label: string; icon: React.ReactNode; draft: Draft }[] = [
 export function Agents({ workspaceId, selected }: { workspaceId: string; selected?: string }) {
 	const [agents, setAgents] = useState<Agent[]>([]);
 	const [tools, setTools] = useState<Tool[]>([]);
+	const [memories, setMemories] = useState<Memory[]>([]);
 	const [editing, setEditing] = useState<Agent>();
 	const [draft, setDraft] = useState<Draft>();
 	const [refused, setRefused] = useState<string>();
@@ -127,6 +130,7 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 	}, [workspaceId]);
 
 	useEffect(() => {
+		void window.agentOS.listMemories(workspaceId).then(setMemories);
 		void window.agentOS.listAgents(workspaceId).then(setAgents);
 		setEditing(undefined);
 		setDraft(undefined);
@@ -255,6 +259,7 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 								placeholder="deploy, ops"
 								onChange={(event) => setDraft({ ...draft, carries: event.target.value.split(",") })}
 							/>
+							<span className="text-xs text-muted-foreground">{carrying(memories, draft.carries)}</span>
 						</Field>
 
 						<Field label="System prompt">
@@ -326,6 +331,25 @@ function PermissionPicker({ value, onPick }: { value: Permission; onPick: (permi
 }
 
 /** Denied is the absence of a permission, so denying a tool leaves no entry behind. */
+/** What naming these tags costs the agent, which it pays again on every turn it takes. */
+function carrying(memories: Memory[], carries: string[]): string {
+	const carried = carriedMemories(memories, tagsOrNone(carries));
+	if (carried.length === 0) return "Nothing yet: memory tags this agent names arrive with every turn it takes.";
+
+	const size = thousands(estimateTokens(memoryBlock(carried)));
+
+	return `${carried.length} ${carried.length === 1 ? "memory" : "memories"}, about ${size} tokens every turn.`;
+}
+
+/** Typing a tag is not a refusal: what it does not understand yet simply carries nothing. */
+function tagsOrNone(carries: string[]): string[] {
+	try {
+		return asTags(carries);
+	} catch {
+		return [];
+	}
+}
+
 function withPermission(tools: Agent["tools"], toolId: string, permission: Permission): Agent["tools"] {
 	const next = { ...tools };
 	if (permission === "deny") delete next[toolId];

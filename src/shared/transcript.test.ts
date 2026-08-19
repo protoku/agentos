@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { tokens, transcript } from "./transcript";
+import { estimateTokens, tokens, transcript } from "./transcript";
 import type { Agent, Entry } from "./types";
 
 const ops: Agent = {
@@ -69,5 +69,12 @@ describe("tokens", () => {
 		const spoken = entries.filter((entry) => entry.type !== "turnStart" && entry.type !== "turnEnd");
 
 		expect(tokens(entries, [ops])).toBe(tokens(spoken, [ops]));
+	});
+});
+
+describe("estimateTokens", () => {
+	it("measures any text by the same rule of thumb as a thread", () => {
+		expect(estimateTokens("")).toBe(0);
+		expect(estimateTokens("x".repeat(400))).toBe(100);
 	});
 });

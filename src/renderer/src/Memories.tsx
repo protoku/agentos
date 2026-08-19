@@ -1,12 +1,24 @@
 import { useEffect, useState } from "react";
-import { Brain, Plus } from "lucide-react";
+import { Brain, Plus, Trash2 } from "lucide-react";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
 import { Nothing } from "./Nothing";
+import { moment } from "./Conversations";
 import { asTags } from "../../shared/memory";
-import type { Memory } from "../../shared/types";
+import type { Agent, Memory } from "../../shared/types";
 
 type Draft = { title: string; tags: string; body: string };
 
@@ -15,12 +27,15 @@ const emptyDraft: Draft = { title: "", tags: "", body: "" };
 /** What the workspace knows, where the user can read every word of it and correct any of it. */
 export function Memories({ workspaceId, selected }: { workspaceId: string; selected?: string }) {
 	const [memories, setMemories] = useState<Memory[]>([]);
+	const [agents, setAgents] = useState<Agent[]>([]);
 	const [editing, setEditing] = useState<Memory>();
 	const [draft, setDraft] = useState<Draft>();
 	const [refused, setRefused] = useState<string>();
+	const [forgetting, setForgetting] = useState(false);
 
 	useEffect(() => {
 		void window.agentOS.listMemories(workspaceId).then(setMemories);
+		void window.agentOS.listAgents(workspaceId).then(setAgents);
 		setEditing(undefined);
 		setDraft(undefined);
 	}, [workspaceId]);
@@ -58,6 +73,16 @@ export function Memories({ workspaceId, selected }: { workspaceId: string; selec
 		} catch (failure) {
 			setRefused(failure instanceof Error ? failure.message : String(failure));
 		}
+	}
+
+	async function forget() {
+		if (editing === undefined) return;
+
+		await window.agentOS.deleteMemory(workspaceId, editing.id);
+		setMemories(await window.agentOS.listMemories(workspaceId));
+		setForgetting(false);
+		setEditing(undefined);
+		setDraft(undefined);
 	}
 
 	// Newest change first, so what nobody has touched in months sinks to where it is noticed.
@@ -108,6 +133,8 @@ export function Memories({ workspaceId, selected }: { workspaceId: string; selec
 						</div>
 					) : (
 						<div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
+							{editing && <Written memory={editing} agents={agents} />}
+
 							<Field label="Title">
 								<Input
 									value={draft.title}
@@ -135,13 +162,72 @@ export function Memories({ workspaceId, selected }: { workspaceId: string; selec
 
 							<div className="flex items-center gap-3">
 								<Button onClick={() => void save()}>{editing ? "Save" : "Remember it"}</Button>
+								{editing && (
+									<Button variant="ghost" size="sm" onClick={() => setForgetting(true)}>
+										<Trash2 />
+										Forget it
+									</Button>
+								)}
 								{refused && <p className="text-sm text-destructive">{refused}</p>}
 							</div>
 						</div>
 					)}
 				</div>
 			)}
+
+			{/* Nothing is left afterwards to say the workspace ever knew it, so it asks first. */}
+			<AlertDialog open={forgetting} onOpenChange={setForgetting}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Forget {editing?.title}?</AlertDialogTitle>
+						<AlertDialogDescription>
+							It goes for good, and every agent carrying its tags stops being told it. The calls that wrote it
+							stay in their threads, but nothing else is left to say the workspace knew this.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Keep it</AlertDialogCancel>
+						<AlertDialogAction onClick={() => void forget()}>Forget</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</main>
+	);
+}
+
+/**
+ * Where a memory came from and whose turns it joins. A memory an agent wrote that nobody can see
+ * would be standing instructions nobody agreed to, so both lines are part of reading one.
+ */
+function Written({ memory, agents }: { memory: Memory; agents: Agent[] }) {
+	const wrote = agents.find((agent) => agent.id === memory.agentId);
+	const carrying = agents.filter((agent) => agent.carries.some((tag) => memory.tags.includes(tag)));
+
+	return (
+		<div className="flex flex-col gap-1 text-xs text-muted-foreground">
+			<span>
+				{memory.agentId === undefined ? "Written here" : `Written by @${wrote?.name ?? "an agent since gone"}`} on{" "}
+				<time dateTime={memory.createdAt}>{moment(memory.createdAt)}</time>
+				{memory.updatedAt !== memory.createdAt && (
+					<>
+						, last changed <time dateTime={memory.updatedAt}>{moment(memory.updatedAt)}</time>
+					</>
+				)}
+			</span>
+
+			{carrying.length === 0 ? (
+				<span>Carried by nobody, so it is found only by searching.</span>
+			) : (
+				<span className="flex flex-wrap items-center gap-1">
+					Carried by
+					{carrying.map((agent) => (
+						<Badge key={agent.id} variant="outline">
+							@{agent.name}
+						</Badge>
+					))}
+				</span>
+			)}
+		</div>
 	);
 }
 

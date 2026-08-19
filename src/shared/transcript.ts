@@ -16,7 +16,12 @@ export function transcript(entries: Entry[], agents: Agent[], acting: Agent): st
  * tokenizer, and one thread can go to agents on different models, so this is approximate.
  */
 export function tokens(entries: Entry[], agents: Agent[]): number {
-	return Math.round(threadLines(entries.filter(settled), agents).join("\n").length / 4);
+	return estimateTokens(threadLines(entries.filter(settled), agents).join("\n"));
+}
+
+/** What any text costs, by the same rule of thumb, for anything else a turn is sent. */
+export function estimateTokens(text: string): number {
+	return Math.round(text.length / 4);
 }
 
 /** A call still pending or running is no part of the thread a turn is built from. */
