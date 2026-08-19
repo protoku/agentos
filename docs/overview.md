@@ -6,9 +6,9 @@ The goal of AgentOS is to offer a unified, purpose-built interface to interact w
 
 A workspace is the top-level container and a hard boundary. What it represents is up to the user: a project, one environment of a project, or any other context.
 
-It owns its agents, tools, mount sources, and conversations, and its env holds the credentials and configuration its tools use.
+It owns its agents, tools, mount sources, memories, and conversations, and its env holds the credentials and configuration its tools use.
 
-Nothing is shared between workspaces: reusing an agent elsewhere means copying it and its tools, with the agent's permission keys remapped to the copied tools' new ids; built-in tool ids are the same everywhere. An agent can only reach what its workspace binds, never what another workspace binds. The one exception is machine-level: git remote access authenticates with the host's ambient git setup, as described under Mount, and agents run on the host's Claude Code, signed in as that machine is.
+Nothing is shared between workspaces: reusing an agent elsewhere means copying it and its tools, with the agent's permission keys remapped to the copied tools' new ids; built-in tool ids are the same everywhere, and the tags it carries mean nothing until that workspace knows something under them. An agent can only reach what its workspace binds, never what another workspace binds. The one exception is machine-level: git remote access authenticates with the host's ambient git setup, as described under Mount, and agents run on the host's Claude Code, signed in as that machine is.
 
 ```ts
 interface Workspace {
@@ -19,6 +19,7 @@ interface Workspace {
 	tools: ScriptTool[];
 	env: Record<string, string>;
 	sources: MountSource[];
+	memories: Memory[];
 	conversations: Conversation[];
 }
 ```
@@ -141,6 +142,8 @@ An agent is a configured actor in the workspace: a name, the model it runs on, a
 
 Each tool the agent may use is listed by tool id with a permission: allow runs the call directly, ask requires user approval, deny hides the tool entirely. Unlisted tools are denied. The agent never sees its permissions: an ask tool looks identical to an allow tool, and a denied tool does not exist for it.
 
+An agent also names the memory tags it carries, which decide what the workspace tells it before every turn, as described under Memory.
+
 ```ts
 interface Agent {
 	id: string;
@@ -149,6 +152,7 @@ interface Agent {
 	model: string;
 	systemPrompt: string;
 	tools: Record<string, "allow" | "ask" | "deny">;
+	carries: string[];
 }
 ```
 
@@ -239,13 +243,37 @@ interface MountSource {
 }
 ```
 
+## Memory
+
+A memory is something the workspace knows that outlives the conversation it was learned in: a title, a body, and the tags it is filed under. Agents write most of them as they work, and the user writes, corrects and forgets them directly.
+
+Memories are the workspace's own, one pool shared by every agent in it and reachable from no other workspace. A title is unique, compared without regard to case, so writing onto a title already taken is refused and names what is there: a memory that is wrong is corrected rather than duplicated. Tags are names rather than prose, lower case letters, digits, hyphens and underscores, since a tag is matched exactly against what an agent carries; a memory may carry no tags at all. A body is at most 2000 characters, because what a workspace knows is a paragraph rather than a runbook, and that limit is what keeps both carrying and searching affordable.
+
+An agent carries the tags it names: every memory under those tags is given to it before every turn, after its system prompt, each with its id, so what it finds wrong it can correct. An agent that carries nothing is sent its prompt exactly as written. Where its tags hold more than twenty memories the twenty most recently changed are carried and the agent is told how many there were in all, so nothing is withheld silently. Everything not carried is found by searching, which matches words against titles, bodies and tags without regard to case, narrows by tags when asked, and returns at most ten memories whole.
+
+Because tags decide whose prompt a memory joins, writing one is how an agent changes what another agent is told. That is why creating, changing and forgetting are the permissions to hold as ask, and why a call that writes one says which agents carry what it wrote.
+
+A memory records when it was created, when it last changed, and the agent that wrote it, which is absent when the user wrote it. Editing never changes who wrote it: authorship says where the text came from, not who touched it last. Memories are definitions rather than records, edited in place with no version history, and what the user does to one in the pane is recorded nowhere, exactly as editing an agent's prompt is not.
+
+```ts
+interface Memory {
+	id: string;
+	title: string;
+	body: string;
+	tags: string[];
+	agentId?: string;
+	createdAt: string;
+	updatedAt: string;
+}
+```
+
 ## Archiving and deletion
 
 A conversation archives and a workspace is deleted; nothing else ends. Archiving a conversation closes it for good: there is no unarchive, its thread stays readable forever, and its sandbox and checkouts are removed, so work that was never pushed is gone. Archiving is available at any moment, blocked or not: it cancels whatever call is pending or running, exactly as if the user had canceled the turn, and those entries keep their canceled status in the closed thread. Because none of it can be undone, archiving asks first, and says what goes with the conversation.
 
-Deleting a workspace destroys the whole boundary at once: its conversations and their threads, its sandboxes, base clones and isolated worktrees, its agents, tools, mount sources, and env. Like archiving, it is never blocked: it cancels whatever call is pending or running and whatever turn is acting, in every conversation of the workspace. What it never touches is data AgentOS does not own: a directory source's directory and a git source's remote stay exactly as they were, and only the workspace's own clone of a repository goes, so work that was never pushed is gone with it. Nothing survives to say it happened, and the workspace's threads stop being renderable: that is the cost of deleting, which is why it asks first and says what goes.
+Deleting a workspace destroys the whole boundary at once: its conversations and their threads, its sandboxes, base clones and isolated worktrees, its agents, tools, mount sources, memories, and env. Like archiving, it is never blocked: it cancels whatever call is pending or running and whatever turn is acting, in every conversation of the workspace. What it never touches is data AgentOS does not own: a directory source's directory and a git source's remote stay exactly as they were, and only the workspace's own clone of a repository goes, so work that was never pushed is gone with it. Nothing survives to say it happened, and the workspace's threads stop being renderable: that is the cost of deleting, which is why it asks first and says what goes.
 
-Deletion is whole or not at all: nothing inside a workspace can be removed piecemeal, so its agents, tools, and mount sources simply persist for as long as it does, and since records never disappear while their workspace exists, its history always stays renderable. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery.
+Deletion is whole or not at all, with one exception: nothing else inside a workspace can be removed piecemeal, so its agents, tools, and mount sources simply persist for as long as it does, and since records never disappear while their workspace exists, its history always stays renderable. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery. The exception is a memory, which can be forgotten: an agent nobody mentions costs a line in a picker, while a memory that is wrong is handed to agents at the start of every turn, so forgetting it is a correction rather than tidying. Nothing points at a memory, so nothing stops being renderable when one goes, and the calls that wrote it stay in their threads saying what happened.
 
 ## Auditability
 
@@ -253,11 +281,11 @@ Every record carries createdAt; tool calls record decidedAt when the user rules 
 
 Built-in tools carry no timestamps: they are part of the app, not records. All timestamps are ISO 8601. Together with append-only conversations and a lifecycle that only archives or deletes a workspace whole, every action in AgentOS is traceable to a moment in time, for as long as its workspace exists.
 
-The scope is deliberately actions, not definitions. Agent prompts, permissions, and script tool code are edited in place without version history: a past entry tells you exactly what happened and when, while the agent or tool it points at is whatever that definition is today.
+The scope is deliberately actions, not definitions. Agent prompts, permissions, script tool code, and memories are edited in place without version history: a past entry tells you exactly what happened and when, while the agent or tool it points at is whatever that definition is today.
 
 ## Built-in tools
 
-Built-in tools act on the conversation's sandbox and respect read-only mounts; the git remote tools reach exactly as far as the mount's remote, and the mount tools reshape the sandbox itself. The git tools name the mount they target by its sandbox path. Running anything is authorized per command, by defining a script tool for it, and no agent is handed a general command runner as a matter of course.
+Most built-in tools act on the conversation's sandbox and respect read-only mounts; the git remote tools reach exactly as far as the mount's remote, and the mount tools reshape the sandbox itself. The tools for building tools and the memory tools are the exception: they act on the workspace rather than on the sandbox, on what it can do and on what it knows. The git tools name the mount they target by its sandbox path. Running anything is authorized per command, by defining a script tool for it, and no agent is handed a general command runner as a matter of course.
 
 The exception is the work of building tools, which cannot be done blind: finding out what a command does, what its options are and what shape its output takes is how a tool gets written at all. So there are three tools for that work, define_tool, update_tool and run_command, and they are ordinary tools an agent is granted or not. Granting them is the largest permission in AgentOS and the doc is blunt about why: a tool is trusted code with no boundary around what it spawns, so an agent that may define a tool can already run anything, and withholding a command runner from it would only push the same power into a code blob that is harder to read. Granted as ask, every command and every tool arrives as a pending call carrying the exact command line, or the exact code, for the user to read before it happens.
 
@@ -282,6 +310,10 @@ The exception is the work of building tools, which cannot be done blind: finding
 - git_commit: commit changes on a git mount
 - git_pull: pull a git mount's branch from the remote
 - git_push: push a git mount's branch to the remote
+- search_memory: search what the workspace knows, by words and by tags, returning at most ten memories
+- create_memory: write down something the workspace should keep
+- update_memory: change a memory, naming it by the id a search returned
+- delete_memory: forget a memory, naming it by the id a search returned
 
 ## Interface
 
@@ -306,7 +338,9 @@ Features of the app around the model above.
 - The viewer never edits. Work on a file happens through the conversation, so that every change is a tool call somebody can read; a change made beside the thread would be a change nobody recorded. It follows the file it shows: a later call touching that path refreshes it, and a file that has since been deleted says so.
 - A conversation's header names it, with a way to rename it while it is open and a closed lock once it is archived, and carries beneath that what the conversation is bound to: what it has mounted, a git mount naming its source with the branch and commit it currently sits on, the agents that have taken part in it, and its sandbox, which opens in the file manager.
 - After the agents, the header shows the conversation's size as an approximate token count, rounded to a readable figure such as ~12.4k or ~1.2m, and it grows with the thread. A conversation with nothing in it yet shows ~0 tokens.
-- Conversations, agents, script tools, mount sources and env each open in a pane that replaces the thread.
+- Conversations, agents, script tools, mount sources, memories and env each open in a pane that replaces the thread.
+- Memories open in a pane listing them with the newest change first: what each says, the tags it is filed under, who wrote it and when it last changed, and which agents carry it. Writing, correcting, retagging and forgetting all happen there, and forgetting asks first, since nothing is left afterwards to say the workspace ever knew it.
+- An agent's editor names the tags it carries, and says how many memories that is and roughly what they cost it on every turn.
 - A tool is invoked in the composer as a slash command with key=value arguments, quoting any value that contains spaces: /write_file path=notes/todo.md content="Ship it". Invoking one in a draft creates the conversation, exactly as sending a message does, and the call is its first entry.
 - The sidebar lists the twenty conversations with the most recent activity, archived ones left out; a conversation's activity is the time of its last entry. The conversations pane lists every conversation, archived included, in that same order.
 
