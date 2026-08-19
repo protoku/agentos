@@ -676,7 +676,11 @@ function CallRow({
 					))}
 
 					<Payload label="Input" value={call.input} />
-					{call.output && <Payload label="Output" value={call.output} />}
+					{call.output && (
+						<div className="border-t border-border pt-3">
+							<Payload label="Output" value={call.output} />
+						</div>
+					)}
 				</div>
 			)}
 
@@ -758,17 +762,30 @@ function Payload({ label, value }: { label: string; value: Record<string, unknow
 /**
  * A value read rather than dumped: text that has lines keeps them instead of showing \n, and
  * nothing scrolls sideways, since a command line or a path is exactly what you came to read.
+ * A value of one line sits beside its name; one of many gets a block of its own to sit in.
  */
 function Held({ name, value }: { name: string; value: unknown }) {
 	const written = typeof value === "string" ? value : JSON.stringify(value, null, 2);
-	const lines = written.split("\n").length > 1;
+
+	if (!written.includes("\n")) {
+		return (
+			<div className="flex min-w-0 items-baseline gap-3 text-xs">
+				<span className="w-24 shrink-0 truncate text-right text-muted-foreground" title={name}>
+					{name}
+				</span>
+				<span className="min-w-0 flex-1 wrap-anywhere">{written}</span>
+			</div>
+		);
+	}
 
 	return (
-		<div className="flex min-w-0 flex-col gap-0.5 text-xs">
+		<div className="flex min-w-0 flex-col gap-1 text-xs">
 			<span className="text-muted-foreground">{name}</span>
-			<pre className="min-w-0 wrap-anywhere whitespace-pre-wrap">{written}</pre>
-			{lines && written.length > 2000 && (
-				<span className="text-muted-foreground">{`${thousands(written.length)} characters`}</span>
+			<pre className="min-w-0 rounded-md border border-border bg-background p-2 wrap-anywhere whitespace-pre-wrap">
+				{written}
+			</pre>
+			{written.length > 2000 && (
+				<span className="text-right text-muted-foreground">{`${thousands(written.length)} characters`}</span>
 			)}
 		</div>
 	);
