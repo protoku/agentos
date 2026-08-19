@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fieldsOf } from "./render";
+import { cell, fieldsOf } from "./render";
 
 const schema = {
 	type: "object",
@@ -51,6 +51,54 @@ describe("fieldsOf", () => {
 		const fields = fieldsOf(undefined, { one: "short", many: "one\ntwo", long: "x".repeat(121) });
 
 		expect(fields.map((field) => field.kind)).toEqual(["inline", "block", "block"]);
+	});
+
+	it("reads rows of the same kind of thing as a table, columns as the items declare them", () => {
+		const said = {
+			type: "object",
+			properties: {
+				matches: {
+					type: "array",
+					render: "table",
+					items: { type: "object", properties: { path: { type: "string" }, line: { type: "number" } } },
+				},
+			},
+		};
+
+		expect(fieldsOf(said, { matches: [{ line: 3, path: "a.txt" }] })).toEqual([
+			{ name: "matches", kind: "table", columns: ["path", "line"], rows: [{ line: 3, path: "a.txt" }] },
+		]);
+	});
+
+	it("keeps a column the rows carry but the items never declared", () => {
+		const said = {
+			type: "object",
+			properties: {
+				rows: { type: "array", render: "table", items: { type: "object", properties: { a: { type: "string" } } } },
+			},
+		};
+		const fields = fieldsOf(said, { rows: [{ a: "1" }, { a: "2", b: "3" }] });
+
+		expect(fields[0]).toMatchObject({ columns: ["a", "b"] });
+	});
+
+	it("takes columns from the rows when the items declare nothing", () => {
+		const said = { type: "object", properties: { rows: { type: "array", render: "table" } } };
+		const fields = fieldsOf(said, { rows: [{ name: "a" }, { name: "b", size: 2 }] });
+
+		expect(fields[0]).toMatchObject({ kind: "table", columns: ["name", "size"] });
+	});
+
+	it("falls back when a table holds no rows, or holds something other than rows", () => {
+		const said = { type: "object", properties: { rows: { type: "array", render: "table" } } };
+
+		expect(fieldsOf(said, { rows: [] })[0]).toEqual({ name: "rows", kind: "inline", written: "[]" });
+		expect(fieldsOf(said, { rows: ["a", "b"] })[0]?.kind).toBe("block");
+	});
+
+	it("writes a cell as it reads, and anything with parts of its own as JSON", () => {
+		expect([cell("a"), cell(3), cell(true), cell(null), cell(undefined)]).toEqual(["a", "3", "true", "", ""]);
+		expect(cell(["a", "b"])).toBe('["a","b"]');
 	});
 
 	it("writes what is not a string as JSON", () => {

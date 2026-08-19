@@ -51,7 +51,7 @@ import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
-import { fieldsOf } from "../../shared/render";
+import { fieldsOf, type Field } from "../../shared/render";
 import { tokens } from "../../shared/transcript";
 import type { MountState } from "../../shared/api";
 import type { Agent, Entry, MountSource, Tool, ToolCall } from "../../shared/types";
@@ -620,8 +620,10 @@ function CallRow({
 	const path = pathOf(call);
 	const summary = summarise(call, sources);
 	const tool = tools.find((candidate) => candidate.id === call.toolId);
+	const fields = call.output === undefined ? [] : fieldsOf(tool?.outputSchema, call.output);
 	// A call records the tool's id, which for a script tool is nothing anybody wants to read.
 	const named = tool?.name ?? call.toolId;
+	const hint = summary?.hint ?? returned(fields);
 
 	function decide(allowed: boolean) {
 		const message = denyMessage.trim();
@@ -652,8 +654,8 @@ function CallRow({
 					</time>
 				</button>
 
-				{summary?.hint !== undefined && summary.hint.length > 0 && (
-					<span className="shrink-0 text-xs text-muted-foreground">{summary.hint}</span>
+				{hint !== undefined && hint.length > 0 && (
+					<span className="shrink-0 text-xs text-muted-foreground">{hint}</span>
 				)}
 				{path !== undefined && (
 					<button
@@ -672,13 +674,6 @@ function CallRow({
 
 			{open && (
 				<div className="ml-7 flex flex-col gap-3 rounded-lg border border-border bg-elevated p-3">
-					{summary?.rows?.map((row) => (
-						<span key={row.text} className="flex items-center gap-2 text-xs text-muted-foreground">
-							<span className="[&_svg]:size-3.5">{row.icon}</span>
-							<span className="truncate">{row.text}</span>
-						</span>
-					))}
-
 					<Payload label="Input" schema={tool?.inputSchema} value={call.input} />
 					{call.output && (
 						<div className="border-t border-border pt-3">
@@ -746,6 +741,14 @@ const statusIcons: Record<ToolCall["status"], React.ReactNode> = {
 	denied: <X />,
 	canceled: <CircleSlash />,
 };
+
+/** A tool AgentOS knows nothing particular about still says how much it returned. */
+function returned(fields: Field[]): string | undefined {
+	const table = fields.find((field) => field.kind === "table");
+	if (table === undefined) return undefined;
+
+	return `${table.rows.length} ${table.rows.length === 1 ? "row" : "rows"}`;
+}
 
 function payloadOf(call: ToolCall): string {
 	return JSON.stringify({ input: call.input, ...(call.output && { output: call.output }) }, null, 2);

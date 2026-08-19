@@ -1,6 +1,5 @@
 import {
 	Boxes,
-	File,
 	FilePen,
 	FilePlus,
 	FileText,
@@ -34,7 +33,6 @@ export interface CallSummary {
 	subject?: string;
 	/** What became of it, sitting at the far right. */
 	hint?: string;
-	rows?: { icon: React.ReactNode; text: string }[];
 }
 
 /**
@@ -94,11 +92,6 @@ const summaries: Record<string, Summary> = {
 		hint: Array.isArray(matches)
 			? `${matches.length}${truncated === true ? "+" : ""} ${matches.length === 1 ? "match" : "matches"}`
 			: undefined,
-		rows: Array.isArray(matches)
-			? (matches as { path: string; line: number; text: string }[])
-					.slice(0, 20)
-					.map((match) => ({ icon: <FileText />, text: `${match.path}:${match.line}  ${match.text.trim()}` }))
-			: undefined,
 	}),
 	git_status: ({ path, branch, ahead, behind, changes }) => ({
 		label: "Git status",
@@ -111,12 +104,6 @@ const summaries: Record<string, Summary> = {
 		]
 			.filter((term) => term !== undefined)
 			.join(", "),
-		rows: Array.isArray(changes)
-			? (changes as { change: string; file: string }[]).map((change) => ({
-					icon: <FileText />,
-					text: `${change.change} ${change.file}`,
-				}))
-			: undefined,
 	}),
 	git_diff: ({ path, diff }) => ({
 		label: "Git diff",
@@ -129,12 +116,6 @@ const summaries: Record<string, Summary> = {
 		icon: <GitCommitHorizontal />,
 		subject: String(path),
 		hint: Array.isArray(commits) ? `${commits.length} commits` : undefined,
-		rows: Array.isArray(commits)
-			? (commits as { hash: string; subject: string }[]).map((commit) => ({
-					icon: <GitCommitHorizontal />,
-					text: `${commit.hash.slice(0, 7)}  ${commit.subject}`,
-				}))
-			: undefined,
 	}),
 	git_create_branch: ({ path, branch, name }) => ({
 		label: "Create branch",
@@ -184,11 +165,6 @@ const summaries: Record<string, Summary> = {
 			icon: <Folder />,
 			subject: String(path),
 			hint: counted(directories.length, listed.length),
-			// Opening the line is worth something: the names, directories first.
-			rows: [...directories, ...listed.filter((entry) => entry.type !== "directory")].map((entry) => ({
-				icon: entry.type === "directory" ? <Folder /> : <File />,
-				text: entry.name,
-			})),
 		};
 	},
 	unmount: ({ source, path, mode }, sources) => ({
