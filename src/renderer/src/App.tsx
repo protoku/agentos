@@ -45,7 +45,8 @@ import { Conversations } from "./Conversations";
 import { Env } from "./Env";
 import { Sources } from "./Sources";
 import { Tools } from "./Tools";
-import { pathOf, Thread } from "./Thread";
+import { Thread } from "./Thread";
+import { pathOf } from "../../shared/render";
 import { Diff } from "./Diff";
 import { SidePane, Viewer } from "./Viewer";
 import { parseSlashCommand } from "../../shared/slash";
@@ -106,8 +107,8 @@ function Listing({
 }
 
 /** A call that acted on the open path is a new version of what the viewer is showing. */
-function touches(call: ToolCall, path: string): boolean {
-	return pathOf(call) === path;
+function touches(call: ToolCall, path: string, tools: Tool[]): boolean {
+	return pathOf(call, tools.find((tool) => tool.id === call.toolId)) === path;
 }
 
 export function App() {
@@ -525,7 +526,7 @@ export function App() {
 							workspaceId={workspaceId}
 							conversationId={conversationId}
 							path={viewing.path}
-							version={settled.filter((call) => touches(call, viewing.path)).length}
+							version={settled.filter((call) => touches(call, viewing.path, tools)).length}
 							onClose={() => setViewing(undefined)}
 						/>
 					) : (

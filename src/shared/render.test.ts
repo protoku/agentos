@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cell, fieldsOf } from "./render";
+import { cell, fieldsOf, pathOf } from "./render";
 
 const schema = {
 	type: "object",
@@ -101,10 +101,70 @@ describe("fieldsOf", () => {
 		expect(cell(["a", "b"])).toBe('["a","b"]');
 	});
 
+	it("takes a link only where a browser could go, and reads the rest as it stands", () => {
+		const said = { type: "object", properties: { url: { type: "string", render: "link" } } };
+		const kinds = ["https://x.test", "http://x.test", "javascript:alert(1)", "file:///etc/passwd", "./relative"].map(
+			(url) => fieldsOf(said, { url })[0]?.kind,
+		);
+
+		expect(kinds).toEqual(["link", "link", "inline", "inline", "inline"]);
+	});
+
+	it("falls back on a path or a diff that holds nothing", () => {
+		const said = {
+			type: "object",
+			properties: { path: { type: "string", render: "path" }, diff: { type: "string", render: "diff" } },
+		};
+
+		expect(fieldsOf(said, { path: "", diff: "@@ -1 +1 @@" })).toEqual([
+			{ name: "path", kind: "inline", written: "" },
+			{ name: "diff", kind: "diff", value: "@@ -1 +1 @@" },
+		]);
+	});
+
 	it("writes what is not a string as JSON", () => {
 		const fields = fieldsOf(undefined, { ok: true, entries: [{ name: "a.txt" }] });
 
 		expect(fields[0]).toEqual({ name: "ok", kind: "inline", written: "true" });
 		expect(fields[1]?.kind).toBe("block");
+	});
+});
+
+describe("pathOf", () => {
+	const moving = {
+		type: "script" as const,
+		id: "t",
+		name: "move",
+		createdAt: "",
+		description: "",
+		code: "",
+		env: [],
+		inputSchema: {
+			type: "object",
+			properties: { from: { type: "string", render: "path" }, to: { type: "string", render: "path" } },
+		},
+		outputSchema: { type: "object", properties: { wrote: { type: "string", render: "path" } } },
+	};
+	const call = {
+		type: "toolCall" as const,
+		id: "c",
+		toolId: "t",
+		status: "success" as const,
+		input: { from: "a.txt", to: "b.txt" },
+		createdAt: "",
+	};
+
+	it("opens the last place a call named, since a move ends at its destination", () => {
+		expect(pathOf(call, moving)).toBe("b.txt");
+	});
+
+	it("opens what a call wrote when its input named no place", () => {
+		expect(pathOf({ ...call, input: {}, output: { wrote: "c.txt" } }, moving)).toBe("c.txt");
+	});
+
+	it("still opens what a tool that declares nothing acted on", () => {
+		expect(pathOf(call)).toBe("b.txt");
+		expect(pathOf({ ...call, input: { path: "a.txt" } })).toBe("a.txt");
+		expect(pathOf({ ...call, input: { pattern: "x" } })).toBeUndefined();
 	});
 });

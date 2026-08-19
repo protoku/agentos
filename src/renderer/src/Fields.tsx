@@ -1,12 +1,15 @@
+import { DiffLines } from "./Diff";
 import { Markdown } from "./Markdown";
 import { thousands } from "./format";
 import { cell, type Field } from "../../shared/render";
 
 /** Enough rows to read what came back, few enough that a listing never becomes the thread. */
 const rowLimit = 20;
+/** A diff is a div per line, so a large one is bounded for the same reason a listing is. */
+const lineLimit = 400;
 
 /** One column for names and one for what they hold, whatever kind the schema says that is. */
-export function FieldRow({ field }: { field: Field }) {
+export function FieldRow({ field, onOpenPath }: { field: Field; onOpenPath: (path: string) => void }) {
 	return (
 		<div className="flex min-w-0 items-baseline gap-3 text-xs">
 			<span className="w-24 shrink-0 truncate text-right text-muted-foreground" title={field.name}>
@@ -14,18 +17,37 @@ export function FieldRow({ field }: { field: Field }) {
 			</span>
 
 			<div className="min-w-0 flex-1">
-				<Held field={field} />
+				<Held field={field} onOpenPath={onOpenPath} />
 			</div>
 		</div>
 	);
 }
 
-function Held({ field }: { field: Field }) {
+function Held({ field, onOpenPath }: { field: Field; onOpenPath: (path: string) => void }) {
 	switch (field.kind) {
 		case "table":
 			return <Rows columns={field.columns} rows={field.rows} />;
 		case "markdown":
 			return <Markdown content={field.value} className="text-xs" />;
+		case "diff":
+			return <DiffLines diff={field.value} limit={lineLimit} />;
+		case "path":
+			return (
+				<button
+					type="button"
+					title={`Open ${field.value}`}
+					onClick={() => onOpenPath(field.value)}
+					className="text-left wrap-anywhere hover:text-foreground hover:underline"
+				>
+					{field.value}
+				</button>
+			);
+		case "link":
+			return (
+				<a href={field.value} target="_blank" rel="noreferrer" className="wrap-anywhere underline underline-offset-2">
+					{field.value}
+				</a>
+			);
 		case "text":
 			return <Written text={field.value} />;
 		case "block":

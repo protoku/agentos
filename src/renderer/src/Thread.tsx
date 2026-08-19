@@ -51,7 +51,7 @@ import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
-import { fieldsOf, type Field } from "../../shared/render";
+import { fieldsOf, pathOf, type Field } from "../../shared/render";
 import { tokens } from "../../shared/transcript";
 import type { MountState } from "../../shared/api";
 import type { Agent, Entry, MountSource, Tool, ToolCall } from "../../shared/types";
@@ -425,12 +425,6 @@ function Bound({ label, icon, children }: { label: string; icon: React.ReactNode
 }
 
 /** What a call acted on, if it named a file at all: a move ends at its destination. */
-export function pathOf(call: ToolCall): string | undefined {
-	const named = call.input.to ?? call.input.path;
-
-	return typeof named === "string" ? named : undefined;
-}
-
 /** A finished turn's markers say nothing, and a row wrapped around nothing would still take space. */
 function shows(entry: Entry, endedTurns: Set<string>): boolean {
 	if (entry.type === "turnStart") return !endedTurns.has(entry.id);
@@ -617,10 +611,10 @@ function CallRow({
 	const [denyMessage, setDenyMessage] = useState("");
 	// A call being decided, or one still running, is open already: one needs reading, the other stopping.
 	const [open, setOpen] = useState(call.status === "pending" || call.status === "running");
-	const path = pathOf(call);
 	const summary = summarise(call, sources);
 	const tool = tools.find((candidate) => candidate.id === call.toolId);
 	const fields = call.output === undefined ? [] : fieldsOf(tool?.outputSchema, call.output);
+	const path = pathOf(call, tool);
 	// A call records the tool's id, which for a script tool is nothing anybody wants to read.
 	const named = tool?.name ?? call.toolId;
 	const hint = summary?.hint ?? returned(fields);
@@ -674,10 +668,10 @@ function CallRow({
 
 			{open && (
 				<div className="ml-7 flex flex-col gap-3 rounded-lg border border-border bg-elevated p-3">
-					<Payload label="Input" schema={tool?.inputSchema} value={call.input} />
+					<Payload label="Input" schema={tool?.inputSchema} value={call.input} onOpenPath={onOpenPath} />
 					{call.output && (
 						<div className="border-t border-border pt-3">
-							<Payload label="Output" schema={tool?.outputSchema} value={call.output} />
+							<Payload label="Output" schema={tool?.outputSchema} value={call.output} onOpenPath={onOpenPath} />
 						</div>
 					)}
 				</div>
@@ -759,16 +753,18 @@ function Payload({
 	label,
 	schema,
 	value,
+	onOpenPath,
 }: {
 	label: string;
 	schema?: Record<string, unknown>;
 	value: Record<string, unknown>;
+	onOpenPath: (path: string) => void;
 }) {
 	return (
 		<div className="flex flex-col gap-2">
 			<span className="text-xs tracking-wide text-muted-foreground uppercase">{label}</span>
 			{fieldsOf(schema, value).map((field) => (
-				<FieldRow key={field.name} field={field} />
+				<FieldRow key={field.name} field={field} onOpenPath={onOpenPath} />
 			))}
 		</div>
 	);

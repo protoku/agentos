@@ -3,6 +3,7 @@ import { GitCompare, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { Nothing } from "./Nothing";
+import { thousands } from "./format";
 import type { SandboxDiff } from "../../shared/api";
 
 /** What a mount has changed, read as a diff rather than as one file at a time. */
@@ -65,13 +66,7 @@ export function Diff({
 
 				{changes && !empty && (
 					<div className="flex flex-col gap-4">
-						<pre className="overflow-x-auto text-xs leading-relaxed">
-							{changes.diff.split("\n").map((line, index) => (
-								<div key={index} className={colour(line)}>
-									{line === "" ? " " : line}
-								</div>
-							))}
-						</pre>
+						<DiffLines diff={changes.diff} />
 
 						{changes.untracked.length > 0 && (
 							<div className="flex flex-col gap-1 border-t border-border pt-3">
@@ -89,6 +84,29 @@ export function Diff({
 				)}
 			</div>
 		</>
+	);
+}
+
+/** A diff read as a diff, wherever it is shown: the viewer whole, a tool call up to a limit. */
+export function DiffLines({ diff, limit }: { diff: string; limit?: number }) {
+	const lines = diff.split("\n");
+	const shown = limit === undefined ? lines : lines.slice(0, limit);
+
+	return (
+		<div className="flex min-w-0 flex-col gap-1">
+			<pre className="overflow-x-auto text-xs leading-relaxed">
+				{shown.map((line, index) => (
+					<div key={index} className={colour(line)}>
+						{line === "" ? " " : line}
+					</div>
+				))}
+			</pre>
+			{lines.length > shown.length && (
+				<span className="block text-right text-xs text-muted-foreground">
+					{`${shown.length} of ${thousands(lines.length)} lines`}
+				</span>
+			)}
+		</div>
 	);
 }
 

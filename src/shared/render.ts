@@ -1,3 +1,5 @@
+import type { Tool, ToolCall } from "./types";
+
 /**
  * How a payload reads: each field as the tool's schema declares it, in the order that schema names
  * them, with whatever it never mentioned after. A declaration the value does not fit, or a kind this
@@ -5,7 +7,7 @@
  */
 export type Field =
 	| { name: string; kind: "table"; columns: string[]; rows: Record<string, unknown>[] }
-	| { name: string; kind: "text" | "markdown"; value: string }
+	| { name: string; kind: "text" | "markdown" | "diff" | "path" | "link"; value: string }
 	| { name: string; kind: "inline" | "block"; written: string };
 
 /** Longer than this, or carrying lines of its own, and a value needs a block rather than a line. */
@@ -36,11 +38,24 @@ function read(name: string, value: unknown, property: Record<string, unknown> | 
 		if (rows !== undefined) return { name, kind, columns: columnsOf(property, rows), rows };
 	}
 
-	if ((kind === "text" || kind === "markdown") && typeof value === "string") return { name, kind, value };
+	if (typeof value === "string" && value.length > 0) {
+		if (kind === "text" || kind === "markdown" || kind === "diff" || kind === "path") return { name, kind, value };
+		if (kind === "link" && isAddress(value)) return { name, kind, value };
+	}
 
 	const written = typeof value === "string" ? value : JSON.stringify(value, null, 2);
 
 	return { name, kind: written.includes("\n") || written.length > inlineLimit ? "block" : "inline", written };
+}
+
+/**
+ * An address is somewhere a browser can go and nothing else: a link is the one kind that hands a
+ * value straight to the machine, so what it may hold is decided here rather than where it is drawn.
+ */
+function isAddress(value: string): boolean {
+	const address = URL.parse(value);
+
+	return address?.protocol === "http:" || address?.protocol === "https:";
 }
 
 /** A table is rows of the same kind of thing; anything else is not one, however it was declared. */
@@ -79,4 +94,25 @@ function propertiesOf(schema: Record<string, unknown> | undefined): Record<strin
 
 function isRecord(value: unknown): value is Record<string, unknown> {
 	return typeof value === "object" && value !== null && !Array.isArray(value);
+}
+
+/** What a call opens in the viewer: the last place it named, its schema being what says so. */
+export function pathOf(call: ToolCall, tool?: Tool): string | undefined {
+	const named = placeIn(tool?.inputSchema, call.input) ?? placeIn(tool?.outputSchema, call.output);
+	if (named !== undefined) return named;
+
+	// A call by a tool that declares nothing still opens what it acted on, as it always has.
+	const guessed = call.input["to"] ?? call.input["path"];
+
+	return typeof guessed === "string" ? guessed : undefined;
+}
+
+function placeIn(schema: Record<string, unknown> | undefined, payload: Record<string, unknown> | undefined) {
+	if (payload === undefined) return undefined;
+
+	let found: string | undefined;
+	// A call that moves something ends at its destination, so the last path named is the one to open.
+	for (const field of fieldsOf(schema, payload)) if (field.kind === "path") found = field.value;
+
+	return found;
 }
