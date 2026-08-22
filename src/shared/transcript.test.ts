@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateTokens, tokens, transcript } from "./transcript";
+import { estimateTokens, spentOn, tokens, transcript } from "./transcript";
 import type { Agent, Entry } from "./types";
 
 const ops: Agent = {
@@ -76,5 +76,33 @@ describe("estimateTokens", () => {
 	it("measures any text by the same rule of thumb as a thread", () => {
 		expect(estimateTokens("")).toBe(0);
 		expect(estimateTokens("x".repeat(400))).toBe(100);
+	});
+});
+
+describe("spentOn", () => {
+	const ended = (spent?: { sent: number; cached: number; received: number; usd: number }): Entry => ({
+		type: "turnEnd",
+		id: `end-${spent?.sent ?? 0}`,
+		turnId: "turn-1",
+		status: "finished",
+		...(spent !== undefined && { spent }),
+		createdAt: "2026-08-15T10:00:00.000Z",
+	});
+
+	it("adds up what the turns reported", () => {
+		const entries = [
+			ended({ sent: 1000, cached: 800, received: 120, usd: 0.01 }),
+			ended({ sent: 2000, cached: 1900, received: 80, usd: 0.02 }),
+		];
+
+		expect(spentOn(entries)).toEqual({ sent: 3000, cached: 2700, received: 200, usd: 0.03 });
+	});
+
+	it("counts a turn that reported nothing as nothing", () => {
+		expect(spentOn([ended()])).toEqual({ sent: 0, cached: 0, received: 0, usd: 0 });
+	});
+
+	it("costs nothing when nothing has happened", () => {
+		expect(spentOn([])).toEqual({ sent: 0, cached: 0, received: 0, usd: 0 });
 	});
 });

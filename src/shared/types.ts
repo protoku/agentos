@@ -133,5 +133,15 @@ export interface TurnEnd {
 	turnId: string;
 	status: "finished" | "failed" | "canceled";
 	error?: string;
+	/** What the model reported this turn cost, absent when it never answered. */
+	spent?: Spend;
 	createdAt: string;
+}
+
+/** Measured rather than estimated: what a turn was sent, what it wrote back, and the money. */
+export interface Spend {
+	sent: number;
+	cached: number;
+	received: number;
+	usd: number;
 }

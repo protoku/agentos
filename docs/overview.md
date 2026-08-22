@@ -116,6 +116,8 @@ A turn is bracketed by two entries. Its start appears the moment a mentioned age
 
 The end closes it: finished when the agent has nothing further to do, failed when its model or network errors, with the error recorded, or canceled when the user stops it. Failed and canceled turns end the mention chain, and everything produced before the end stays in the thread, so a stopped turn is never mistaken for a finished one.
 
+A turn that reached the model records what it cost when it ends: the tokens it was sent, how many of those the model had already cached, the tokens it wrote back, and what that came to in money, as the model reported them rather than as an estimate. A turn canceled or failed before an answer records nothing, since nothing was spent that anyone can name.
+
 A crash cannot strand the thread: a start without an end is either running right now or interrupted, and on restart AgentOS appends the failed end for the interrupted turn, with its error noting the interruption: Interrupted by an AgentOS restart. A call in flight at the crash was never persisted and never reaches the thread: the failed end is the whole record, consistent with a thread that only ever contains settled facts.
 
 ```ts
@@ -132,7 +134,15 @@ interface TurnEnd {
 	turnId: string;
 	status: "finished" | "failed" | "canceled";
 	error?: string;
+	spent?: Spend;
 	createdAt: string;
+}
+
+interface Spend {
+	sent: number;
+	cached: number;
+	received: number;
+	usd: number;
 }
 ```
 
@@ -338,6 +348,7 @@ Features of the app around the model above.
 - The viewer never edits. Work on a file happens through the conversation, so that every change is a tool call somebody can read; a change made beside the thread would be a change nobody recorded. It follows the file it shows: a later call touching that path refreshes it, and a file that has since been deleted says so.
 - A conversation's header names it, with a way to rename it while it is open and a closed lock once it is archived, and carries beneath that what the conversation is bound to: what it has mounted, a git mount naming its source with the branch and commit it currently sits on, the agents that have taken part in it, and its sandbox, which opens in the file manager.
 - After the agents, the header shows the conversation's size as an approximate token count, rounded to a readable figure such as ~12.4k or ~1.2m, and it grows with the thread. A conversation with nothing in it yet shows ~0 tokens.
+- Beside the size the header shows what the conversation has cost so far, added up from what its turns reported: the tokens sent and written back, how much of what was sent the model had already cached, and the money. Unlike the size that is a measurement rather than an estimate, and turns that recorded nothing add nothing to it.
 - Conversations, agents, script tools, mount sources, memories and env each open in a pane that replaces the thread.
 - Memories open in a pane listing them with the newest change first: what each says, the tags it is filed under, who wrote it and when it last changed, and which agents carry it. Writing, correcting, retagging and forgetting all happen there, and forgetting asks first, since nothing is left afterwards to say the workspace ever knew it.
 - An agent's editor names the tags it carries, and says how many memories that is and roughly what they cost it on every turn.

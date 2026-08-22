@@ -1,5 +1,5 @@
 import { randomUUID } from "node:crypto";
-import { query } from "@anthropic-ai/claude-agent-sdk";
+import { query, type ModelUsage } from "@anthropic-ai/claude-agent-sdk";
 import { cancelRulings } from "./decisions";
 import { claudeCodeMissing, claudeCodePath } from "../agents/claudeCode";
 import { grantedTools } from "./tools";
@@ -8,7 +8,7 @@ import { transcript } from "../../shared/transcript";
 import { appendEntry, readEntries } from "../storage/conversationFile";
 import { conversationFile, loadWorkspace } from "../storage/workspaceStore";
 import { ensureSandbox } from "../tools/sandbox";
-import type { AgentMessage, Entry, TurnEnd, TurnStart } from "../../shared/types";
+import type { AgentMessage, Entry, Spend, TurnEnd, TurnStart } from "../../shared/types";
 
 export type EntrySink = (entry: Entry) => void;
 
@@ -19,6 +19,22 @@ interface Chain {
 }
 
 const chains = new Map<string, Chain>();
+
+/**
+ * Every model the turn went through, the subagents and internal calls of the SDK included, since
+ * what a turn cost is what it cost. Absent numbers count as nothing rather than as a guess.
+ */
+function spendOf(usage: Record<string, ModelUsage>): Spend {
+	return Object.values(usage).reduce<Spend>(
+		(spent, model) => ({
+			sent: spent.sent + model.inputTokens + model.cacheCreationInputTokens + model.cacheReadInputTokens,
+			cached: spent.cached + model.cacheReadInputTokens,
+			received: spent.received + model.outputTokens,
+			usd: spent.usd + model.costUSD,
+		}),
+		{ sent: 0, cached: 0, received: 0, usd: 0 },
+	);
+}
 
 export function isTurnRunning(conversationId: string): boolean {
 	return chains.has(conversationId);
@@ -94,6 +110,7 @@ async function runTurn(
 	chain.turn = { id: start.id, stop };
 
 	let error: string | undefined;
+	let spent: Spend | undefined;
 
 	try {
 		if (agent === undefined) throw new Error(`No agent ${agentId}`);
@@ -135,6 +152,8 @@ async function runTurn(
 		})) {
 			// The abort is not instant, so nothing the agent says after the cancel joins the thread.
 			if (chain.canceled) break;
+			// The turn is one query, so its last result carries what the whole turn cost.
+			if (message.type === "result") spent = spendOf(message.modelUsage);
 			if (message.type !== "assistant") continue;
 
 			const content = message.message.content
@@ -167,6 +186,7 @@ async function runTurn(
 		turnId: start.id,
 		status,
 		...(status === "failed" && error !== undefined && { error }),
+		...(spent !== undefined && { spent }),
 		createdAt: now(),
 	};
 	await appendEntry(file, end);

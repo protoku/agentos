@@ -9,6 +9,7 @@ import {
 	Copy,
 	Archive,
 	FolderOpen,
+	Coins,
 	Gauge,
 	GitCompare,
 	Lock,
@@ -52,7 +53,7 @@ import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
 import { fieldsOf, pathOf, type Field } from "../../shared/render";
-import { tokens } from "../../shared/transcript";
+import { spentOn, tokens } from "../../shared/transcript";
 import type { MountState } from "../../shared/api";
 import type { Agent, Entry, MountSource, Tool, ToolCall } from "../../shared/types";
 
@@ -115,6 +116,7 @@ export function Thread({
 
 	// Measuring walks every entry and stringifies every call, which no keystroke should redo.
 	const size = useMemo(() => tokens(entries, agents), [entries, agents]);
+	const spent = useMemo(() => spentOn(entries), [entries]);
 
 	// A different list starts at its first name, never at wherever the last one was left.
 	useEffect(() => {
@@ -246,6 +248,16 @@ export function Thread({
 						<Bound label="Conversation size" icon={<Gauge className="size-3.5" />}>
 							{`~${thousands(size)} tokens`}
 						</Bound>
+						{spent.sent > 0 && (
+							<Bound label="What this conversation has cost" icon={<Coins className="size-3.5" />}>
+								{[
+									`${thousands(spent.sent)} sent`,
+									`${thousands(spent.cached)} cached`,
+									`${thousands(spent.received)} back`,
+									money(spent.usd),
+								].join(", ")}
+							</Bound>
+						)}
 					</div>
 				</div>
 
@@ -768,6 +780,11 @@ function Payload({
 			))}
 		</div>
 	);
+}
+
+/** Cents matter while a conversation is young, and stop mattering once it is not. */
+function money(usd: number): string {
+	return `$${usd.toFixed(usd < 1 ? 3 : 2)}`;
 }
 
 /** The @names are presentation: they are highlighted only where they resolved to an agent. */

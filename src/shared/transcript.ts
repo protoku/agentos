@@ -1,4 +1,4 @@
-import type { Agent, Entry } from "./types";
+import type { Agent, Entry, Spend } from "./types";
 
 /** Every agent sees the whole thread, so a turn's prompt is the thread rendered as text. */
 export function transcript(entries: Entry[], agents: Agent[], acting: Agent): string {
@@ -17,6 +17,22 @@ export function transcript(entries: Entry[], agents: Agent[], acting: Agent): st
  */
 export function tokens(entries: Entry[], agents: Agent[]): number {
 	return estimateTokens(threadLines(entries.filter(settled), agents).join("\n"));
+}
+
+/** What the conversation has actually cost, added up from the turns that reported it. */
+export function spentOn(entries: Entry[]): Spend {
+	return entries.reduce<Spend>(
+		(total, entry) =>
+			entry.type !== "turnEnd" || entry.spent === undefined
+				? total
+				: {
+						sent: total.sent + entry.spent.sent,
+						cached: total.cached + entry.spent.cached,
+						received: total.received + entry.spent.received,
+						usd: total.usd + entry.spent.usd,
+					},
+		{ sent: 0, cached: 0, received: 0, usd: 0 },
+	);
 }
 
 /** What any text costs, by the same rule of thumb, for anything else a turn is sent. */
