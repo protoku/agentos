@@ -29,8 +29,9 @@ export interface CallContext extends ToolTarget {
  */
 export async function grantedTools(agent: Agent, context: CallContext) {
 	const scripts = await listScriptTools(context.root, context.workspaceId);
+	// Listed as denied is denied, exactly as not listed at all: a tool it does not have does not exist.
 	const granted = [...builtinTools, ...scripts.map(implementationOf)].filter(
-		(tool) => agent.tools[tool.id] !== undefined,
+		(tool) => agent.tools[tool.id] !== undefined && agent.tools[tool.id] !== "deny",
 	);
 
 	return {
