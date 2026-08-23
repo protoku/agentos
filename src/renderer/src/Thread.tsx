@@ -251,8 +251,7 @@ export function Thread({
 						{spent.sent > 0 && (
 							<Bound label="What this conversation has cost" icon={<Coins className="size-3.5" />}>
 								{[
-									`${thousands(spent.sent)} sent`,
-									`${thousands(spent.cached)} cached`,
+									`${thousands(spent.sent)} sent (${thousands(spent.cached)} cached)`,
 									`${thousands(spent.received)} back`,
 									money(spent.usd),
 								].join(", ")}
