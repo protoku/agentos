@@ -140,6 +140,8 @@ export function App() {
 	const [memories, setMemories] = useState<Memory[]>([]);
 	const [mounts, setMounts] = useState<MountState[]>([]);
 	const [selected, setSelected] = useState<string>();
+	// What was typed and not sent, kept here so leaving a thread and coming back finds it.
+	const [drafts, setDrafts] = useState<Record<string, string>>({});
 
 	useEffect(() => {
 		void window.agentOS.listWorkspaces().then(setWorkspaces);
@@ -308,6 +310,8 @@ export function App() {
 	const openConversation = conversations.find((conversation) => conversation.id === conversationId);
 	const scriptTools = tools.filter((tool) => tool.type === "script");
 	const settled = entries.filter((entry) => entry.type === "toolCall");
+	// A new conversation composes under its own key, one per workspace, until it becomes real.
+	const composing = `${workspaceId}/${conversationId ?? "new"}`;
 
 	return (
 		<div className="flex h-full flex-col">
@@ -523,7 +527,7 @@ export function App() {
 				<Tools workspaceId={workspace.id} selected={selected} />
 			) : drafting || openConversation ? (
 				<Thread
-					// Each conversation composes on its own: a draft here never follows you to another.
+					// Each conversation composes on its own: what is typed here never follows you to another.
 					key={conversationId ?? "draft"}
 					title={openConversation?.title ?? "New conversation"}
 					entries={entries}
@@ -533,6 +537,8 @@ export function App() {
 					mounts={mounts}
 					sandbox={openConversation?.sandbox}
 					archivedAt={openConversation?.archivedAt}
+					draft={drafts[composing] ?? ""}
+					onDraft={(draft) => setDrafts((current) => ({ ...current, [composing]: draft }))}
 					onSend={send}
 					onCancel={cancel}
 					onOpenSandbox={openSandbox}

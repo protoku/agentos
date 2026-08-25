@@ -66,6 +66,8 @@ export function Thread({
 	mounts,
 	sandbox,
 	archivedAt,
+	draft,
+	onDraft,
 	onSend,
 	onCancel,
 	onOpenSandbox,
@@ -82,6 +84,8 @@ export function Thread({
 	mounts: MountState[];
 	sandbox?: string;
 	archivedAt?: string;
+	draft: string;
+	onDraft: (draft: string) => void;
 	onSend: (content: string) => Promise<void>;
 	onCancel: () => Promise<void>;
 	onOpenSandbox: () => Promise<void>;
@@ -90,8 +94,8 @@ export function Thread({
 	onRename?: (title: string) => Promise<void>;
 	onArchive?: () => Promise<void>;
 }) {
-	const [draft, setDraft] = useState("");
-	const [caret, setCaret] = useState(0);
+	// Text kept from an earlier visit comes back with the caret at its end, where autofocus puts it.
+	const [caret, setCaret] = useState(draft.length);
 	const [highlight, setHighlight] = useState(0);
 	const [dismissed, setDismissed] = useState(false);
 	const composer = useRef<HTMLTextAreaElement>(null);
@@ -127,7 +131,7 @@ export function Thread({
 		if (completion === undefined) return;
 
 		const caretAfter = completion.start + candidate.name.length + completion.suffix.length;
-		setDraft(
+		onDraft(
 			`${draft.slice(0, completion.start)}${candidate.name}${completion.suffix}${draft.slice(completion.end)}`,
 		);
 		setCaret(caretAfter);
@@ -178,7 +182,7 @@ export function Thread({
 
 		if (busy) return;
 
-		setDraft("");
+		onDraft("");
 		await onSend(content);
 	}
 
@@ -379,7 +383,7 @@ export function Thread({
 							}
 							className="max-h-48 min-h-10 resize-none border-0 bg-transparent px-2 py-1.5 shadow-none focus-visible:border-0 focus-visible:ring-0 disabled:bg-transparent disabled:opacity-100 dark:bg-transparent dark:disabled:bg-transparent"
 							onChange={(event) => {
-								setDraft(event.target.value);
+								onDraft(event.target.value);
 								setCaret(event.target.selectionStart);
 								setDismissed(false);
 							}}
