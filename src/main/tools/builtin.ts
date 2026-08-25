@@ -2,6 +2,7 @@ import { mkdir, readFile, readdir, rename, rm, stat, unlink, writeFile } from "n
 import { dirname, join, relative, sep } from "node:path";
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
+import { agentTools } from "./agentTools";
 import { authoringTools } from "./authoring";
 import { gitTools } from "./gitTools";
 import { memoryTools } from "./memoryTools";
@@ -218,6 +219,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 	...mountTools,
 	...gitTools,
 	...authoringTools,
+	...agentTools,
 	...memoryTools,
 ];
 

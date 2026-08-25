@@ -1,4 +1,5 @@
 import {
+	Bot,
 	Boxes,
 	Brain,
 	Eraser,
@@ -180,6 +181,29 @@ const summaries: Record<string, Summary> = {
 		label: "Update tool",
 		icon: <Wrench />,
 		subject: rename === undefined ? String(name) : `${String(name)} → ${String(rename)}`,
+	}),
+	list_agents: ({ agents }) => ({
+		label: "List agents",
+		icon: <Bot />,
+		hint: Array.isArray(agents) ? `${agents.length} ${agents.length === 1 ? "agent" : "agents"}` : undefined,
+	}),
+	read_agent: ({ name, tools }) => ({
+		label: "Read agent",
+		icon: <Bot />,
+		subject: String(name),
+		hint: Array.isArray(tools) ? `${tools.length} granted` : undefined,
+	}),
+	create_agent: ({ name, tools }) => ({
+		label: "Create agent",
+		icon: <Bot />,
+		subject: String(name),
+		hint: typeof tools === "number" ? `${tools} granted` : undefined,
+	}),
+	update_agent: ({ name, rename, tools }) => ({
+		label: "Update agent",
+		icon: <Bot />,
+		subject: rename === undefined ? String(name) : `${String(name)} → ${String(rename)}`,
+		hint: typeof tools === "number" ? `${tools} granted` : undefined,
 	}),
 	list_files: ({ path, entries }) => {
 		const listed = Array.isArray(entries) ? (entries as { name: string; type: string }[]) : [];

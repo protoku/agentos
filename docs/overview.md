@@ -150,6 +150,8 @@ interface Spend {
 
 An agent is a configured actor in the workspace: a name, the model it runs on, a system prompt that defines its behavior, and per-tool permissions.
 
+A name is unique within its workspace, compared without regard to case, since a mention resolves by name and two agents under one name would make every mention of it ambiguous. Creating an agent under a name already taken is refused, and so is renaming onto one. The id is what mentions and past entries point at, so renaming changes nothing else.
+
 Each tool the agent may use is listed by tool id with a permission: allow runs the call directly, ask requires user approval, deny hides the tool entirely. Unlisted tools are denied. The agent never sees its permissions: an ask tool looks identical to an allow tool, and a denied tool does not exist for it.
 
 An agent also names the memory tags it carries, which decide what the workspace tells it before every turn, as described under Memory.
@@ -295,9 +297,11 @@ The scope is deliberately actions, not definitions. Agent prompts, permissions, 
 
 ## Built-in tools
 
-Most built-in tools act on the conversation's sandbox and respect read-only mounts; the git remote tools reach exactly as far as the mount's remote, and the mount tools reshape the sandbox itself. The tools for building tools and the memory tools are the exception: they act on the workspace rather than on the sandbox, on what it can do and on what it knows. The git tools name the mount they target by its sandbox path. Running anything is authorized per command, by defining a script tool for it, and no agent is handed a general command runner as a matter of course.
+Most built-in tools act on the conversation's sandbox and respect read-only mounts; the git remote tools reach exactly as far as the mount's remote, and the mount tools reshape the sandbox itself. The tools for building tools, the tools for building agents, and the memory tools are the exception: they act on the workspace rather than on the sandbox, on what it can do, on who does it, and on what it knows. The git tools name the mount they target by its sandbox path. Running anything is authorized per command, by defining a script tool for it, and no agent is handed a general command runner as a matter of course.
 
 The exception is the work of building tools, which cannot be done blind: finding out what a command does, what its options are and what shape its output takes is how a tool gets written at all. So there are three tools for that work, define_tool, update_tool and run_command, and they are ordinary tools an agent is granted or not. Granting them is the largest permission in AgentOS and the doc is blunt about why: a tool is trusted code with no boundary around what it spawns, so an agent that may define a tool can already run anything, and withholding a command runner from it would only push the same power into a code blob that is harder to read. Granted as ask, every command and every tool arrives as a pending call carrying the exact command line, or the exact code, for the user to read before it happens.
+
+Building agents is the same work one level up, and carries the same weight. list_agents and read_agent say who the workspace has and how one is configured, create_agent adds one, and update_agent changes what is already there. An agent that may write agents can grant permissions it was never given itself, and may rewrite its own prompt and its own permissions, both of which are allowed rather than quietly refused: the guard is the pending call, which carries the exact prompt and the exact permission list for the user to read before that agent exists or changes. Permissions are named there by tool name rather than by tool id, since ids are what the workspace generated and names are what a caller can know, and a name matching no tool of the workspace refuses the call. The model is named as one of the models AgentOS offers, anything else refuses the call, and a create that leaves it out gets the default. There is no tool for removing an agent, since nothing inside a workspace is removed piecemeal but a memory.
 
 - read_file: read a file
 - write_file: create a file
@@ -312,6 +316,10 @@ The exception is the work of building tools, which cannot be done blind: finding
 - define_tool: add a script tool to the workspace
 - update_tool: change a script tool of the workspace
 - run_command: run one command in the sandbox, its arguments given as a list and never as a line to be split
+- list_agents: list the agents of the workspace, with the model and tags each one carries
+- read_agent: read one agent whole, naming it by name, its system prompt and its permissions included
+- create_agent: add an agent to the workspace, its permissions named by tool name
+- update_agent: change an agent of the workspace, naming it as it is named now
 - git_status: show what changed on a git mount, and how far its branch is ahead of or behind the remote
 - git_diff: show a git mount's changes
 - git_log: show recent history of a git mount's branch

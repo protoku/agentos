@@ -32,6 +32,14 @@ describe("createAgent", () => {
 		expect(agent).toMatchObject(draft);
 		expect(await listAgents(root, workspaceId)).toEqual([agent]);
 	});
+
+	it("refuses a name already taken, since a mention resolves by name", async () => {
+		await createAgent(root, workspaceId, draft);
+
+		await expect(createAgent(root, workspaceId, { ...draft, name: "ops" })).rejects.toThrow(
+			"An agent named Ops already exists",
+		);
+	});
 });
 
 describe("carrying", () => {
@@ -57,6 +65,15 @@ describe("updateAgent", () => {
 		expect(edited.id).toBe(agent.id);
 		expect(edited.createdAt).toBe(agent.createdAt);
 		expect(await listAgents(root, workspaceId)).toEqual([edited]);
+	});
+
+	it("refuses a rename onto a name already taken", async () => {
+		await createAgent(root, workspaceId, draft);
+		const other = await createAgent(root, workspaceId, { ...draft, name: "Dev" });
+
+		await expect(updateAgent(root, workspaceId, { ...other, name: "ops" })).rejects.toThrow(
+			"An agent named Ops already exists",
+		);
 	});
 
 	it("refuses an agent the workspace does not have", async () => {

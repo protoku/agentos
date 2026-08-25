@@ -10,6 +10,8 @@ export async function listAgents(root: string, workspaceId: string): Promise<Age
 
 export async function createAgent(root: string, workspaceId: string, draft: AgentDraft): Promise<Agent> {
 	const workspace = await loadWorkspace(root, workspaceId);
+	refuseName(draft.name, workspace.agents);
+
 	const agent: Agent = {
 		id: randomUUID(),
 		name: draft.name,
@@ -32,8 +34,19 @@ export async function updateAgent(root: string, workspaceId: string, agent: Agen
 	const index = workspace.agents.findIndex((candidate) => candidate.id === agent.id);
 	if (index === -1) throw new Error(`No agent ${agent.id}`);
 
+	refuseName(
+		agent.name,
+		workspace.agents.filter((candidate) => candidate.id !== agent.id),
+	);
+
 	workspace.agents[index] = agent;
 	await saveWorkspace(root, workspace);
 
 	return agent;
+}
+
+/** A mention resolves by name, so one name means one agent in the workspace. */
+function refuseName(name: string, others: Agent[]): void {
+	const taken = others.find((candidate) => candidate.name.toLowerCase() === name.toLowerCase());
+	if (taken !== undefined) throw new Error(`An agent named ${taken.name} already exists`);
 }
