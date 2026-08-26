@@ -6,7 +6,7 @@ The goal of AgentOS is to offer a unified, purpose-built interface to interact w
 
 A workspace is the top-level container and a hard boundary. What it represents is up to the user: a project, one environment of a project, or any other context.
 
-It owns its agents, tools, mount sources, memories, and conversations, and its env holds the credentials and configuration its tools use.
+It owns its agents, tools, mount sources, memories, and conversations, and its env holds the credentials and configuration its tools use. It also carries the round cap its tasks run under, which a task may lower or raise for itself, so how long an unattended run may go is a property of the workspace rather than of whoever started the task.
 
 Nothing is shared between workspaces: reusing an agent elsewhere means copying it and its tools, with the agent's permission keys remapped to the copied tools' new ids; built-in tool ids are the same everywhere, and the tags it carries mean nothing until that workspace knows something under them. An agent can only reach what its workspace binds, never what another workspace binds. The one exception is machine-level: git remote access authenticates with the host's ambient git setup, as described under Mount, and agents run on the host's Claude Code, signed in as that machine is.
 
@@ -18,6 +18,7 @@ interface Workspace {
 	agents: Agent[];
 	tools: ScriptTool[];
 	env: Record<string, string>;
+	taskRounds: number;
 	sources: MountSource[];
 	memories: Memory[];
 	conversations: Conversation[];
@@ -26,7 +27,7 @@ interface Workspace {
 
 ## Conversation
 
-A conversation is a thread of messages, tool calls, and turn markers between the user and one or more agents of the workspace. The user brings agents in by @-mentioning them, and every agent in the conversation sees the full thread, every entry included. A message can mention several agents: each acts on it in mention order, one at a time, so later agents see the work of earlier ones. Mentioning the same agent again queues it again: every mention is its own turn. Agents act only when mentioned.
+A conversation is a thread of messages, tool calls, and turn markers between the user and one or more agents of the workspace. The user brings agents in by @-mentioning them, and every agent in the conversation sees the full thread, every entry included. A message can mention several agents: each acts on it in mention order, one at a time, so later agents see the work of earlier ones. Mentioning the same agent again queues it again: every mention is its own turn. Agents act only when mentioned, or when a task names them, as described under Task.
 
 Because every agent is sent the whole thread, a conversation has a size: the tokens that thread costs an agent. What is measured is the conversation's own content, every message and every settled tool call with its input, output and error; turn markers carry no content and add nothing, and a call still pending or running counts for nothing until it settles, since an unfinished entry is not part of what a turn is sent. What a turn adds around the thread, its framing and the acting agent's system prompt, belongs to that turn rather than to the conversation and is left out. The figure is an estimate and is shown as approximate, since the exact count depends on the tokenizer of the model being asked, and one thread can be sent to agents on different models.
 
@@ -48,7 +49,7 @@ interface Conversation {
 	archivedAt?: string;
 	sandbox?: string;
 	mounts: Mount[];
-	entries: (Message | ToolCall | TurnStart | TurnEnd)[];
+	entries: (Message | ToolCall | TurnStart | TurnEnd | TaskStart | TaskRound | TaskEnd)[];
 }
 ```
 
@@ -143,6 +144,62 @@ interface Spend {
 	cached: number;
 	received: number;
 	usd: number;
+}
+```
+
+## Task
+
+A task is one goal pursued over several rounds, in one conversation, by a roster of agents that act in order. It exists because a mention chain runs once: the user names who acts, they act, and the thread waits for the user again. A task keeps that same chain running, and what refills it between rounds is an agent rather than the user.
+
+Starting one is a built-in tool call like any other: an agent granted task_start starts a task, the user invokes it as a slash command, and either way the call stands in the thread saying exactly what was asked for. The call names the goal, the roster that acts in the first round, and the director, the agent that judges each round and decides what happens next. It may also name the round cap, and the workspace's default applies when it does not. A task refuses to start when the named director does not hold task_done, since a director that cannot close is a task that cannot end, when the roster names the director, since the agent that judges the work never does it, and when any agent it names holds a tool as ask, since a task is meant to run without the user and a pending call would park it until they came back.
+
+Each agent on a roster is named with what it is asked for, and with the criterion its result will be judged against, written before the work rather than after it. An agent in a task takes an ordinary turn and is sent the thread like any other: what it is asked for is the round entry that named it, which every agent in the conversation can read.
+
+A round runs its roster one agent at a time, exactly as a mention chain does, each agent seeing what the earlier ones did, and the director takes the last turn of every round. In that turn it reads what the round produced and does one of three things: it names with task_add who acts in the next round, it ends the task with task_done and the verdict that closes it, or it ends the task with task_block and the specific question it cannot answer itself. A director that neither adds nor closes ends the task as done, since a director with nothing to add and nothing to ask has nothing left to say. task_add refuses to name the director, so what it builds is always work rather than judgment, and it applies the same refusal on ask tools that the start applied, since an agent brought in mid-task can park a run the start check already cleared.
+
+A task ends four ways and only one of them is success. It is done when the director says so. It is blocked when the director asks a question, which ends the run rather than parking it: the question stands in the thread, and the user answers by starting the next task. It is canceled when the user stops it. It is exhausted when the round cap is reached, which is not success: the work stays in the thread and what the director last said stands as the state of it, because a cap that quietly meant done would ship whatever the clock stopped on.
+
+A failed turn ends its round rather than the whole task, unlike a failed turn in a mention chain. The agents after it in the roster do not act, the director takes its turn and reads the failure in the thread like any other outcome, and the agents that never acted open the next round, ahead of whatever the director adds, so the round resumes where it stopped rather than starting over.
+
+While a task runs the conversation belongs to it, exactly as it belongs to a single acting agent: no message can be sent and no slash command invoked, and a task cannot start where a turn or a call is already running. The exits the user always has are unchanged, and stopping is one of them: the composer's stop cancels the task, which stops the acting agent's current call and its turn, and no later round begins.
+
+A crash cannot strand a task any more than it can strand a turn: a start without an end is either running right now or interrupted, and on restart AgentOS appends the canceled end, with its reason noting the interruption: Interrupted by an AgentOS restart.
+
+```ts
+interface TaskStart {
+	type: "taskStart";
+	id: string;
+	agentId?: string;
+	directorId: string;
+	goal: string;
+	roster: Assignment[];
+	rounds: number;
+	createdAt: string;
+}
+
+interface TaskRound {
+	type: "taskRound";
+	id: string;
+	taskId: string;
+	number: number;
+	roster: Assignment[];
+	createdAt: string;
+}
+
+interface Assignment {
+	agentId: string;
+	ask: string;
+	criterion: string;
+}
+
+interface TaskEnd {
+	type: "taskEnd";
+	id: string;
+	taskId: string;
+	status: "done" | "blocked" | "canceled" | "exhausted";
+	verdict?: string;
+	question?: string;
+	createdAt: string;
 }
 ```
 
@@ -303,6 +360,8 @@ The exception is the work of building tools, which cannot be done blind: finding
 
 Building agents is the same work one level up, and carries the same weight. list_agents and read_agent say who the workspace has and how one is configured, create_agent adds one, and update_agent changes what is already there. An agent that may write agents can grant permissions it was never given itself, and may rewrite its own prompt and its own permissions, both of which are allowed rather than quietly refused: the guard is the pending call, which carries the exact prompt and the exact permission list for the user to read before that agent exists or changes. Permissions are named there by tool name rather than by tool id, since ids are what the workspace generated and names are what a caller can know, and a name matching no tool of the workspace refuses the call. The model is named as one of the models AgentOS offers, anything else refuses the call, and a create that leaves it out gets the default. There is no tool for removing an agent, since nothing inside a workspace is removed piecemeal but a memory.
 
+The task tools are an exception of their own: they act on the conversation's own run rather than on anything in the sandbox or the workspace, which is why granting them is how an agent becomes a director. An agent holding task_add and task_done decides who acts next and when the goal is met, so they are granted to the one agent meant to orchestrate and to nobody else. They exist only inside a task: called where none is running, they refuse.
+
 - read_file: read a file
 - write_file: create a file
 - edit_file: change a file by replacing a snippet that must appear exactly once
@@ -320,6 +379,10 @@ Building agents is the same work one level up, and carries the same weight. list
 - read_agent: read one agent whole, naming it by name, its system prompt and its permissions included
 - create_agent: add an agent to the workspace, its permissions named by tool name
 - update_agent: change an agent of the workspace, naming it as it is named now
+- task_start: start a task in this conversation, naming its goal, the roster of the first round with what each agent is asked for and what it will be judged against, the director, and the round cap when it differs from the workspace's
+- task_add: name an agent to act in the next round of the running task, with what it is asked for and what it will be judged against
+- task_done: end the running task as done, with the verdict that closes it
+- task_block: end the running task with the specific question that stopped it
 - git_status: show what changed on a git mount, and how far its branch is ahead of or behind the remote
 - git_diff: show a git mount's changes
 - git_log: show recent history of a git mount's branch
@@ -345,7 +408,8 @@ Features of the app around the model above.
 - The thread follows its newest entry while you are at the bottom of it, and stops following the moment you scroll away to read, offering a way back to the newest. A conversation opens at its newest entry.
 - An agent's message is rendered as markdown, which is how models write. A user's message stays as typed, with its @mentions highlighted. A link opens in the browser rather than in AgentOS.
 - A pending call is decided in the entry itself: approve it, or deny it with a message for the agent alongside.
-- The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn.
+- The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn; while a task runs it cancels the task, so one press ends a run of any length.
+- A task reads as its rounds: the goal once where it started, each round naming the agents it ran and what each was asked for, the turns of that round beneath it, and the end naming which of the four ways it stopped, with the director's verdict or its question. A round that ended on a failed turn says which agents it carried into the next one.
 - The composer completes what can be named in it: / at the start of a message lists the tools, the arguments of that tool once it is named, and @ anywhere lists the agents, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
 - What is typed in the composer and not sent belongs to the conversation it was typed in: leaving for another conversation, another workspace or a pane that replaces the thread, and coming back, finds it exactly as it was, with the caret at its end. A new conversation keeps what was typed in it the same way, for as long as that draft is in the interface. None of this is recorded, so it lives as long as AgentOS is running and a draft that never receives an entry still leaves no trace.
 - The window carries no application menu: everything AgentOS does is reachable in the interface itself. On macOS, where the menu bar belongs to the system rather than the window, it carries only what the platform needs to work at all, editing and quitting, and nothing of AgentOS's own.
@@ -358,7 +422,7 @@ Features of the app around the model above.
 - A conversation's header names it, with a way to rename it while it is open and a closed lock once it is archived, and carries beneath that what the conversation is bound to: what it has mounted, a git mount naming its source with the branch and commit it currently sits on, the agents that have taken part in it, and its sandbox, which opens in the file manager.
 - After the agents, the header shows the conversation's size as an approximate token count, rounded to a readable figure such as ~12.4k or ~1.2m, and it grows with the thread. A conversation with nothing in it yet shows ~0 tokens.
 - Beside the size the header shows what the conversation has cost so far, added up from what its turns reported: the tokens sent and written back, how much of what was sent the model had already cached, and the money. Unlike the size that is a measurement rather than an estimate, and turns that recorded nothing add nothing to it.
-- Conversations, agents, script tools, mount sources, memories and env each open in a pane that replaces the thread.
+- Conversations, agents, script tools, mount sources, memories and env each open in a pane that replaces the thread. The env pane also carries the workspace's default round cap for tasks, since that is workspace configuration like the rest of what is set there rather than a credential.
 - Memories open in a pane listing them with the newest change first: what each says, the tags it is filed under, who wrote it and when it last changed, and which agents carry it. Writing, correcting, retagging and forgetting all happen there, and forgetting asks first, since nothing is left afterwards to say the workspace ever knew it.
 - An agent's editor names the tags it carries, and says how many memories that is and roughly what they cost it on every turn.
 - A tool is invoked in the composer as a slash command with key=value arguments, quoting any value that contains spaces: /write_file path=notes/todo.md content="Ship it". Invoking one in a draft creates the conversation, exactly as sending a message does, and the call is its first entry.
