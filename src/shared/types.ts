@@ -82,7 +82,7 @@ export interface Mount {
 	createdAt: string;
 }
 
-export type Entry = Message | ToolCall | TurnStart | TurnEnd;
+export type Entry = Message | ToolCall | TurnStart | TurnEnd | TaskStart | TaskRound | TaskEnd;
 
 export type Message = UserMessage | AgentMessage;
 
@@ -135,6 +135,46 @@ export interface TurnEnd {
 	error?: string;
 	/** What the model reported this turn cost, absent when it never answered. */
 	spent?: Spend;
+	createdAt: string;
+}
+
+export interface TaskStart {
+	type: "taskStart";
+	id: string;
+	/** Who started it, absent when the user invoked task_start themselves. */
+	agentId?: string;
+	directorId: string;
+	goal: string;
+	roster: Assignment[];
+	/** The round cap this task runs under, its own or the workspace's. */
+	rounds: number;
+	createdAt: string;
+}
+
+export interface TaskRound {
+	type: "taskRound";
+	id: string;
+	taskId: string;
+	number: number;
+	roster: Assignment[];
+	createdAt: string;
+}
+
+/** What an agent is asked for, and what its result is judged against, written before the work. */
+export interface Assignment {
+	agentId: string;
+	ask: string;
+	criterion: string;
+}
+
+export interface TaskEnd {
+	type: "taskEnd";
+	id: string;
+	taskId: string;
+	status: "done" | "blocked" | "canceled" | "exhausted";
+	/** What the director said closing it, and the question it could not answer when blocked. */
+	verdict?: string;
+	question?: string;
 	createdAt: string;
 }
 
