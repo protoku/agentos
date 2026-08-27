@@ -48,6 +48,11 @@ export function takeQueuedTask(conversationId: string): TaskStart | undefined {
 	return start;
 }
 
+/** Archiving closes the conversation, so a task waiting to begin in it never does. */
+export function forgetQueuedTask(conversationId: string): void {
+	queued.delete(conversationId);
+}
+
 /**
  * A task is the mention chain kept going: a roster acts in order, the director takes the last turn
  * of every round, and what it names there is the roster of the next one.

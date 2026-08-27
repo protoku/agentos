@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { query, type ModelUsage } from "@anthropic-ai/claude-agent-sdk";
 import { cancelRulings } from "./decisions";
+import { runTask, takeQueuedTask } from "./task";
 import { claudeCodeMissing, claudeCodePath } from "../agents/claudeCode";
 import { grantedTools } from "./tools";
 import { carriedMemories, memoryBlock } from "../../shared/memory";
@@ -71,6 +72,37 @@ export function runMentionedTurns(
 	chain.settled = runChain(root, workspaceId, conversationId, mentions, chain, emit).finally(() =>
 		chains.delete(conversationId),
 	);
+
+	return chain.settled;
+}
+
+/**
+ * A task queued by task_start begins here, once whoever started it has let the conversation go.
+ * It occupies the thread exactly as a mention chain does, which is what the stop button already
+ * reaches and what refuses a message while it runs.
+ */
+export function runQueuedTask(
+	root: string,
+	workspaceId: string,
+	conversationId: string,
+	emit: EntrySink,
+): Promise<void> | undefined {
+	const start = takeQueuedTask(conversationId);
+	if (start === undefined) return undefined;
+
+	const file = conversationFile(root, workspaceId, conversationId);
+	const chain: Chain = { canceled: false };
+	chains.set(conversationId, chain);
+	chain.settled = runTask(conversationId, start, {
+		takeTurn: (agentId) => runTurn(root, workspaceId, conversationId, agentId, chain, emit),
+		record: async (entry) => {
+			await appendEntry(file, entry);
+			emit(entry);
+		},
+		canceled: () => chain.canceled,
+	})
+		.then(() => undefined)
+		.finally(() => chains.delete(conversationId));
 
 	return chain.settled;
 }

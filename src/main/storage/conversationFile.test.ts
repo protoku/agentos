@@ -86,6 +86,29 @@ describe("recoverInterruptedTurns", () => {
 		expect(await readEntries(file)).toHaveLength(2);
 	});
 
+	it("closes a task the restart interrupted, along with the turn it was in", async () => {
+		await appendEntry(file, {
+			type: "taskStart",
+			id: "k1",
+			directorId: "agent-2",
+			goal: "Write the launch note",
+			roster: [{ agentId: "agent-1", ask: "draft it", criterion: "it reads" }],
+			rounds: 6,
+			createdAt: "2026-08-15T10:00:00.000Z",
+		});
+		await appendEntry(file, turnStart("t1", "2026-08-15T10:00:01.000Z"));
+
+		const ends = await recoverInterruptedTurns(file);
+
+		expect(ends).toHaveLength(2);
+		expect(ends[1]).toMatchObject({
+			type: "taskEnd",
+			taskId: "k1",
+			status: "canceled",
+			error: "Interrupted by an AgentOS restart.",
+		});
+	});
+
 	it("has nothing left to close when it runs again", async () => {
 		await appendEntry(file, turnStart("t1", "2026-08-15T10:00:00.000Z"));
 		await recoverInterruptedTurns(file);
