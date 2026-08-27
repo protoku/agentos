@@ -175,6 +175,8 @@ export interface TaskEnd {
 	/** What the director said closing it, and the question it could not answer when blocked. */
 	verdict?: string;
 	question?: string;
+	/** Why it ended without the director's word, which today is only an AgentOS restart. */
+	error?: string;
 	createdAt: string;
 }
 

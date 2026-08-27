@@ -1,12 +1,10 @@
 import { randomUUID } from "node:crypto";
 import { loadWorkspace, saveWorkspace } from "./workspaceStore";
 import { asTags } from "../../shared/memory";
+import { memoryLimit, settingIn } from "../../shared/settings";
 import type { Memory } from "../../shared/types";
 
 export type MemoryDraft = Pick<Memory, "title" | "body" | "tags" | "agentId">;
-
-/** Long enough for what a workspace knows, short enough to hand an agent every turn. */
-const bodyLimit = 2000;
 
 export async function listMemories(root: string, workspaceId: string): Promise<Memory[]> {
 	return (await loadWorkspace(root, workspaceId)).memories;
@@ -17,7 +15,7 @@ export async function createMemory(root: string, workspaceId: string, draft: Mem
 	const written = new Date().toISOString();
 	const memory: Memory = {
 		id: randomUUID(),
-		...settle(draft, workspace.memories),
+		...settle(draft, workspace.memories, settingIn(workspace.env, memoryLimit)),
 		...(draft.agentId !== undefined && { agentId: draft.agentId }),
 		createdAt: written,
 		updatedAt: written,
@@ -37,7 +35,11 @@ export async function updateMemory(root: string, workspaceId: string, memory: Me
 
 	const written: Memory = {
 		...existing,
-		...settle(memory, workspace.memories.filter((candidate) => candidate !== existing)),
+		...settle(
+			memory,
+			workspace.memories.filter((candidate) => candidate !== existing),
+			settingIn(workspace.env, memoryLimit),
+		),
 		updatedAt: new Date().toISOString(),
 	};
 
@@ -63,7 +65,7 @@ export async function deleteMemory(root: string, workspaceId: string, memoryId: 
 }
 
 /** What a memory must be to be written: titles point at one memory, and a body stays readable. */
-function settle(draft: Pick<Memory, "title" | "body" | "tags">, others: Memory[]) {
+function settle(draft: Pick<Memory, "title" | "body" | "tags">, others: Memory[], bodyLimit: number) {
 	const title = draft.title.trim();
 	const body = draft.body.trim();
 

@@ -24,10 +24,28 @@ export interface TaskHooks {
 }
 
 const running = new Map<string, TaskRun>();
+const queued = new Map<string, TaskStart>();
 
 /** What the task tools reach: the run their conversation is in, absent when it is in none. */
 export function runningTask(conversationId: string): TaskRun | undefined {
 	return running.get(conversationId);
+}
+
+/** Whoever starts a task holds the conversation while they do, so task_start leaves it here. */
+export function queueTask(conversationId: string, start: TaskStart): void {
+	if (running.has(conversationId) || queued.has(conversationId)) {
+		throw new Error("A task is already running in this conversation");
+	}
+
+	queued.set(conversationId, start);
+}
+
+/** Claimed once, as the conversation frees up: a start nobody claims is a task that never ran. */
+export function takeQueuedTask(conversationId: string): TaskStart | undefined {
+	const start = queued.get(conversationId);
+	queued.delete(conversationId);
+
+	return start;
 }
 
 /**
