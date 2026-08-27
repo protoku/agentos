@@ -12,6 +12,7 @@ import {
 	Coins,
 	Gauge,
 	GitCompare,
+	ListChecks,
 	Lock,
 	PanelRight,
 	Pencil,
@@ -55,7 +56,7 @@ import { findMentions } from "../../shared/mentions";
 import { fieldsOf, pathOf, type Field } from "../../shared/render";
 import { spentOn, tokens } from "../../shared/transcript";
 import type { MountState } from "../../shared/api";
-import type { Agent, Entry, MountSource, Tool, ToolCall } from "../../shared/types";
+import type { Agent, Entry, MountSource, TaskEnd, TaskRound, TaskStart, Tool, ToolCall } from "../../shared/types";
 
 export function Thread({
 	title,
@@ -103,7 +104,10 @@ export function Thread({
 
 	// A start with no end is a turn running right now, and the thread belongs to that agent.
 	const endedTurns = new Set(entries.filter((entry) => entry.type === "turnEnd").map((entry) => entry.turnId));
-	const acting = entries.some((entry) => entry.type === "turnStart" && !endedTurns.has(entry.id));
+	const endedTasks = new Set(entries.filter((entry) => entry.type === "taskEnd").map((entry) => entry.taskId));
+	// A task holds the thread between its turns as well, since the next round is still to come.
+	const tasking = entries.some((entry) => entry.type === "taskStart" && !endedTasks.has(entry.id));
+	const acting = tasking || entries.some((entry) => entry.type === "turnStart" && !endedTurns.has(entry.id));
 	// A call of the user's own occupies the thread the same way, and is canceled on its entry.
 	const calling = entries.some(
 		(entry) => entry.type === "toolCall" && (entry.status === "running" || entry.status === "pending"),
@@ -305,14 +309,22 @@ export function Thread({
 						<MessageScrollerContent className="flex flex-col px-6 py-5">
 							{blocksOf(entries, endedTurns).map((block, index) => (
 								<MessageScrollerItem key={block.entries[0].id} messageId={block.entries[0].id}>
-									<Block
-										block={block}
-										first={index === 0}
-										agents={agents}
-										tools={tools}
-										sources={sources}
-										onOpenPath={onOpenPath}
-									/>
+									{block.task ? (
+										<TaskRow
+											entry={block.entries[0] as TaskStart | TaskRound | TaskEnd}
+											first={index === 0}
+											agents={agents}
+										/>
+									) : (
+										<Block
+											block={block}
+											first={index === 0}
+											agents={agents}
+											tools={tools}
+											sources={sources}
+											onOpenPath={onOpenPath}
+										/>
+									)}
 								</MessageScrollerItem>
 							))}
 						</MessageScrollerContent>
@@ -375,7 +387,9 @@ export function Thread({
 							value={draft}
 							disabled={busy}
 							placeholder={
-								acting
+								tasking
+									? "A task is running in this conversation"
+									: acting
 									? "An agent is acting in this conversation"
 									: calling
 										? "A tool call is running in this conversation"
@@ -452,7 +466,13 @@ interface ActorBlock {
 	/** The agent whose doing this is, or nothing at all when it is the user's. */
 	agentId?: string;
 	working: boolean;
+	/** A task's own markers stand alone, bracketing the turns of the round they opened. */
+	task?: boolean;
 	entries: Entry[];
+}
+
+function isTaskEntry(entry: Entry): entry is TaskStart | TaskRound | TaskEnd {
+	return entry.type === "taskStart" || entry.type === "taskRound" || entry.type === "taskEnd";
 }
 
 /** One person or agent acts, then another: the thread reads as their turns at it, not as entries. */
@@ -460,9 +480,14 @@ function blocksOf(entries: Entry[], endedTurns: Set<string>): ActorBlock[] {
 	const blocks: ActorBlock[] = [];
 
 	for (const entry of entries) {
+		if (isTaskEntry(entry)) {
+			blocks.push({ working: false, task: true, entries: [entry] });
+			continue;
+		}
+
 		const agentId = entry.type === "userMessage" ? undefined : "agentId" in entry ? entry.agentId : undefined;
 		const last = blocks.at(-1);
-		const block = last?.agentId === agentId && last !== undefined ? last : undefined;
+		const block = last?.task === undefined && last?.agentId === agentId && last !== undefined ? last : undefined;
 
 		if (block === undefined) blocks.push({ agentId, working: false, entries: [] });
 		const current = blocks.at(-1) as ActorBlock;
@@ -473,6 +498,76 @@ function blocksOf(entries: Entry[], endedTurns: Set<string>): ActorBlock[] {
 	}
 
 	return blocks.filter((block) => block.entries.length > 0);
+}
+
+/** Colour stays semantic: only the director's done is success, and what needs you is amber. */
+const taskColors: Record<TaskEnd["status"], string> = {
+	done: "border-success text-success",
+	blocked: "border-pending text-pending",
+	exhausted: "border-pending text-pending",
+	canceled: "border-border text-muted-foreground",
+};
+
+/**
+ * A task reads as its rounds: the goal where it started, each round naming who it runs and what
+ * each is asked for, the turns of that round beneath it, and the end naming how it stopped.
+ */
+function TaskRow({
+	entry,
+	first,
+	agents,
+}: {
+	entry: TaskStart | TaskRound | TaskEnd;
+	first: boolean;
+	agents: Agent[];
+}) {
+	return (
+		<section className={cn("flex flex-col gap-2 py-4", !first && "border-t border-border")}>
+			<div className="flex items-center gap-2 text-sm">
+				<Medallion
+					className={cn(
+						"size-7 [&_svg]:size-4",
+						entry.type === "taskEnd" ? taskColors[entry.status] : "text-muted-foreground",
+					)}
+				>
+					<ListChecks />
+				</Medallion>
+				<span className="font-medium">
+					{entry.type === "taskStart" ? "Task" : entry.type === "taskRound" ? `Round ${entry.number}` : "Task"}
+				</span>
+				{entry.type === "taskStart" && (
+					<span className="text-xs text-muted-foreground">
+						directed by @{agentName(agents, entry.directorId)}, at most {entry.rounds}{" "}
+						{entry.rounds === 1 ? "round" : "rounds"}
+					</span>
+				)}
+				{entry.type === "taskEnd" && (
+					<Badge variant="outline" className={taskColors[entry.status]}>
+						{entry.status}
+					</Badge>
+				)}
+				<time className="text-xs text-muted-foreground" dateTime={entry.createdAt}>
+					{time(entry.createdAt)}
+				</time>
+			</div>
+
+			{entry.type === "taskStart" && <p className="pl-7 text-sm">{entry.goal}</p>}
+			{entry.type !== "taskEnd" && (
+				<ul className="flex flex-col gap-1 pl-7 text-sm text-muted-foreground">
+					{entry.roster.map((assignment, index) => (
+						<li key={`${assignment.agentId}-${index}`}>
+							<span className="text-foreground">@{agentName(agents, assignment.agentId)}</span>{" "}
+							{assignment.ask}
+							<span className="block text-xs">judged by: {assignment.criterion}</span>
+						</li>
+					))}
+				</ul>
+			)}
+			{entry.type === "taskEnd" && (entry.verdict ?? entry.question ?? entry.error) !== undefined && (
+				<p className="pl-7 text-sm">{entry.verdict ?? entry.question ?? entry.error}</p>
+			)}
+		</section>
+	);
 }
 
 function Block({
