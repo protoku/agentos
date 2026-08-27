@@ -152,7 +152,7 @@ interface Spend {
 
 A task is one goal pursued over several rounds, in one conversation, by a roster of agents that act in order. It exists because a mention chain runs once: the user names who acts, they act, and the thread waits for the user again. A task keeps that same chain running, and what refills it between rounds is an agent rather than the user.
 
-Starting one is a built-in tool call like any other: an agent granted task_start starts a task, the user invokes it as a slash command, and either way the call stands in the thread saying exactly what was asked for. The call names the goal, the roster that acts in the first round, and the director, the agent that judges each round and decides what happens next. It may also name the round cap, and the workspace's WORKSPACE_TASK_ROUNDS applies when it does not. A task refuses to start when the named director does not hold task_done, since a director that cannot close is a task that cannot end, and when the roster names the director, since the agent that judges the work never does it.
+Starting one is a built-in tool call like any other: an agent granted task_start starts a task, the user invokes it as a slash command, and either way the call stands in the thread saying exactly what was asked for. The call names the goal, the roster that acts in the first round, and the director, the agent that judges each round and decides what happens next. It may also name the round cap, and the workspace's WORKSPACE_TASK_ROUNDS applies when it does not. The call is not the task: whoever makes it holds the conversation while it runs, an agent in its turn or the user in their slash command, so the task begins as that writer lets go, and the first round opens then. A task refuses to start when the named director does not hold task_done, since a director that cannot close is a task that cannot end, and when the roster names the director, since the agent that judges the work never does it.
 
 Nothing about a task changes what an ask tool does: a call that asks parks the task where it parks a turn, waiting for the user, and the run carries on the moment they allow or deny it. A task that reaches one after forty unattended minutes waits forty minutes to be answered, which is the cost of granting an ask tool to an agent on a roster rather than a reason to refuse the run.
 
@@ -162,11 +162,13 @@ A round runs its roster one agent at a time, exactly as a mention chain does, ea
 
 A task ends four ways and only one of them is success. It is done when the director says so. It is blocked when the director asks a question, which ends the run rather than parking it: the question stands in the thread, and the user answers by starting the next task. It is canceled when the user stops it. It is exhausted when the round cap is reached, or when a director ends its turn having neither added nor closed, which is not success: the work stays in the thread and what the director last said stands as the state of it, because a cap that quietly meant done would ship whatever the clock stopped on.
 
-A failed turn ends its round rather than the whole task, unlike a failed turn in a mention chain. The agents after it in the roster do not act, the director takes its turn and reads the failure in the thread like any other outcome, and the agents that never acted open the next round, ahead of whatever the director adds, so the round resumes where it stopped rather than starting over.
+A failed turn ends its round rather than the whole task, unlike a failed turn in a mention chain. The agents after it in the roster do not act, the director takes its turn and reads the failure in the thread like any other outcome, and the agents that never acted open the next round, ahead of whatever the director adds, so the round resumes where it stopped rather than starting over. A director's own turn failing is the same thing rather than a silence: it judged nothing, so the next round is its to take again, with whoever never acted still carried. What bounds either is the cap, never the failure, since a run of hours is not something one network error should end.
+
+Silence is read against what the round left. A director that named nobody and closed nothing ends the task as exhausted where the round was whole, and carries on with the agents that never acted where the round broke, since those are work the task already asked for and nobody has withdrawn.
 
 While a task runs the conversation belongs to it, exactly as it belongs to a single acting agent: no message can be sent and no slash command invoked, and a task cannot start where a turn or a call is already running. The exits the user always has are unchanged, and stopping is one of them: the composer's stop cancels the task, which stops the acting agent's current call and its turn, and no later round begins.
 
-A crash cannot strand a task any more than it can strand a turn: a start without an end is either running right now or interrupted, and on restart AgentOS appends the canceled end, with its reason noting the interruption: Interrupted by an AgentOS restart.
+A crash cannot strand a task any more than it can strand a turn: a start without an end is either running right now or interrupted, and on restart AgentOS appends the canceled end, with its error noting the interruption: Interrupted by an AgentOS restart.
 
 ```ts
 interface TaskStart {
@@ -202,6 +204,7 @@ interface TaskEnd {
 	status: "done" | "blocked" | "canceled" | "exhausted";
 	verdict?: string;
 	question?: string;
+	error?: string;
 	createdAt: string;
 }
 ```
@@ -363,7 +366,7 @@ The exception is the work of building tools, which cannot be done blind: finding
 
 Building agents is the same work one level up, and carries the same weight. list_agents and read_agent say who the workspace has and how one is configured, create_agent adds one, and update_agent changes what is already there. An agent that may write agents can grant permissions it was never given itself, and may rewrite its own prompt and its own permissions, both of which are allowed rather than quietly refused: the guard is the pending call, which carries the exact prompt and the exact permission list for the user to read before that agent exists or changes. Permissions are named there by tool name rather than by tool id, since ids are what the workspace generated and names are what a caller can know, and a name matching no tool of the workspace refuses the call. The model is named as one of the models AgentOS offers, anything else refuses the call, and a create that leaves it out gets the default. There is no tool for removing an agent, since nothing inside a workspace is removed piecemeal but a memory.
 
-The task tools are an exception of their own: they act on the conversation's own run rather than on anything in the sandbox or the workspace, which is why granting them is how an agent becomes a director. An agent holding task_add and task_done decides who acts next and when the goal is met, so they are granted to the one agent meant to orchestrate and to nobody else. They exist only inside a task: called where none is running, they refuse.
+The task tools are an exception of their own: they act on the conversation's own run rather than on anything in the sandbox or the workspace, which is why granting them is how an agent becomes a director. An agent holding task_add and task_done decides who acts next and when the goal is met, so they are granted to the one agent meant to orchestrate and to nobody else. They exist only inside a task, and only for the agent directing it: task_add, task_done and task_block refuse where no task is running, and refuse anyone but that task's director, so holding them is never enough to steer a run somebody else was given.
 
 - read_file: read a file
 - write_file: create a file
