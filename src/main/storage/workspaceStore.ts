@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { mkdir, readFile, readdir, rename, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { recoverInterruptedTurns } from "./conversationFile";
-import type { TurnEnd, Workspace } from "../../shared/types";
+import type { TaskEnd, TurnEnd, Workspace } from "../../shared/types";
 
 function workspacesDirectory(root: string): string {
 	return join(root, "workspaces");
@@ -66,8 +66,8 @@ export async function loadWorkspaces(root: string): Promise<Workspace[]> {
 }
 
 /** The startup scan: every thread file of every workspace, so no crash leaves a turn open. */
-export async function recoverAllInterruptedTurns(root: string): Promise<TurnEnd[]> {
-	const ends: TurnEnd[] = [];
+export async function recoverAllInterruptedTurns(root: string): Promise<(TurnEnd | TaskEnd)[]> {
+	const ends: (TurnEnd | TaskEnd)[] = [];
 
 	for (const workspace of await loadWorkspaces(root)) {
 		const directory = conversationsDirectory(root, workspace.id);

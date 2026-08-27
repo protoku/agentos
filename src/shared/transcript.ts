@@ -64,6 +64,28 @@ function threadLines(entries: Entry[], agents: Agent[]): string[] {
 						(entry.error ? ` and it failed: ${entry.error}` : ""),
 				);
 				break;
+			case "taskStart":
+				lines.push(
+					`${entry.agentId === undefined ? "user" : `@${name(agents, entry.agentId)}`} started a task, ` +
+						`directed by @${name(agents, entry.directorId)}, at most ${entry.rounds} rounds: ${entry.goal}`,
+				);
+				break;
+			// The round is where an agent reads what it was asked for, so it is written out in full.
+			case "taskRound":
+				lines.push(`round ${entry.number} of the task:`);
+				for (const assignment of entry.roster)
+					lines.push(
+						`- @${name(agents, assignment.agentId)} is asked to ${assignment.ask}, ` +
+							`judged by: ${assignment.criterion}`,
+					);
+				break;
+			case "taskEnd":
+				lines.push(
+					`the task ended as ${entry.status}` +
+						(entry.verdict === undefined ? "" : `: ${entry.verdict}`) +
+						(entry.question === undefined ? "" : `, and the question is: ${entry.question}`),
+				);
+				break;
 		}
 	}
 

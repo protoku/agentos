@@ -12,6 +12,16 @@ const ops: Agent = {
 	carries: [],
 };
 
+const editor: Agent = {
+	id: "agent-editor",
+	name: "editor",
+	createdAt: "2026-08-15T10:00:00.000Z",
+	model: "claude-opus-5",
+	systemPrompt: "You judge what a round produced.",
+	tools: {},
+	carries: [],
+};
+
 const entries: Entry[] = [
 	{ type: "userMessage", id: "m1", mentions: [ops.id], content: "@ops deploy", createdAt: "" },
 	{ type: "turnStart", id: "t1", agentId: ops.id, createdAt: "" },
@@ -40,6 +50,53 @@ describe("transcript", () => {
 
 	it("leaves turn markers out, since they carry nothing to read", () => {
 		expect(transcript(entries, [ops], ops)).not.toContain("turnStart");
+	});
+
+	it("says what a task asked for, of whom, and how it ended", () => {
+		const task: Entry[] = [
+			{
+				type: "taskStart",
+				id: "k1",
+				directorId: editor.id,
+				goal: "Write the launch note",
+				roster: [{ agentId: ops.id, ask: "draft the note", criterion: "reads in one minute" }],
+				rounds: 6,
+				createdAt: "",
+			},
+			{
+				type: "taskRound",
+				id: "r1",
+				taskId: "k1",
+				number: 1,
+				roster: [{ agentId: ops.id, ask: "draft the note", criterion: "reads in one minute" }],
+				createdAt: "",
+			},
+			{ type: "taskEnd", id: "k2", taskId: "k1", status: "done", verdict: "It reads", createdAt: "" },
+		];
+
+		const text = transcript(task, [ops, editor], ops);
+
+		expect(text).toContain("user started a task, directed by @editor, at most 6 rounds: Write the launch note");
+		expect(text).toContain("round 1 of the task:");
+		expect(text).toContain("- @ops is asked to draft the note, judged by: reads in one minute");
+		expect(text).toContain("the task ended as done: It reads");
+	});
+
+	it("carries the question a blocked task stopped on", () => {
+		const blocked: Entry[] = [
+			{
+				type: "taskEnd",
+				id: "k3",
+				taskId: "k1",
+				status: "blocked",
+				question: "Which release is this for?",
+				createdAt: "",
+			},
+		];
+
+		expect(transcript(blocked, [ops], ops)).toContain(
+			"the task ended as blocked, and the question is: Which release is this for?",
+		);
 	});
 });
 

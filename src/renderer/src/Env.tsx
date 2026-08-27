@@ -4,6 +4,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
 import { Nothing } from "./Nothing";
+import { settings } from "../../shared/settings";
 
 export function Env({ workspaceId }: { workspaceId: string }) {
 	const [env, setEnv] = useState<Record<string, string>>({});
@@ -42,6 +43,19 @@ export function Env({ workspaceId }: { workspaceId: string }) {
 				<p className="text-sm text-muted-foreground">
 					What the workspace's tools can be given. A tool sees only the keys it declares.
 				</p>
+
+				<div className="flex flex-col gap-2 rounded-lg border border-border p-3">
+					<span className="text-xs tracking-wide text-muted-foreground uppercase">Workspace settings</span>
+					{settings.map((setting) => (
+						<div key={setting.key} className="text-sm">
+							<span className="font-medium">{setting.key}</span>
+							<span className="block text-xs text-muted-foreground">
+								{setting.decides}. {env[setting.key] === undefined ? "Unset, so" : "Set here; unset it and"}{" "}
+								{setting.fallback} applies.
+							</span>
+						</div>
+					))}
+				</div>
 
 				{draft && (
 					<div className="flex items-end gap-2 rounded-lg border border-border p-3">

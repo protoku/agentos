@@ -7,6 +7,7 @@ import { authoringTools } from "./authoring";
 import { gitTools } from "./gitTools";
 import { memoryTools } from "./memoryTools";
 import { isMountRoot, mountTools, resolveWritable } from "./mounts";
+import { taskTools } from "./taskTools";
 import { resolveInSandbox } from "./sandbox";
 import { git } from "../git/git";
 import type { BuiltinTool } from "../../shared/types";
@@ -220,6 +221,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 	...gitTools,
 	...authoringTools,
 	...agentTools,
+	...taskTools,
 	...memoryTools,
 ];
 

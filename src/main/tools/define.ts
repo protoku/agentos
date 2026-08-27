@@ -46,7 +46,8 @@ export function define<Input extends z.ZodObject>(definition: {
 		inputSchema: z.toJSONSchema(definition.input, { io: "input" }),
 		outputSchema: definition.outputSchema,
 		input: definition.input,
-		run: (input, context) => definition.run(parse(definition, input), context),
+		// Async, so a call refused before it runs reaches the caller as a failure rather than a throw.
+		run: async (input, context) => definition.run(parse(definition, input), context),
 	};
 }
 
