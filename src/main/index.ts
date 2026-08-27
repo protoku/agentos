@@ -101,13 +101,16 @@ void app.whenReady().then(async () => {
 		startTurns(root, workspaceId, started.conversation.id, started.message.mentions);
 		return started;
 	});
-	ipcMain.handle("conversations:startWithTool", (_event, workspaceId: string, content: string) => {
+	ipcMain.handle("conversations:startWithTool", async (_event, workspaceId: string, content: string) => {
 		const command = parseSlashCommand(content);
 		if (command === undefined) throw new Error("Not a tool call");
 
-		return startConversationWithTool(root, workspaceId, content, command, (conversationId) =>
+		const started = await startConversationWithTool(root, workspaceId, content, command, (conversationId) =>
 			broadcast(workspaceId, conversationId),
 		);
+		startTask(root, workspaceId, started.conversation.id);
+
+		return started;
 	});
 	ipcMain.handle("conversations:send", async (_event, workspaceId: string, conversationId: string, content: string) => {
 		refuseWhileBusy(conversationId);
