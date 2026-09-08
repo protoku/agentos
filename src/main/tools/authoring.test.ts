@@ -2,10 +2,15 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { attemptCall } from "./attempt";
 import { invokeTool } from "./invoke";
+import { toolNamed } from "./registry";
+import { ensureSandbox } from "./sandbox";
+import { createAgent, listAgents } from "../storage/agents";
 import { startConversation } from "../storage/conversations";
 import { listScriptTools } from "../storage/scriptTools";
 import { createWorkspace } from "../storage/workspaceStore";
+import { defaultModel } from "../../shared/models";
 import type { ToolCall } from "../../shared/types";
 
 let root: string;
@@ -47,6 +52,45 @@ describe("define_tool", () => {
 
 		expect(call).toMatchObject({ status: "success", output: { name: "shout" } });
 		expect(await invoke("shout", { word: "ship" })).toMatchObject({ output: { said: "SHIP" } });
+	});
+
+	it("grants the defining agent its new tool as ask", async () => {
+		const builder = await createAgent(root, workspaceId, {
+			name: "builder",
+			model: defaultModel,
+			systemPrompt: "You build tools.",
+			tools: {},
+			carries: [],
+		});
+		const sandbox = await ensureSandbox(root, workspaceId, conversationId);
+		const defineTool = await toolNamed(root, workspaceId, "define_tool");
+
+		const { output } = await attemptCall(defineTool, shout, {
+			root,
+			workspaceId,
+			conversationId,
+			sandbox,
+			signal: new AbortController().signal,
+			agentId: builder.id,
+		});
+
+		const written = (await listAgents(root, workspaceId)).find((agent) => agent.id === builder.id);
+		expect(written?.tools).toEqual({ [String(output?.id)]: "ask" });
+	});
+
+	it("grants nothing when the user defines the tool", async () => {
+		const builder = await createAgent(root, workspaceId, {
+			name: "builder",
+			model: defaultModel,
+			systemPrompt: "You build tools.",
+			tools: {},
+			carries: [],
+		});
+
+		await invoke("define_tool", shout);
+
+		const written = (await listAgents(root, workspaceId)).find((agent) => agent.id === builder.id);
+		expect(written?.tools).toEqual({});
 	});
 
 	it("is held to the same naming rules as the pane", async () => {

@@ -2,6 +2,7 @@ import { spawn } from "node:child_process";
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
 import { resolveInSandbox } from "./sandbox";
+import { listAgents, updateAgent } from "../storage/agents";
 import { createScriptTool, listScriptTools, updateScriptTool } from "../storage/scriptTools";
 
 const argumentsSchema = z
@@ -22,7 +23,8 @@ const readable = 4000;
 export const authoringTools: BuiltinToolImplementation[] = [
 	define({
 		id: "define_tool",
-		description: "Add a script tool to this workspace.",
+		description:
+			"Add a script tool to this workspace. It is granted to you as ask, callable from your next turn on.",
 		input: z.object({
 			name: z.string().describe("One word, unique in the workspace, never a built-in's name"),
 			description: z.string().describe("What it does, for whoever calls it"),
@@ -41,6 +43,18 @@ export const authoringTools: BuiltinToolImplementation[] = [
 		},
 		async run(draft, context) {
 			const tool = await createScriptTool(context.root, context.workspaceId, draft);
+
+			// Building ends with trying: the definer holds its new tool as ask, from its next turn on.
+			if (context.agentId !== undefined) {
+				const agents = await listAgents(context.root, context.workspaceId);
+				const definer = agents.find((candidate) => candidate.id === context.agentId);
+				if (definer !== undefined) {
+					await updateAgent(context.root, context.workspaceId, {
+						...definer,
+						tools: { ...definer.tools, [tool.id]: "ask" },
+					});
+				}
+			}
 
 			return { id: tool.id, name: tool.name };
 		},
