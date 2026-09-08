@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Bot, Boxes, Brain, ChevronRight, ChevronsUpDown, Database, KeyRound, MessageSquare, MessagesSquare, Plus, Trash2, TriangleAlert, Wrench } from "lucide-react";
+import { Bot, Boxes, Brain, ChevronsUpDown, Database, KeyRound, MessageSquare, MessagesSquare, Plus, Trash2, TriangleAlert, Wrench } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
 	AlertDialog,
@@ -12,7 +12,6 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Nothing } from "./Nothing";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -33,9 +32,6 @@ import {
 	SidebarMenu,
 	SidebarMenuButton,
 	SidebarMenuItem,
-	SidebarMenuSub,
-	SidebarMenuSubButton,
-	SidebarMenuSubItem,
 	SidebarProvider,
 	SidebarRail,
 } from "@/components/ui/sidebar";
@@ -52,7 +48,7 @@ import { Diff } from "./Diff";
 import { SidePane, Viewer } from "./Viewer";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary, MountState } from "../../shared/api";
-import type { Agent, Entry, Memory, MountSource, Tool, ToolCall, Workspace } from "../../shared/types";
+import type { Agent, Entry, MountSource, Tool, ToolCall, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "sources", "memories", "env"] as const;
 
@@ -60,59 +56,27 @@ type Section = (typeof sections)[number];
 
 const sidebarConversations = 20;
 
-/** A pane and what is in it: opening the pane expands its list, and a name in the list opens it there. */
-function Listing({
+/** A workspace pane: its button opens it, and opening it again closes it back to the thread. */
+function Pane({
 	section,
 	label,
 	icon,
-	items,
 	open,
-	selected,
 	onOpen,
-	onPick,
 }: {
 	section: Section;
 	label: string;
 	icon: React.ReactNode;
-	items: { id: string; name: string }[];
 	open?: Section;
-	selected?: string;
 	onOpen: (section?: Section) => void;
-	onPick: (id: string) => void;
 }) {
 	return (
-		<Collapsible asChild open={open === section} onOpenChange={(opening) => onOpen(opening ? section : undefined)}>
-			<SidebarMenuItem>
-				<CollapsibleTrigger asChild>
-					<SidebarMenuButton isActive={open === section}>
-						{icon}
-						{label}
-						<ChevronRight className="ml-auto transition-transform group-data-[state=open]/collapsible:rotate-90" />
-					</SidebarMenuButton>
-				</CollapsibleTrigger>
-				<CollapsibleContent>
-					<SidebarMenuSub>
-						{items.length === 0 && <SidebarMenuSubItem className="px-2 py-1 text-xs text-muted-foreground">None yet</SidebarMenuSubItem>}
-						{items.map((item) => (
-							<SidebarMenuSubItem key={item.id}>
-								<SidebarMenuSubButton isActive={selected === item.id} onClick={() => onPick(item.id)}>
-									<span className="truncate">{item.name}</span>
-								</SidebarMenuSubButton>
-							</SidebarMenuSubItem>
-						))}
-					</SidebarMenuSub>
-				</CollapsibleContent>
-			</SidebarMenuItem>
-		</Collapsible>
-	);
-}
-
-/** A settled memory call changed what the workspace knows, whatever conversation it happened in. */
-function remembers(entry: Entry): boolean {
-	return (
-		entry.type === "toolCall" &&
-		entry.status === "success" &&
-		["create_memory", "update_memory", "delete_memory"].includes(entry.toolId)
+		<SidebarMenuItem>
+			<SidebarMenuButton isActive={open === section} onClick={() => onOpen(open === section ? undefined : section)}>
+				{icon}
+				{label}
+			</SidebarMenuButton>
+		</SidebarMenuItem>
 	);
 }
 
@@ -137,9 +101,7 @@ export function App() {
 	const [runtime, setRuntime] = useState<{ found: boolean; missing: string }>();
 	const [viewing, setViewing] = useState<{ kind: "file" | "diff"; path: string }>();
 	const [sources, setSources] = useState<MountSource[]>([]);
-	const [memories, setMemories] = useState<Memory[]>([]);
 	const [mounts, setMounts] = useState<MountState[]>([]);
-	const [selected, setSelected] = useState<string>();
 	// What was typed and not sent, kept here so leaving a thread and coming back finds it.
 	const [drafts, setDrafts] = useState<Record<string, string>>({});
 
@@ -162,13 +124,6 @@ export function App() {
 			([builtin, scripts]) => setTools([...builtin, ...scripts]),
 		);
 	}, [workspaceId, section]);
-
-	// What the workspace knows changes from two directions: this pane, and an agent writing one down.
-	useEffect(() => {
-		if (workspaceId === undefined) return;
-
-		void window.agentOS.listMemories(workspaceId).then(setMemories);
-	}, [workspaceId, section, entries.filter(remembers).length]);
 
 	// Entries an acting agent adds arrive here, not from the call that started its turn.
 	useEffect(() => {
@@ -308,7 +263,6 @@ export function App() {
 	const workspace = workspaces.find((candidate) => candidate.id === workspaceId);
 	const listed = conversations.filter((conversation) => !conversation.archivedAt).slice(0, sidebarConversations);
 	const openConversation = conversations.find((conversation) => conversation.id === conversationId);
-	const scriptTools = tools.filter((tool) => tool.type === "script");
 	const settled = entries.filter((entry) => entry.type === "toolCall");
 	// A new conversation composes under its own key, one per workspace, until it becomes real.
 	const composing = `${workspaceId}/${conversationId ?? "new"}`;
@@ -446,55 +400,11 @@ export function App() {
 									<SidebarGroupLabel>Workspace</SidebarGroupLabel>
 									<SidebarGroupContent>
 										<SidebarMenu>
-											<Listing
-												section="agents"
-												label="Agents"
-												icon={<Bot />}
-												items={agents.map((agent) => ({ id: agent.id, name: `@${agent.name}` }))}
-												open={section}
-												onOpen={setSection}
-												onPick={setSelected}
-												selected={selected}
-											/>
-											<Listing
-												section="tools"
-												label="Tools"
-												icon={<Wrench />}
-												items={scriptTools.map((tool) => ({ id: tool.id, name: tool.name }))}
-												open={section}
-												onOpen={setSection}
-												onPick={setSelected}
-												selected={selected}
-											/>
-											<Listing
-												section="sources"
-												label="Sources"
-												icon={<Database />}
-												items={sources.map((source) => ({ id: source.id, name: source.name }))}
-												open={section}
-												onOpen={setSection}
-												onPick={setSelected}
-												selected={selected}
-											/>
-											<Listing
-												section="memories"
-												label="Memories"
-												icon={<Brain />}
-												items={memories.map((memory) => ({ id: memory.id, name: memory.title }))}
-												open={section}
-												onOpen={setSection}
-												onPick={setSelected}
-												selected={selected}
-											/>
-											<SidebarMenuItem>
-												<SidebarMenuButton
-													isActive={section === "env"}
-													onClick={() => setSection(section === "env" ? undefined : "env")}
-												>
-													<KeyRound />
-													Env
-												</SidebarMenuButton>
-											</SidebarMenuItem>
+											<Pane section="agents" label="Agents" icon={<Bot />} open={section} onOpen={setSection} />
+											<Pane section="tools" label="Tools" icon={<Wrench />} open={section} onOpen={setSection} />
+											<Pane section="sources" label="Sources" icon={<Database />} open={section} onOpen={setSection} />
+											<Pane section="memories" label="Memories" icon={<Brain />} open={section} onOpen={setSection} />
+											<Pane section="env" label="Env" icon={<KeyRound />} open={section} onOpen={setSection} />
 										</SidebarMenu>
 									</SidebarGroupContent>
 								</SidebarGroup>
@@ -516,15 +426,15 @@ export function App() {
 			) : section === "conversations" ? (
 				<Conversations conversations={conversations} onOpen={(id) => void openThread(id)} />
 			) : section === "agents" ? (
-				<Agents workspaceId={workspace.id} selected={selected} />
+				<Agents workspaceId={workspace.id} />
 			) : section === "sources" ? (
 				<Sources workspaceId={workspace.id} />
 			) : section === "env" ? (
 				<Env workspaceId={workspace.id} />
 			) : section === "memories" ? (
-				<Memories workspaceId={workspace.id} selected={selected} />
+				<Memories workspaceId={workspace.id} />
 			) : section === "tools" ? (
-				<Tools workspaceId={workspace.id} selected={selected} />
+				<Tools workspaceId={workspace.id} />
 			) : drafting || openConversation ? (
 				<Thread
 					// Each conversation composes on its own: what is typed here never follows you to another.

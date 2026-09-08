@@ -141,7 +141,7 @@ const templates: { label: string; icon: React.ReactNode; draft: Draft }[] = [
 	},
 ];
 
-export function Agents({ workspaceId, selected }: { workspaceId: string; selected?: string }) {
+export function Agents({ workspaceId }: { workspaceId: string }) {
 	const [agents, setAgents] = useState<Agent[]>([]);
 	const [tools, setTools] = useState<Tool[]>([]);
 	const [memories, setMemories] = useState<Memory[]>([]);
@@ -161,12 +161,6 @@ export function Agents({ workspaceId, selected }: { workspaceId: string; selecte
 		setEditing(undefined);
 		setDraft(undefined);
 	}, [workspaceId]);
-
-	// Picked in the sidebar: the pane opens on it rather than on nothing.
-	useEffect(() => {
-		const picked = agents.find((agent) => agent.id === selected);
-		if (picked !== undefined) edit(picked);
-	}, [agents, selected]);
 
 	function edit(agent: Agent) {
 		setEditing(agent);

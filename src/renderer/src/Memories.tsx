@@ -25,7 +25,7 @@ type Draft = { title: string; tags: string; body: string };
 const emptyDraft: Draft = { title: "", tags: "", body: "" };
 
 /** What the workspace knows, where the user can read every word of it and correct any of it. */
-export function Memories({ workspaceId, selected }: { workspaceId: string; selected?: string }) {
+export function Memories({ workspaceId }: { workspaceId: string }) {
 	const [memories, setMemories] = useState<Memory[]>([]);
 	const [agents, setAgents] = useState<Agent[]>([]);
 	const [editing, setEditing] = useState<Memory>();
@@ -39,12 +39,6 @@ export function Memories({ workspaceId, selected }: { workspaceId: string; selec
 		setEditing(undefined);
 		setDraft(undefined);
 	}, [workspaceId]);
-
-	// Picked in the sidebar: the pane opens on it rather than on nothing.
-	useEffect(() => {
-		const picked = memories.find((memory) => memory.id === selected);
-		if (picked !== undefined) edit(picked);
-	}, [memories, selected]);
 
 	function edit(memory: Memory) {
 		setEditing(memory);
