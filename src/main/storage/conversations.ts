@@ -6,6 +6,7 @@ import { conversationFile, loadWorkspace, saveWorkspace } from "./workspaceStore
 import { branchesCreatedOn, deleteBranches } from "../git/branches";
 import { baseClonePath } from "../git/clone";
 import { removeWorktree } from "../git/worktree";
+import { callsInFlight } from "../tools/inflight";
 import { invokeTool } from "../tools/invoke";
 import type { EntrySink } from "../turns/run";
 import type { ConversationSummary } from "../../shared/api";
@@ -139,7 +140,13 @@ export async function readConversation(
 	workspaceId: string,
 	conversationId: string,
 ): Promise<Entry[]> {
-	return readEntries(conversationFile(root, workspaceId, conversationId));
+	const written = await readEntries(conversationFile(root, workspaceId, conversationId));
+	const ids = new Set(written.map((entry) => entry.id));
+
+	// A call that settled between being remembered and being written is in both, and is one entry.
+	const flying = callsInFlight(conversationId).filter((call) => !ids.has(call.id));
+
+	return [...written, ...flying];
 }
 
 /** Every conversation of the workspace, archived ones included, most recent activity first. */

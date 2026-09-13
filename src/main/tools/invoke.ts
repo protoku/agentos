@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { attemptCall } from "./attempt";
+import { show } from "./inflight";
 import { toolNamed } from "./registry";
 import { ensureSandbox } from "./sandbox";
 import { appendEntry } from "../storage/conversationFile";
@@ -60,7 +61,7 @@ async function runCall(
 		const stopping = awaitRuling(call.id, conversationId);
 		const stop = new AbortController();
 		const attempt = attemptCall(tool, input, { root, workspaceId, conversationId, sandbox, signal: stop.signal });
-		emit({ ...call });
+		show(conversationId, call, emit);
 
 		const stopped = await Promise.race([attempt.then(() => false), stopping.then(() => true)]);
 		forget(call.id);
@@ -87,7 +88,7 @@ async function runCall(
 
 	call.completedAt = new Date().toISOString();
 	await appendEntry(conversationFile(root, workspaceId, conversationId), call);
-	emit({ ...call });
+	show(conversationId, call, emit);
 
 	return call;
 }

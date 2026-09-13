@@ -12,6 +12,10 @@ import {
 } from "./conversations";
 import { createWorkspace, loadWorkspace } from "./workspaceStore";
 import { createAgent } from "./agents";
+import { appendEntry } from "./conversationFile";
+import { conversationFile } from "./workspaceStore";
+import { show } from "../tools/inflight";
+import type { ToolCall } from "../../shared/types";
 
 let root: string;
 let workspaceId: string;
@@ -72,6 +76,46 @@ describe("sendMessage", () => {
 		const second = await sendMessage(root, workspaceId, conversation.id, "Second");
 
 		expect(await readConversation(root, workspaceId, conversation.id)).toEqual([message, second]);
+	});
+});
+
+describe("readConversation", () => {
+	const asking: ToolCall = {
+		type: "toolCall",
+		id: "call-asking",
+		toolId: "write_file",
+		input: { path: "notes.md" },
+		status: "pending",
+		createdAt: "2026-09-13T10:00:00.000Z",
+	};
+
+	it("shows a call in flight after what the file holds, since the file has none of it yet", async () => {
+		const { conversation, message } = await startConversation(root, workspaceId, "First");
+
+		show(conversation.id, asking, () => {});
+
+		expect(await readConversation(root, workspaceId, conversation.id)).toEqual([message, asking]);
+	});
+
+	it("shows a call that settled as it was being read once, rather than twice", async () => {
+		const { conversation } = await startConversation(root, workspaceId, "First");
+		const settled: ToolCall = { ...asking, status: "success", completedAt: "2026-09-13T10:00:02.000Z" };
+
+		show(conversation.id, asking, () => {});
+		await appendEntry(conversationFile(root, workspaceId, conversation.id), settled);
+
+		const read = await readConversation(root, workspaceId, conversation.id);
+		expect(read.filter((entry) => entry.id === settled.id)).toEqual([settled]);
+		expect(read).toHaveLength(2);
+	});
+
+	it("leaves a call in flight in the conversation it was made in", async () => {
+		const mine = await startConversation(root, workspaceId, "First");
+		const other = await startConversation(root, workspaceId, "Second");
+
+		show(other.conversation.id, asking, () => {});
+
+		expect(await readConversation(root, workspaceId, mine.conversation.id)).toEqual([mine.message]);
 	});
 });
 

@@ -4,6 +4,7 @@ import { z } from "zod";
 import { awaitRuling, forget } from "./decisions";
 import { appendEntry } from "../storage/conversationFile";
 import { attemptCall } from "../tools/attempt";
+import { show } from "../tools/inflight";
 import { builtinTools } from "../tools/builtin";
 import { implementationOf } from "../tools/script";
 import { listScriptTools } from "../storage/scriptTools";
@@ -76,7 +77,7 @@ async function record(
 	if (asks) {
 		// Waiting starts before the call is shown, so a decision can never arrive before it is heard.
 		const waiting = awaitRuling(call.id, context.turnId);
-		context.emit({ ...call });
+		show(context.conversationId, call, context.emit);
 
 		const ruling = await waiting;
 		if (ruling.type === "canceled") {
@@ -101,7 +102,7 @@ async function record(
 	const stopping = awaitRuling(call.id, context.turnId);
 	const stop = new AbortController();
 	const attempt = attemptCall(builtin, input, { ...context, signal: stop.signal });
-	context.emit({ ...call });
+	show(context.conversationId, call, context.emit);
 
 	const stopped = await Promise.race([attempt.then(() => false), stopping.then(() => true)]);
 	forget(call.id);
@@ -134,7 +135,7 @@ async function settle(
 ): Promise<{ content: [{ type: "text"; text: string }]; isError: boolean }> {
 	call.completedAt = new Date().toISOString();
 	await appendEntry(context.file, call);
-	context.emit({ ...call });
+	show(context.conversationId, call, context.emit);
 
 	return { content: [{ type: "text", text }], isError: call.status !== "success" };
 }

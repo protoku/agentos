@@ -2,6 +2,7 @@ import { mkdtemp, readFile, readdir, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { callsInFlight } from "./inflight";
 import { invokeTool, isCallRunning } from "./invoke";
 import { cancelRuling } from "../turns/decisions";
 import { readConversation, startConversation } from "../storage/conversations";
@@ -212,6 +213,19 @@ describe("invokeTool", () => {
 
 		expect(occupied).toBe(true);
 		expect(isCallRunning(conversationId)).toBe(false);
+	});
+
+	it("is in flight while it runs and nowhere once the thread has it", async () => {
+		let running: string[] = [];
+
+		await invoke("list_files", {}, (entry) => {
+			if (entry.type === "toolCall" && entry.status === "running") {
+				running = callsInFlight(conversationId).map((call) => call.id);
+			}
+		});
+
+		expect(running).toHaveLength(1);
+		expect(callsInFlight(conversationId)).toEqual([]);
 	});
 
 	it("records an unknown tool as a failed call", async () => {
