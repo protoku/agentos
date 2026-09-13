@@ -27,9 +27,15 @@ export interface ConversationSummary extends Conversation {
 /** What the viewer found at a path, which is never something it can change. */
 export type SandboxView =
 	| { kind: "text"; path: string; content: string; truncated: boolean }
-	| { kind: "directory"; path: string; entries: string[] }
+	| { kind: "directory"; path: string; entries: SandboxEntry[] }
 	| { kind: "binary"; path: string; bytes: number }
 	| { kind: "missing"; path: string };
+
+/** One name in a directory, and whether opening it leads further in. */
+export interface SandboxEntry {
+	name: string;
+	directory: boolean;
+}
 
 /** A mount as it stands now: a git one carries the branch and commit it currently sits on. */
 export interface MountState {
@@ -80,7 +86,11 @@ export interface AgentOSApi {
 	updateMemory(workspaceId: string, memory: Memory): Promise<Memory>;
 	deleteMemory(workspaceId: string, memoryId: string): Promise<Memory>;
 	listSources(workspaceId: string): Promise<MountSource[]>;
-	createSource(workspaceId: string, draft: Pick<MountSource, "name" | "type" | "config">): Promise<MountSource>;
+	createSource(
+		workspaceId: string,
+		draft: Pick<MountSource, "name" | "type" | "config" | "description">,
+	): Promise<MountSource>;
+	updateSource(workspaceId: string, sourceId: string, description: string): Promise<MountSource>;
 	listTools(): Promise<BuiltinTool[]>;
 	listScriptTools(workspaceId: string): Promise<ScriptTool[]>;
 	createScriptTool(workspaceId: string, draft: ScriptToolDraft): Promise<ScriptTool>;

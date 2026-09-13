@@ -452,6 +452,10 @@ export function App() {
 					onSend={send}
 					onCancel={cancel}
 					onOpenSandbox={openSandbox}
+					// Already reading the sandbox, and the button that opened it closes it again.
+					onOpenFiles={() =>
+						setViewing((current) => (current?.kind === "file" ? undefined : { kind: "file", path: "" }))
+					}
 					onOpenPath={(path) => setViewing({ kind: "file", path })}
 					onOpenDiff={(path) => setViewing({ kind: "diff", path })}
 					onRename={openConversation ? rename : undefined}
@@ -473,6 +477,8 @@ export function App() {
 							conversationId={conversationId}
 							path={viewing.path}
 							version={settled.filter((call) => touches(call, viewing.path, tools)).length}
+							settled={settled.length}
+							onPick={(path) => setViewing({ kind: "file", path })}
 							onClose={() => setViewing(undefined)}
 						/>
 					) : (

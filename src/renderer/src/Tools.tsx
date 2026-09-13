@@ -5,6 +5,7 @@ import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { cn } from "@/lib/utils";
+import { Code } from "./Code";
 import { Nothing } from "./Nothing";
 import type { ScriptToolDraft } from "../../shared/api";
 import type { ScriptTool } from "../../shared/types";
@@ -121,7 +122,7 @@ export function Tools({ workspaceId }: { workspaceId: string }) {
 					</Nothing>
 				) : (
 					<div className="flex flex-1 flex-col gap-4 overflow-y-auto p-6">
-						<div className="flex gap-4">
+						<div className="grid grid-cols-2 gap-4">
 							<Field label="Name">
 								<Input
 									value={draft.name}
@@ -139,14 +140,15 @@ export function Tools({ workspaceId }: { workspaceId: string }) {
 						</div>
 
 						<Field label="Description">
-							<Input
+							<Textarea
 								value={draft.description}
 								placeholder="What this tool does, for whoever calls it."
+								className="min-h-20 resize-none"
 								onChange={(event) => setDraft({ ...draft, description: event.target.value })}
 							/>
 						</Field>
 
-						<Tabs defaultValue="code" className="min-h-0 flex-1">
+						<Tabs defaultValue="code">
 							<TabsList>
 								<TabsTrigger value="code">Code</TabsTrigger>
 								<TabsTrigger value="input">Input schema</TabsTrigger>
@@ -154,27 +156,27 @@ export function Tools({ workspaceId }: { workspaceId: string }) {
 							</TabsList>
 
 							<TabsContent value="code">
-								<Textarea
+								<Code
 									value={draft.code}
-									className="min-h-80 resize-none font-mono text-xs"
-									onChange={(event) => setDraft({ ...draft, code: event.target.value })}
+									language="javascript"
+									onChange={(code) => setDraft({ ...draft, code })}
 								/>
 							</TabsContent>
 
 							<TabsContent value="input" className="flex flex-col gap-2">
-								<Textarea
+								<Code
 									value={draft.inputSchema}
-									className="min-h-80 resize-none font-mono text-xs"
-									onChange={(event) => setDraft({ ...draft, inputSchema: event.target.value })}
+									language="json"
+									onChange={(inputSchema) => setDraft({ ...draft, inputSchema })}
 								/>
 								<Declaring />
 							</TabsContent>
 
 							<TabsContent value="output" className="flex flex-col gap-2">
-								<Textarea
+								<Code
 									value={draft.outputSchema}
-									className="min-h-80 resize-none font-mono text-xs"
-									onChange={(event) => setDraft({ ...draft, outputSchema: event.target.value })}
+									language="json"
+									onChange={(outputSchema) => setDraft({ ...draft, outputSchema })}
 								/>
 								<Declaring />
 							</TabsContent>
@@ -193,7 +195,7 @@ export function Tools({ workspaceId }: { workspaceId: string }) {
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
 	return (
-		<label className="flex flex-1 flex-col gap-1.5">
+		<label className="flex flex-col gap-1.5">
 			<span className="text-xs font-medium tracking-wide text-muted-foreground uppercase">{label}</span>
 			{children}
 		</label>

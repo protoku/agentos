@@ -113,3 +113,23 @@
 @utility scroll-fade-b {
 	mask-image: linear-gradient(to bottom, #000 calc(100% - 2rem), transparent 100%);
 }
+
+/* The editor brings its own dark theme; the ground and the type stay the pane's, not its own. */
+[data-slot="code"] .cm-editor {
+	background-color: transparent;
+}
+
+[data-slot="code"] .cm-editor .cm-gutters,
+[data-slot="code"] .cm-editor .cm-activeLineGutter {
+	background-color: transparent;
+}
+
+[data-slot="code"] .cm-editor .cm-scroller {
+	font-family: inherit;
+	font-size: inherit;
+	line-height: 1.6;
+}
+
+[data-slot="code"] .cm-editor.cm-focused {
+	outline: none;
+}

@@ -14,7 +14,7 @@ import {
 	startConversationWithTool,
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
-import { createSource, listSources, type SourceDraft } from "./storage/sources";
+import { createSource, listSources, updateSource, type SourceDraft } from "./storage/sources";
 import { createMemory, deleteMemory, listMemories, updateMemory } from "./storage/memories";
 import { readEnv, setEnv } from "./storage/env";
 import {
@@ -173,6 +173,9 @@ void app.whenReady().then(async () => {
 	ipcMain.handle("sources:list", (_event, workspaceId: string) => listSources(root, workspaceId));
 	ipcMain.handle("sources:create", (_event, workspaceId: string, draft: SourceDraft) =>
 		createSource(root, workspaceId, draft),
+	);
+	ipcMain.handle("sources:update", (_event, workspaceId: string, sourceId: string, description: string) =>
+		updateSource(root, workspaceId, sourceId, description),
 	);
 	ipcMain.handle("tools:list", () => builtinToolMetadata());
 	ipcMain.handle("tools:listScripts", (_event, workspaceId: string) => listScriptTools(root, workspaceId));

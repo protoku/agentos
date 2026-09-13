@@ -72,6 +72,8 @@ export interface MountSource {
 	createdAt: string;
 	type: "git" | "directory" | "conversations";
 	config: Record<string, unknown>;
+	/** What the user says this data is, and where in it to look; handed to whoever mounts it. */
+	description?: string;
 }
 
 export interface Mount {

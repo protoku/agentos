@@ -48,6 +48,24 @@ describe("mount", () => {
 		expect(await mountsOf()).toMatchObject([{ path: "notes", mode: "shared", readOnly: false }]);
 	});
 
+	it("hands back what the workspace says the source is, and says nothing where it says nothing", async () => {
+		expect(await invoke("mount", { source: "notes", path: "notes" })).toMatchObject({
+			output: { source: "notes" },
+		});
+		expect((await invoke("mount", { source: "notes", path: "again" })).output).not.toHaveProperty("description");
+
+		await createSource(root, workspaceId, {
+			name: "manifests",
+			type: "directory",
+			config: { path: notes },
+			description: "Argocd manifests live in clusters/prod",
+		});
+
+		expect(await invoke("mount", { source: "manifests", path: "manifests" })).toMatchObject({
+			output: { description: "Argocd manifests live in clusters/prod" },
+		});
+	});
+
 	it("reaches the real directory, so what is written through it lands there", async () => {
 		await invoke("mount", { source: "notes", path: "notes" });
 		await invoke("write_file", { path: "notes/new.md", content: "Through the mount" });

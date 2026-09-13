@@ -2,7 +2,10 @@ import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
+import { Read } from "./Code";
+import { CopyButton } from "./Copy";
 import { Markdown } from "./Markdown";
+import { Tree } from "./Tree";
 import type { SandboxView } from "../../shared/api";
 
 /** The pane beside the thread, as wide as it has been dragged, whatever it is showing. */
@@ -40,7 +43,7 @@ export function SidePane({ children }: { children: React.ReactNode }) {
 	return (
 		<aside
 			style={{ width }}
-			className="relative flex shrink-0 flex-col border-l border-border bg-surface"
+			className="relative flex shrink-0 flex-col border-l border-border bg-sidebar"
 		>
 			<div
 				role="separator"
@@ -59,19 +62,25 @@ export function SidePane({ children }: { children: React.ReactNode }) {
 	);
 }
 
-/** A file as it is now, beside the thread that changed it, and never editable here. */
+/** The sandbox as it is now, beside the thread that changed it, and never editable here. */
 export function Viewer({
 	workspaceId,
 	conversationId,
 	path,
 	version,
+	settled,
+	onPick,
 	onClose,
 }: {
 	workspaceId: string;
 	conversationId: string;
+	/** What is open beside the tree, empty while nothing has been picked yet. */
 	path: string;
 	/** Bumped by the thread when a call touches this path, which is what makes the viewer follow. */
 	version: number;
+	/** How many calls have settled, since any of them may have changed what the tree holds. */
+	settled: number;
+	onPick: (path: string) => void;
 	onClose: () => void;
 }) {
 	const [view, setView] = useState<SandboxView>();
@@ -79,6 +88,7 @@ export function Viewer({
 	useEffect(() => {
 		let current = true;
 		setView(undefined);
+		if (path === "") return;
 
 		void window.agentOS.viewSandboxPath(workspaceId, conversationId, path).then((found) => {
 			if (current) setView(found);
@@ -90,16 +100,39 @@ export function Viewer({
 	return (
 		<>
 			<header className="flex items-center gap-2 border-b border-border py-2 pr-2 pl-4">
-				<span className="min-w-0 flex-1 truncate text-sm font-medium" title={path}>
-					{path}
+				<span className="min-w-0 truncate text-sm font-medium" title={path}>
+					{path === "" ? "Sandbox" : path}
 				</span>
-				<Button variant="ghost" size="icon-sm" aria-label="Close the viewer" onClick={onClose}>
+				{path !== "" && <CopyButton label="Copy the path" text={path} />}
+				<Button
+					variant="ghost"
+					size="icon-sm"
+					aria-label="Close the viewer"
+					className="ml-auto"
+					onClick={onClose}
+				>
 					<X />
 				</Button>
 			</header>
 
-			<div className="min-h-0 flex-1 overflow-auto p-4">
-				<Shown view={view} />
+			<div className="flex min-h-0 flex-1">
+				<div className="w-48 shrink-0 overflow-auto border-r border-border p-1.5">
+					<Tree
+						workspaceId={workspaceId}
+						conversationId={conversationId}
+						selected={path}
+						version={settled}
+						onPick={onPick}
+					/>
+				</div>
+
+				<div className="min-h-0 flex-1 overflow-auto p-4">
+					{path === "" ? (
+						<p className="text-sm text-muted-foreground">Pick a file to read it.</p>
+					) : (
+						<Shown view={view} />
+					)}
+				</div>
 			</div>
 		</>
 	);
@@ -126,8 +159,8 @@ function Shown({ view }: { view?: SandboxView }) {
 			) : (
 				<ul className="flex flex-col gap-1 text-sm">
 					{view.entries.map((entry) => (
-						<li key={entry} className="truncate">
-							{entry}
+						<li key={entry.name} className="truncate">
+							{entry.directory ? `${entry.name}/` : entry.name}
 						</li>
 					))}
 				</ul>
@@ -138,7 +171,7 @@ function Shown({ view }: { view?: SandboxView }) {
 					{isMarkdown(view.path) ? (
 						<Markdown content={view.content} />
 					) : (
-						<pre className="text-xs whitespace-pre-wrap">{view.content}</pre>
+						<Read path={view.path} content={view.content} />
 					)}
 					{view.truncated && <p className="text-xs text-muted-foreground">Shown to the first 256 KB.</p>}
 				</div>

@@ -38,6 +38,8 @@ const api: AgentOSApi = {
 	setEnv: (workspaceId, key, value) => ipcRenderer.invoke("env:set", workspaceId, key, value),
 	listSources: (workspaceId) => ipcRenderer.invoke("sources:list", workspaceId),
 	createSource: (workspaceId, draft) => ipcRenderer.invoke("sources:create", workspaceId, draft),
+	updateSource: (workspaceId, sourceId, description) =>
+		ipcRenderer.invoke("sources:update", workspaceId, sourceId, description),
 	listTools: () => ipcRenderer.invoke("tools:list"),
 	listScriptTools: (workspaceId) => ipcRenderer.invoke("tools:listScripts", workspaceId),
 	createScriptTool: (workspaceId, draft) => ipcRenderer.invoke("tools:createScript", workspaceId, draft),

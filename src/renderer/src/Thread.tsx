@@ -6,9 +6,9 @@ import {
 	Check,
 	CircleSlash,
 	Clock,
-	Copy,
 	Archive,
 	FolderOpen,
+	FolderTree,
 	Coins,
 	Gauge,
 	GitCompare,
@@ -47,6 +47,7 @@ import {
 	MessageScrollerViewport,
 } from "@/components/ui/message-scroller";
 import { labelOf, summarise } from "./calls";
+import { CopyButton } from "./Copy";
 import { FieldRow } from "./Fields";
 import { thousands } from "./format";
 import { moment } from "./Conversations";
@@ -57,6 +58,9 @@ import { fieldsOf, pathOf, type Field } from "../../shared/render";
 import { spentOn, tokens } from "../../shared/transcript";
 import type { MountState } from "../../shared/api";
 import type { Agent, Entry, MountSource, TaskEnd, TaskRound, TaskStart, Tool, ToolCall } from "../../shared/types";
+
+/** A copy in the thread waits for the entry it belongs to to be under the pointer. */
+const hidden = "opacity-0 group-hover:opacity-100";
 
 export function Thread({
 	title,
@@ -72,6 +76,7 @@ export function Thread({
 	onSend,
 	onCancel,
 	onOpenSandbox,
+	onOpenFiles,
 	onOpenPath,
 	onOpenDiff,
 	onRename,
@@ -90,6 +95,7 @@ export function Thread({
 	onSend: (content: string) => Promise<void>;
 	onCancel: () => Promise<void>;
 	onOpenSandbox: () => Promise<void>;
+	onOpenFiles: () => void;
 	onOpenPath: (path: string) => void;
 	onOpenDiff: (path: string) => void;
 	onRename?: (title: string) => Promise<void>;
@@ -114,7 +120,7 @@ export function Thread({
 	);
 	const busy = acting || calling;
 
-	const completion = dismissed ? undefined : completionAt(draft, caret, tools, agents);
+	const completion = dismissed ? undefined : completionAt(draft, caret, tools, agents, sources);
 	// Who has taken part, which is not the same as who the workspace has.
 	const present = agents.filter((agent) =>
 		entries.some(
@@ -134,10 +140,9 @@ export function Thread({
 	function accept(candidate: Candidate) {
 		if (completion === undefined) return;
 
-		const caretAfter = completion.start + candidate.name.length + completion.suffix.length;
-		onDraft(
-			`${draft.slice(0, completion.start)}${candidate.name}${completion.suffix}${draft.slice(completion.end)}`,
-		);
+		const written = candidate.insert ?? candidate.name;
+		const caretAfter = completion.start + written.length + completion.suffix.length;
+		onDraft(`${draft.slice(0, completion.start)}${written}${completion.suffix}${draft.slice(completion.end)}`);
 		setCaret(caretAfter);
 		composer.current?.focus();
 		// The value lands on the element after this render, so the caret is placed once it has.
@@ -269,10 +274,16 @@ export function Thread({
 				</div>
 
 				{sandbox && (
-					<Button variant="outline" size="sm" title={sandbox} onClick={() => void onOpenSandbox()}>
-						<FolderOpen />
-						Sandbox
-					</Button>
+					<>
+						<Button variant="outline" size="sm" title="Read the sandbox here" onClick={onOpenFiles}>
+							<FolderTree />
+							Files
+						</Button>
+						<Button variant="outline" size="sm" title={sandbox} onClick={() => void onOpenSandbox()}>
+							<FolderOpen />
+							Sandbox
+						</Button>
+					</>
 				)}
 				{onArchive && archivedAt === undefined && (
 					<AlertDialog>
@@ -661,36 +672,10 @@ function EntryView({
 							<Markdown content={entry.content} />
 						)}
 					</div>
-					<CopyButton label="Copy message" text={entry.content} />
+					<CopyButton label="Copy message" text={entry.content} className={hidden} />
 				</article>
 			);
 	}
-}
-
-/** A message copies its text, a tool call its input and output; turn entries have nothing to copy. */
-function CopyButton({ label, text }: { label: string; text: string }) {
-	const [copied, setCopied] = useState(false);
-
-	return (
-		<button
-			type="button"
-			aria-label={label}
-			title={label}
-			className={cn(
-				"rounded-md p-0.5 text-muted-foreground opacity-0 transition-opacity group-hover:opacity-100 hover:text-foreground",
-				copied && "text-success opacity-100",
-			)}
-			onClick={(event) => {
-				event.preventDefault();
-				event.stopPropagation();
-				void navigator.clipboard.writeText(text);
-				setCopied(true);
-				setTimeout(() => setCopied(false), 1200);
-			}}
-		>
-			{copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
-		</button>
-	);
 }
 
 function agentName(agents: Agent[], agentId: string): string {
@@ -771,7 +756,7 @@ function CallRow({
 						<PanelRight className="size-3.5" />
 					</button>
 				)}
-				<CopyButton label="Copy input and output" text={payloadOf(call)} />
+				<CopyButton label="Copy input and output" text={payloadOf(call)} className={hidden} />
 			</div>
 
 			{call.reason && <p className="pl-7 text-xs text-muted-foreground">{call.reason}</p>}

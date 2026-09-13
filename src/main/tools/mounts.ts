@@ -18,7 +18,7 @@ export const mountTools: BuiltinToolImplementation[] = [
 		id: "mount",
 		description: "Attach a workspace mount source into the sandbox at a path.",
 		input: z.object({
-			source: z.string().describe("Name of the workspace mount source"),
+			source: z.string().describe("Name of the workspace mount source").meta({ values: "sources" }),
 			path: mountPath,
 			mode: z.enum(["shared", "isolated"]).optional().describe("Shared unless asked otherwise"),
 			readOnly: z.boolean().optional(),
@@ -31,6 +31,7 @@ export const mountTools: BuiltinToolImplementation[] = [
 				mode: { enum: ["shared", "isolated"] },
 				readOnly: { type: "boolean" },
 				startedFrom: { type: "string", description: "Which tip an isolated worktree began at" },
+				description: { type: "string", render: "text", description: "What the workspace says this data is" },
 			},
 			required: ["source", "path", "mode", "readOnly"],
 		},
@@ -48,7 +49,14 @@ export const mountTools: BuiltinToolImplementation[] = [
 			conversation.mounts.push(mount);
 			await saveWorkspace(context.root, workspace);
 
-			return { source: name, path, mode, readOnly, ...(startedFrom !== undefined && { startedFrom }) };
+			return {
+				source: name,
+				path,
+				mode,
+				readOnly,
+				...(startedFrom !== undefined && { startedFrom }),
+				...(source.description !== undefined && { description: source.description }),
+			};
 		},
 	}),
 	define({

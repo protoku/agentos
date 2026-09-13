@@ -1,47 +1,59 @@
 import { useEffect, useState } from "react";
-import { Database, FolderOpen, GitBranch, MessagesSquare, Plus } from "lucide-react";
+import { Database, FolderOpen, GitBranch, MessagesSquare, Pencil, Plus } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Nothing } from "./Nothing";
 import type { MountSource } from "../../shared/types";
 
-type Draft =
+type Draft = { description: string } & (
 	| { type: "directory"; name: string; path: string }
 	| { type: "git"; name: string; remote: string; defaultBranch: string }
-	| { type: "conversations"; name: string };
+	| { type: "conversations"; name: string }
+);
 
 const emptyDrafts: Record<Draft["type"], Draft> = {
-	directory: { type: "directory", name: "", path: "" },
-	git: { type: "git", name: "", remote: "", defaultBranch: "main" },
-	conversations: { type: "conversations", name: "" },
+	directory: { type: "directory", name: "", path: "", description: "" },
+	git: { type: "git", name: "", remote: "", defaultBranch: "main", description: "" },
+	conversations: { type: "conversations", name: "", description: "" },
 };
 
 export function Sources({ workspaceId }: { workspaceId: string }) {
 	const [sources, setSources] = useState<MountSource[]>([]);
 	const [draft, setDraft] = useState<Draft>();
+	const [describing, setDescribing] = useState<{ id: string; text: string }>();
 	const [refused, setRefused] = useState<string>();
 
 	useEffect(() => {
 		void window.agentOS.listSources(workspaceId).then(setSources);
 		setDraft(undefined);
+		setDescribing(undefined);
 	}, [workspaceId]);
 
 	async function create() {
 		if (draft === undefined) return;
 
-		const { name, type, ...config } = draft;
+		const { name, type, description, ...config } = draft;
 		if (name.trim().length === 0 || Object.values(config).some((value) => value.trim().length === 0)) return;
 
 		try {
-			await window.agentOS.createSource(workspaceId, { name: name.trim(), type, config });
+			await window.agentOS.createSource(workspaceId, { name: name.trim(), type, config, description });
 			setSources(await window.agentOS.listSources(workspaceId));
 			setDraft(undefined);
 			setRefused(undefined);
 		} catch (failure) {
 			setRefused(failure instanceof Error ? failure.message : String(failure));
 		}
+	}
+
+	async function rewrite() {
+		if (describing === undefined) return;
+
+		await window.agentOS.updateSource(workspaceId, describing.id, describing.text);
+		setSources(await window.agentOS.listSources(workspaceId));
+		setDescribing(undefined);
 	}
 
 	function start(type: Draft["type"]) {
@@ -114,6 +126,15 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 							</Button>
 						</div>
 
+						<Field label="Description">
+							<Textarea
+								value={draft.description}
+								placeholder="What this is, and where in it to look."
+								className="min-h-16 resize-none"
+								onChange={(event) => setDraft({ ...draft, description: event.target.value })}
+							/>
+						</Field>
+
 						{refused && <p className="text-sm text-destructive">{refused}</p>}
 					</div>
 				)}
@@ -132,9 +153,41 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 							<ItemContent>
 								<ItemTitle>{source.name}</ItemTitle>
 								<ItemDescription>{describe(source)}</ItemDescription>
+
+								{describing?.id === source.id ? (
+									<div className="flex w-full flex-col gap-2 pt-2">
+										<Textarea
+											autoFocus
+											value={describing.text}
+											placeholder="What this is, and where in it to look."
+											className="min-h-16 resize-none"
+											onChange={(event) =>
+												setDescribing({ id: source.id, text: event.target.value })
+											}
+										/>
+										<div className="flex gap-2">
+											<Button size="sm" onClick={() => void rewrite()}>
+												Save
+											</Button>
+											<Button size="sm" variant="ghost" onClick={() => setDescribing(undefined)}>
+												Cancel
+											</Button>
+										</div>
+									</div>
+								) : (
+									source.description && <p className="pt-1 text-sm">{source.description}</p>
+								)}
 							</ItemContent>
 							<ItemActions>
 								<Badge variant="outline">{source.type}</Badge>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									title="Describe this source"
+									onClick={() => setDescribing({ id: source.id, text: source.description ?? "" })}
+								>
+									<Pencil />
+								</Button>
 							</ItemActions>
 						</Item>
 					))}
