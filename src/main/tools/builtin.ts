@@ -3,6 +3,7 @@ import { dirname, join, relative, sep } from "node:path";
 import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
 import { agentTools } from "./agentTools";
+import { askUserTools } from "./askUser";
 import { authoringTools } from "./authoring";
 import { gitTools } from "./gitTools";
 import { memoryTools } from "./memoryTools";
@@ -220,6 +221,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 	...gitTools,
 	...authoringTools,
 	...agentTools,
+	...askUserTools,
 	...memoryTools,
 ];
 

@@ -3,7 +3,9 @@ import { createSdkMcpServer, tool } from "@anthropic-ai/claude-agent-sdk";
 import { z } from "zod";
 import { awaitRuling, forget } from "./decisions";
 import { appendEntry } from "../storage/conversationFile";
+import { askUserId } from "../tools/askUser";
 import { attemptCall } from "../tools/attempt";
+import { answered } from "../tools/invoke";
 import { show } from "../tools/inflight";
 import { builtinTools } from "../tools/builtin";
 import { implementationOf } from "../tools/script";
@@ -14,6 +16,7 @@ import type { EntrySink } from "./run";
 
 const serverName = "agentos";
 const reason = z.string().describe("Why you are making this call, in one short sentence.");
+const canceledCall = "This call was canceled by the user.";
 
 export interface CallContext extends ToolTarget {
 	file: string;
@@ -63,7 +66,7 @@ async function record(
 		toolId: builtin.id,
 		reason: String(given),
 		input,
-		status: asks ? "pending" : "running",
+		status: asks || builtin.id === askUserId ? "pending" : "running",
 		createdAt: new Date().toISOString(),
 	};
 
@@ -71,7 +74,7 @@ async function record(
 	if (context.stopped()) {
 		call.status = "canceled";
 
-		return settle(call, context, "This call was canceled by the user.");
+		return settle(call, context, canceledCall);
 	}
 
 	if (asks) {
@@ -83,7 +86,7 @@ async function record(
 		if (ruling.type === "canceled") {
 			call.status = "canceled";
 
-			return settle(call, context, "This call was canceled by the user.");
+			return settle(call, context, canceledCall);
 		}
 
 		call.decidedAt = new Date().toISOString();
@@ -96,6 +99,19 @@ async function record(
 		}
 
 		call.status = "running";
+	}
+
+	// A question is not work to be run: the call waits in the thread until it is answered.
+	if (builtin.id === askUserId) {
+		call.status = "pending";
+		const asked = awaitRuling(call.id, context.turnId);
+		show(context.conversationId, call, context.emit);
+
+		const ruling = await asked;
+		forget(call.id);
+		answered(call, ruling);
+
+		return settle(call, context, ruling.type === "answered" ? JSON.stringify(ruling.answers) : canceledCall);
 	}
 
 	// Shown as running so the user can cancel it, which is a race the call itself has to run.

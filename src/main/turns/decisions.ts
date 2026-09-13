@@ -1,4 +1,9 @@
-export type Ruling = { type: "allowed" } | { type: "denied"; denyMessage?: string } | { type: "canceled" };
+export type Ruling =
+	| { type: "allowed" }
+	| { type: "denied"; denyMessage?: string }
+	| { type: "canceled" }
+	/** What the user answered a question with, which is how a call on ask_user ends. */
+	| { type: "answered"; answers: Record<string, unknown> };
 
 /** A pending call is not in the thread file yet, so the waiting turn is the only record of it. */
 const waiting = new Map<string, { turnId: string; resolve: (ruling: Ruling) => void }>();

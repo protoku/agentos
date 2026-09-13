@@ -1,11 +1,13 @@
 import { randomUUID } from "node:crypto";
+import { askUserId } from "./askUser";
+import { parseInput } from "./define";
 import { attemptCall } from "./attempt";
 import { show } from "./inflight";
 import { toolNamed } from "./registry";
 import { ensureSandbox } from "./sandbox";
 import { appendEntry } from "../storage/conversationFile";
 import { conversationFile } from "../storage/workspaceStore";
-import { awaitRuling, forget } from "../turns/decisions";
+import { awaitRuling, forget, type Ruling } from "../turns/decisions";
 import type { EntrySink } from "../turns/run";
 import type { ToolCall } from "../../shared/types";
 
@@ -58,12 +60,26 @@ async function runCall(
 		call.toolId = tool.id;
 
 		const sandbox = await ensureSandbox(root, workspaceId, conversationId);
-		const stopping = awaitRuling(call.id, conversationId);
+		const ruling = awaitRuling(call.id, conversationId);
+
+		// A question is not work to be run: the call waits in the thread until it is answered.
+		if (tool.id === askUserId) {
+			// Nothing runs to check the call, so what it asks is checked before anyone waits on it.
+			parseInput(tool, input);
+			call.status = "pending";
+			show(conversationId, call, emit);
+			answered(call, await ruling);
+			forget(call.id);
+
+			return await written(root, workspaceId, conversationId, call, emit);
+		}
+
 		const stop = new AbortController();
 		const attempt = attemptCall(tool, input, { root, workspaceId, conversationId, sandbox, signal: stop.signal });
+		call.status = "running";
 		show(conversationId, call, emit);
 
-		const stopped = await Promise.race([attempt.then(() => false), stopping.then(() => true)]);
+		const stopped = await Promise.race([attempt.then(() => false), ruling.then(() => true)]);
 		forget(call.id);
 
 		if (stopped) {
@@ -86,6 +102,26 @@ async function runCall(
 		call.status = "error";
 	}
 
+	return written(root, workspaceId, conversationId, call, emit);
+}
+
+/** What the user answered is the call's output; anything else at that point is a cancel. */
+export function answered(call: ToolCall, ruling: Ruling): void {
+	if (ruling.type === "answered") {
+		call.output = ruling.answers;
+		call.status = "success";
+	} else {
+		call.status = "canceled";
+	}
+}
+
+async function written(
+	root: string,
+	workspaceId: string,
+	conversationId: string,
+	call: ToolCall,
+	emit: EntrySink,
+): Promise<ToolCall> {
 	call.completedAt = new Date().toISOString();
 	await appendEntry(conversationFile(root, workspaceId, conversationId), call);
 	show(conversationId, call, emit);

@@ -47,12 +47,12 @@ export function define<Input extends z.ZodObject>(definition: {
 		outputSchema: definition.outputSchema,
 		input: definition.input,
 		// Async, so a call refused before it runs reaches the caller as a failure rather than a throw.
-		run: async (input, context) => definition.run(parse(definition, input), context),
+		run: async (input, context) => definition.run(parseInput(definition, input), context),
 	};
 }
 
 /** The caller reads this in the thread, so a mistyped call says what is wrong in words. */
-function parse<Input extends z.ZodObject>(
+export function parseInput<Input extends z.ZodObject>(
 	definition: { id: string; input: Input },
 	input: Record<string, unknown>,
 ): z.infer<Input> {

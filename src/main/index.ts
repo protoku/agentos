@@ -185,6 +185,9 @@ void app.whenReady().then(async () => {
 	ipcMain.handle("tools:decide", (_event, callId: string, decision: { allowed: boolean; denyMessage?: string }) =>
 		rule(callId, decision.allowed ? { type: "allowed" } : { type: "denied", denyMessage: decision.denyMessage }),
 	);
+	ipcMain.handle("tools:answer", (_event, callId: string, answers: Record<string, unknown>) =>
+		rule(callId, { type: "answered", answers }),
+	);
 	ipcMain.handle(
 		"tools:invoke",
 		(_event, workspaceId: string, conversationId: string, toolId: string, input: Record<string, unknown>) => {

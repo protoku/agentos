@@ -47,6 +47,7 @@ import {
 } from "@/components/ui/message-scroller";
 import { labelOf, summarise } from "./calls";
 import { CopyButton } from "./Copy";
+import { Questions, questionsOf } from "./Questions";
 import { FieldRow } from "./Fields";
 import { thousands } from "./format";
 import { moment } from "./Conversations";
@@ -609,6 +610,8 @@ function CallRow({
 	onOpenPath: (path: string) => void;
 }) {
 	const [denyMessage, setDenyMessage] = useState("");
+	// A call that asks is answered rather than approved, and its questions are its input.
+	const asked = questionsOf(call.input);
 	// A call being decided, or one still running, is open already: one needs reading, the other stopping.
 	const [open, setOpen] = useState(call.status === "pending" || call.status === "running");
 	const summary = summarise(call, sources);
@@ -688,7 +691,14 @@ function CallRow({
 				</div>
 			)}
 
-			{call.status === "pending" && (
+			{call.status === "pending" && asked !== undefined && (
+				<Questions
+					questions={asked}
+					onAnswer={(answers) => void window.agentOS.answerToolCall(call.id, answers)}
+				/>
+			)}
+
+			{call.status === "pending" && asked === undefined && (
 				<div className="flex items-center gap-2 pl-7">
 					<Input
 						value={denyMessage}

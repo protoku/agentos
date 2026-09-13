@@ -13,6 +13,7 @@ import {
 	GitBranch,
 	GitCommitHorizontal,
 	GitCompare,
+	MessageCircleQuestion,
 	MessagesSquare,
 	Search,
 	Terminal,
@@ -193,6 +194,16 @@ const summaries: Record<string, Summary> = {
 		subject: String(name),
 		hint: Array.isArray(tools) ? `${tools.length} granted` : undefined,
 	}),
+	ask_user: ({ questions }) => {
+		const asked = Array.isArray(questions) ? questions : [];
+
+		return {
+			label: "Ask",
+			icon: <MessageCircleQuestion />,
+			subject: asked.map((question) => String(question?.header ?? question?.id ?? "")).join(", ") || undefined,
+			hint: `${asked.length} ${asked.length === 1 ? "question" : "questions"}`,
+		};
+	},
 	create_agent: ({ name, tools }) => ({
 		label: "Create agent",
 		icon: <Bot />,

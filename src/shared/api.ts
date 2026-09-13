@@ -97,6 +97,8 @@ export interface AgentOSApi {
 	updateScriptTool(workspaceId: string, tool: ScriptTool): Promise<ScriptTool>;
 	/** Rules on a pending call, which is what an ask tool waits for. */
 	decideToolCall(callId: string, decision: { allowed: boolean; denyMessage?: string }): Promise<void>;
+	/** Answers a pending call on ask_user, which is what that call was waiting for. */
+	answerToolCall(callId: string, answers: Record<string, unknown>): Promise<void>;
 	/** Stops the acting agent and skips every mention after it. */
 	cancelTurn(conversationId: string): Promise<void>;
 	/** Stops one running call; the agent that made it hears so and carries on. */
