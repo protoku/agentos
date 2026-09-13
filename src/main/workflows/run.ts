@@ -4,6 +4,7 @@ import { resolve, type Results } from "./steps";
 import { appendEntry } from "../storage/conversationFile";
 import { conversationFile } from "../storage/workspaceStore";
 import { invokeTool } from "../tools/invoke";
+import { cancelRulings } from "../turns/decisions";
 import type { EntrySink } from "../turns/run";
 import type { Workflow, WorkflowEnd, WorkflowStep } from "../../shared/types";
 
@@ -21,6 +22,18 @@ export function isWorkflowRunning(conversationId: string): boolean {
 
 export function whenWorkflowSettles(conversationId: string): Promise<void> | undefined {
 	return runs.get(conversationId)?.settled;
+}
+
+/**
+ * Canceling asks the run to stop: the step it is on settles as canceling any call does, and no
+ * later step begins. Safe where nothing is running.
+ */
+export function cancelWorkflow(conversationId: string): void {
+	const run = runs.get(conversationId);
+	if (run === undefined) return;
+
+	run.canceled = true;
+	cancelRulings(conversationId);
 }
 
 /** What a run's steps read: what it was started with, and what each step before produced. */
@@ -78,6 +91,10 @@ async function take(
 			}
 
 			const failure = await taken(root, workspaceId, conversationId, runId, step, results, emit, write);
+			if (run.canceled) {
+				ending = { status: "canceled", stepId: step.id };
+				break;
+			}
 			if (failure !== undefined) {
 				ending = { status: "failed", stepId: step.id, error: failure };
 				break;

@@ -1,7 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { appendFile, mkdir, readFile } from "node:fs/promises";
 import { dirname } from "node:path";
-import type { Entry, TurnEnd, TurnStart } from "../../shared/types";
+import type { Entry, TurnEnd, TurnStart, WorkflowEnd, WorkflowStart } from "../../shared/types";
 
 const interruptionError = "Interrupted by an AgentOS restart.";
 
@@ -43,14 +43,20 @@ export async function readEntries(file: string): Promise<Entry[]> {
 	return entries.sort((a, b) => (a.createdAt < b.createdAt ? -1 : a.createdAt > b.createdAt ? 1 : 0));
 }
 
-/** Closes what a crash left open, so a start without an end always means running right now. */
-export async function recoverInterruptedTurns(file: string): Promise<TurnEnd[]> {
+/**
+ * Closes what a crash left open, so a start without an end always means running right now. A run is
+ * closed as canceled: nothing failed, the app simply stopped, and no step of it is resumed.
+ */
+export async function recoverInterruptedTurns(file: string): Promise<(TurnEnd | WorkflowEnd)[]> {
 	const entries = await readEntries(file);
 	const endedTurns = new Set(
 		entries.filter((entry): entry is TurnEnd => entry.type === "turnEnd").map((entry) => entry.turnId),
 	);
+	const endedRuns = new Set(
+		entries.filter((entry): entry is WorkflowEnd => entry.type === "workflowEnd").map((entry) => entry.runId),
+	);
 
-	const ends: TurnEnd[] = entries
+	const ends: (TurnEnd | WorkflowEnd)[] = entries
 		.filter((entry): entry is TurnStart => entry.type === "turnStart" && !endedTurns.has(entry.id))
 		.map<TurnEnd>((start) => ({
 			type: "turnEnd",
@@ -60,6 +66,19 @@ export async function recoverInterruptedTurns(file: string): Promise<TurnEnd[]> 
 			error: interruptionError,
 			createdAt: new Date().toISOString(),
 		}));
+
+	for (const start of entries.filter(
+		(entry): entry is WorkflowStart => entry.type === "workflowStart" && !endedRuns.has(entry.id),
+	)) {
+		ends.push({
+			type: "workflowEnd",
+			id: randomUUID(),
+			runId: start.id,
+			status: "canceled",
+			error: interruptionError,
+			createdAt: new Date().toISOString(),
+		});
+	}
 
 	for (const end of ends) await appendEntry(file, end);
 

@@ -46,7 +46,8 @@ export function cancelTurn(conversationId: string): void {
 	if (chain === undefined) return;
 
 	chain.canceled = true;
-	if (chain.turn === undefined) return;
+	// A chain between turns has nothing to abort, but a call of the user's own may still be waiting.
+	if (chain.turn === undefined) return cancelRulings(conversationId);
 
 	// The pending call settles first, so its canceled entry is written before the turn unwinds.
 	cancelRulings(chain.turn.id);

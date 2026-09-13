@@ -153,7 +153,9 @@ export function App() {
 					? current.map((existing) => (existing.id === entry.id ? entry : existing))
 					: [...current, entry],
 			);
-			if (entry.type === "turnEnd") void window.agentOS.listConversations(forWorkspace).then(setConversations);
+			if (entry.type === "turnEnd" || entry.type === "workflowEnd") {
+				void window.agentOS.listConversations(forWorkspace).then(setConversations);
+			}
 		});
 	}, [workspaceId, conversationId]);
 

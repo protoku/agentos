@@ -2,10 +2,11 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { isWorkflowRunning, runWorkflow } from "./run";
+import { cancelWorkflow, isWorkflowRunning, runWorkflow } from "./run";
+import { appendEntry, recoverInterruptedTurns } from "../storage/conversationFile";
 import { readConversation, startConversation } from "../storage/conversations";
 import { createWorkflow } from "../storage/workflows";
-import { createWorkspace, loadWorkspace } from "../storage/workspaceStore";
+import { conversationFile, createWorkspace, loadWorkspace } from "../storage/workspaceStore";
 import type { Entry, Workflow } from "../../shared/types";
 
 let root: string;
@@ -104,6 +105,44 @@ describe("runWorkflow", () => {
 			status: "failed",
 			error: "input says nothing about gone",
 		});
+	});
+
+	it("stops where it was asked to, and no later step begins", async () => {
+		const three = `steps:
+  - id: one
+    tool: write_file
+    input: { path: one.md, content: x }
+  - id: two
+    tool: write_file
+    input: { path: two.md, content: x }
+`;
+		const workflow = await workflowOf(three);
+
+		const running = runWorkflow(root, workspaceId, conversationId, workflow, {}, (entry) => {
+			if (entry.type === "workflowStep" && entry.stepId === "one") cancelWorkflow(conversationId);
+		});
+		await running;
+
+		const entries = await readConversation(root, workspaceId, conversationId);
+		expect(entries.at(-1)).toMatchObject({ type: "workflowEnd", status: "canceled", stepId: "one" });
+		expect(entries.filter((entry) => entry.type === "workflowStep")).toHaveLength(1);
+	});
+
+	it("closes a run the restart interrupted, since no step of it is resumed", async () => {
+		const file = conversationFile(root, workspaceId, conversationId);
+		await appendEntry(file, {
+			type: "workflowStart",
+			id: "r1",
+			workflowId: "w1",
+			name: "notes",
+			input: {},
+			createdAt: "2026-09-13T10:00:00.000Z",
+		});
+
+		const ends = await recoverInterruptedTurns(file);
+
+		expect(ends).toMatchObject([{ type: "workflowEnd", runId: "r1", status: "canceled" }]);
+		expect(await recoverInterruptedTurns(file)).toEqual([]);
 	});
 
 	it("holds the conversation while it runs and lets go when it ends", async () => {

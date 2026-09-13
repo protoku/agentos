@@ -253,7 +253,13 @@ the step it stopped on.
 
 While a run is going the conversation belongs to it exactly as it belongs to an acting agent: no
 messages, no slash commands, and a run cannot start where a turn, a call or another run is already
-going.
+going. The stop button ends it: the step it is on is canceled as canceling any call is, no later step
+begins, and the end says which step it stopped on. Archiving does the same and waits for the run to
+let go before it takes the sandbox, since a step still writing there would write into nothing.
+
+A crash cannot strand a run any more than it can strand a turn: a start without an end is either
+running right now or interrupted, and on restart AgentOS appends the canceled end, with its error
+noting the interruption. Nothing is resumed, since half a run is not a run.
 
 ```ts
 interface Workflow {
@@ -442,7 +448,7 @@ Features of the app around the model above.
 - A pending call is decided in the entry itself: approve it, or deny it with a message for the agent alongside.
 - A call that asks is answered in the entry itself rather than approved: each question shows the answers it prepared, one to pick or several where it says so, and a line to answer in your own words instead. Nothing is sent until every question has an answer, and canceling the turn ends the call unanswered.
 - A conversation opens on what it has in flight as well as on what its file holds: a call that is pending or running is nowhere but in memory until it settles, and it is shown all the same. So a decision that arrived while you were reading another conversation is waiting in this one when you come back, rather than appearing only once something ends it.
-- The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn.
+- The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn; while a workflow runs it cancels the run, so one press ends a run of any length.
 - The composer completes what can be named in it: / at the start of a message lists the tools, the arguments of that tool once it is named, and @ anywhere lists the agents, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
 - An argument's value completes too, wherever what it can hold is known: a fixed set of choices lists them, a yes or no lists true and false, and an argument that names a mount source lists the workspace's sources. An accepted value that contains spaces arrives quoted, the way such a value has to be written. A value that can be anything, such as a path or a piece of text, completes to nothing and stays the caller's to write.
 - What is typed in the composer and not sent belongs to the conversation it was typed in: leaving for another conversation, another workspace or a pane that replaces the thread, and coming back, finds it exactly as it was, with the caret at its end. A new conversation keeps what was typed in it the same way, for as long as that draft is in the interface. None of this is recorded, so it lives as long as AgentOS is running and a draft that never receives an entry still leaves no trace.

@@ -16,7 +16,7 @@ import {
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
 import { createSource, listSources, updateSource, type SourceDraft } from "./storage/sources";
-import { isWorkflowRunning, runWorkflow } from "./workflows/run";
+import { cancelWorkflow, isWorkflowRunning, runWorkflow, whenWorkflowSettles } from "./workflows/run";
 import {
 	createWorkflow,
 	deleteWorkflow,
@@ -128,10 +128,13 @@ void app.whenReady().then(async () => {
 	ipcMain.handle("conversations:rename", (_event, workspaceId: string, conversationId: string, title: string) =>
 		renameConversation(root, workspaceId, conversationId, title),
 	);
-	ipcMain.handle("conversations:archive", (_event, workspaceId: string, conversationId: string) => {
+	ipcMain.handle("conversations:archive", async (_event, workspaceId: string, conversationId: string) => {
 		// Archiving is never blocked: it cancels whatever is in flight, as canceling the turn would.
 		cancelTurn(conversationId);
+		cancelWorkflow(conversationId);
 		cancelRulings(conversationId);
+		// A run unwinds over several steps, and its sandbox may not go while one is still writing in it.
+		await whenWorkflowSettles(conversationId);
 
 		return archiveConversation(root, workspaceId, conversationId);
 	});
@@ -152,7 +155,11 @@ void app.whenReady().then(async () => {
 	ipcMain.handle("sandbox:view", (_event, workspaceId: string, conversationId: string, path: string) =>
 		viewSandboxPath(root, workspaceId, conversationId, path),
 	);
-	ipcMain.handle("turns:cancel", (_event, conversationId: string) => cancelTurn(conversationId));
+	ipcMain.handle("turns:cancel", (_event, conversationId: string) => {
+		// One press ends a run of any length, whichever kind of run holds the thread.
+		cancelTurn(conversationId);
+		cancelWorkflow(conversationId);
+	});
 	ipcMain.handle("tools:cancel", (_event, callId: string) => cancelRuling(callId));
 	ipcMain.handle("agents:list", (_event, workspaceId: string) => listAgents(root, workspaceId));
 	ipcMain.handle("agents:create", (_event, workspaceId: string, draft: AgentDraft) =>
