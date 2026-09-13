@@ -4,6 +4,7 @@ import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
 import { agentTools } from "./agentTools";
 import { askUserTools } from "./askUser";
+import { workflowTools } from "./workflowTools";
 import { authoringTools } from "./authoring";
 import { gitTools } from "./gitTools";
 import { memoryTools } from "./memoryTools";
@@ -222,6 +223,7 @@ export const builtinTools: BuiltinToolImplementation[] = [
 	...authoringTools,
 	...agentTools,
 	...askUserTools,
+	...workflowTools,
 	...memoryTools,
 ];
 

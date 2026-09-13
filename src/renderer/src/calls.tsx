@@ -15,6 +15,7 @@ import {
 	GitCompare,
 	MessageCircleQuestion,
 	MessagesSquare,
+	Route,
 	Search,
 	Terminal,
 	Wrench,
@@ -204,6 +205,14 @@ const summaries: Record<string, Summary> = {
 			hint: `${asked.length} ${asked.length === 1 ? "question" : "questions"}`,
 		};
 	},
+	define_workflow: ({ name }) => ({ label: "Define workflow", icon: <Route />, subject: String(name) }),
+	update_workflow: ({ name, rename }) => ({
+		label: "Update workflow",
+		icon: <Route />,
+		subject: String(rename ?? name),
+		hint: rename === undefined ? undefined : `was ${String(name)}`,
+	}),
+	delete_workflow: ({ name }) => ({ label: "Delete workflow", icon: <Route />, subject: String(name) }),
 	create_agent: ({ name, tools }) => ({
 		label: "Create agent",
 		icon: <Bot />,

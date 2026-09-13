@@ -353,6 +353,9 @@ Building agents is the same work one level up, and carries the same weight. list
 - unmount: detach a mount, discarding an isolated mount's worktree
 - define_tool: add a script tool to the workspace
 - update_tool: change a script tool of the workspace
+- define_workflow: add a workflow to the workspace
+- update_workflow: change a workflow of the workspace
+- delete_workflow: remove a workflow from the workspace
 - run_command: run one command in the sandbox, its arguments given as a list and never as a line to be split
 - list_agents: list the agents of the workspace, with the model and tags each one carries
 - read_agent: read one agent whole, naming it by name, its system prompt and its permissions included
