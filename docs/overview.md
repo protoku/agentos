@@ -8,7 +8,7 @@ A workspace is the top-level container and a hard boundary. What it represents i
 
 It owns its agents, tools, mount sources, memories, and conversations, and its env holds the credentials and configuration its tools use.
 
-The env also holds the workspace's own settings, which are the keys prefixed WORKSPACE_: WORKSPACE_TASK_ROUNDS, the default round cap its tasks run under, and WORKSPACE_MEMORY_LIMIT, how long a memory body may be. AgentOS reads these itself rather than handing them to a tool, so how long an unattended run may go and how much the workspace may remember at once are properties of the workspace rather than of whoever started the task or wrote the memory. A key that is absent, or holds anything but a positive whole number, leaves the built-in default in force rather than failing anything.
+The env also holds the workspace's own settings, which are the keys prefixed WORKSPACE_: WORKSPACE_MEMORY_LIMIT, how long a memory body may be. AgentOS reads these itself rather than handing them to a tool, so how much the workspace may remember at once is a property of the workspace rather than of whoever wrote the memory. A key that is absent, or holds anything but a positive whole number, leaves the built-in default in force rather than failing anything.
 
 Nothing is shared between workspaces: reusing an agent elsewhere means copying it and its tools, with the agent's permission keys remapped to the copied tools' new ids; built-in tool ids are the same everywhere, and the tags it carries mean nothing until that workspace knows something under them. An agent can only reach what its workspace binds, never what another workspace binds. The one exception is machine-level: git remote access authenticates with the host's ambient git setup, as described under Mount, and agents run on the host's Claude Code, signed in as that machine is.
 
@@ -28,9 +28,9 @@ interface Workspace {
 
 ## Conversation
 
-A conversation is a thread of messages, tool calls, and turn markers between the user and one or more agents of the workspace. The user brings agents in by @-mentioning them, and every agent in the conversation sees the full thread, every entry included. A message can mention several agents: each acts on it in mention order, one at a time, so later agents see the work of earlier ones. Mentioning the same agent again queues it again: every mention is its own turn. Agents act only when mentioned, or when a task names them, as described under Task.
+A conversation is a thread of messages, tool calls, and turn markers between the user and one or more agents of the workspace. The user brings agents in by @-mentioning them, and every agent in the conversation sees the full thread, every entry included. A message can mention several agents: each acts on it in mention order, one at a time, so later agents see the work of earlier ones. Mentioning the same agent again queues it again: every mention is its own turn. Agents act only when mentioned.
 
-Because every agent is sent the whole thread, a conversation has a size: the tokens that thread costs an agent. What is measured is the conversation's own content, every message, every settled tool call with its input, output and error, and what a task says of its goal, of what each round asks of whom, and of how it ended; turn markers carry no content and add nothing, and a call still pending or running counts for nothing until it settles, since an unfinished entry is not part of what a turn is sent. What a turn adds around the thread, its framing and the acting agent's system prompt, belongs to that turn rather than to the conversation and is left out. The figure is an estimate and is shown as approximate, since the exact count depends on the tokenizer of the model being asked, and one thread can be sent to agents on different models.
+Because every agent is sent the whole thread, a conversation has a size: the tokens that thread costs an agent. What is measured is the conversation's own content, every message and every settled tool call with its input, output and error; turn markers carry no content and add nothing, and a call still pending or running counts for nothing until it settles, since an unfinished entry is not part of what a turn is sent. What a turn adds around the thread, its framing and the acting agent's system prompt, belongs to that turn rather than to the conversation and is left out. The figure is an estimate and is shown as approximate, since the exact count depends on the tokenizer of the model being asked, and one thread can be sent to agents on different models.
 
 A new conversation starts as a draft: it is visible in the interface and nothing about it is recorded. Its first entry is what creates it, a message or a tool call the user invokes, and that entry gives it its title, shortened to fit the list. A draft that never receives one leaves no trace. The title can be changed afterwards, since it is a label for finding the conversation again rather than a record of anything: renaming changes nothing else, and an archived conversation cannot be renamed, being closed.
 
@@ -145,67 +145,6 @@ interface Spend {
 	cached: number;
 	received: number;
 	usd: number;
-}
-```
-
-## Task
-
-A task is one goal pursued over several rounds, in one conversation, by a roster of agents that act in order. It exists because a mention chain runs once: the user names who acts, they act, and the thread waits for the user again. A task keeps that same chain running, and what refills it between rounds is an agent rather than the user.
-
-Starting one is a built-in tool call like any other: an agent granted task_start starts a task, the user invokes it as a slash command, and either way the call stands in the thread saying exactly what was asked for. The call names the goal, the roster that acts in the first round, and the director, the agent that judges each round and decides what happens next. It may also name the round cap, and the workspace's WORKSPACE_TASK_ROUNDS applies when it does not. The call is not the task: whoever makes it holds the conversation while it runs, an agent in its turn or the user in their slash command, so the task begins as that writer lets go, and the first round opens then. A task refuses to start when the named director does not hold task_done, since a director that cannot close is a task that cannot end, and when the roster names the director, since the agent that judges the work never does it.
-
-Nothing about a task changes what an ask tool does: a call that asks parks the task where it parks a turn, waiting for the user, and the run carries on the moment they allow or deny it. A task that reaches one after forty unattended minutes waits forty minutes to be answered, which is the cost of granting an ask tool to an agent on a roster rather than a reason to refuse the run.
-
-Each agent on a roster is named with what it is asked for, and with the criterion its result will be judged against, written before the work rather than after it. An agent in a task takes an ordinary turn and is sent the thread like any other: what it is asked for is the round entry that named it, which every agent in the conversation can read.
-
-A round runs its roster one agent at a time, exactly as a mention chain does, each agent seeing what the earlier ones did, and the director takes the last turn of every round. In that turn it reads what the round produced and does one of three things: it names with task_add who acts in the next round, it ends the task with task_done and the verdict that closes it, or it ends the task with task_block and the specific question it cannot answer itself. A director that neither adds nor closes ends the task as exhausted, never as done, since done is a word the director has to say and silence is not it. task_add refuses to name the director, so what it builds is always work rather than judgment.
-
-A task ends four ways and only one of them is success. It is done when the director says so. It is blocked when the director asks a question, which ends the run rather than parking it: the question stands in the thread, and the user answers by starting the next task. It is canceled when the user stops it. It is exhausted when the round cap is reached, or when a director ends its turn having neither added nor closed, which is not success: the work stays in the thread and what the director last said stands as the state of it, because a cap that quietly meant done would ship whatever the clock stopped on.
-
-A failed turn ends its round rather than the whole task, unlike a failed turn in a mention chain. The agents after it in the roster do not act, the director takes its turn and reads the failure in the thread like any other outcome, and the agents that never acted open the next round, ahead of whatever the director adds, so the round resumes where it stopped rather than starting over. A director's own turn failing is the same thing rather than a silence: it judged nothing, so the next round is its to take again, with whoever never acted still carried. What bounds either is the cap, never the failure, since a run of hours is not something one network error should end.
-
-Silence is read against what the round left. A director that named nobody and closed nothing ends the task as exhausted where the round was whole, and carries on with the agents that never acted where the round broke, since those are work the task already asked for and nobody has withdrawn.
-
-While a task runs the conversation belongs to it, exactly as it belongs to a single acting agent: no message can be sent and no slash command invoked, and a task cannot start where a turn or a call is already running. The exits the user always has are unchanged, and stopping is one of them: the composer's stop cancels the task, which stops the acting agent's current call and its turn, and no later round begins.
-
-A crash cannot strand a task any more than it can strand a turn: a start without an end is either running right now or interrupted, and on restart AgentOS appends the canceled end, with its error noting the interruption: Interrupted by an AgentOS restart.
-
-```ts
-interface TaskStart {
-	type: "taskStart";
-	id: string;
-	agentId?: string;
-	directorId: string;
-	goal: string;
-	roster: Assignment[];
-	rounds: number;
-	createdAt: string;
-}
-
-interface TaskRound {
-	type: "taskRound";
-	id: string;
-	taskId: string;
-	number: number;
-	roster: Assignment[];
-	createdAt: string;
-}
-
-interface Assignment {
-	agentId: string;
-	ask: string;
-	criterion: string;
-}
-
-interface TaskEnd {
-	type: "taskEnd";
-	id: string;
-	taskId: string;
-	status: "done" | "blocked" | "canceled" | "exhausted";
-	verdict?: string;
-	question?: string;
-	error?: string;
-	createdAt: string;
 }
 ```
 
@@ -369,8 +308,6 @@ The exception is the work of building tools, which cannot be done blind: finding
 
 Building agents is the same work one level up, and carries the same weight. list_agents and read_agent say who the workspace has and how one is configured, create_agent adds one, and update_agent changes what is already there. An agent that may write agents can grant permissions it was never given itself, and may rewrite its own prompt and its own permissions, both of which are allowed rather than quietly refused: the guard is the pending call, which carries the exact prompt and the exact permission list for the user to read before that agent exists or changes. Permissions are named there by tool name rather than by tool id, since ids are what the workspace generated and names are what a caller can know, and a name matching no tool of the workspace refuses the call. The model is named as one of the models AgentOS offers, anything else refuses the call, and a create that leaves it out gets the default. There is no tool for removing an agent, since nothing inside a workspace is removed piecemeal but a memory.
 
-The task tools are an exception of their own: they act on the conversation's own run rather than on anything in the sandbox or the workspace, which is why granting them is how an agent becomes a director. An agent holding task_add and task_done decides who acts next and when the goal is met, so they are granted to the one agent meant to orchestrate and to nobody else. They exist only inside a task, and only for the agent directing it: task_add, task_done and task_block refuse where no task is running, and refuse anyone but that task's director, so holding them is never enough to steer a run somebody else was given.
-
 - read_file: read a file
 - write_file: create a file
 - edit_file: change a file by replacing a snippet that must appear exactly once
@@ -388,10 +325,6 @@ The task tools are an exception of their own: they act on the conversation's own
 - read_agent: read one agent whole, naming it by name, its system prompt and its permissions included
 - create_agent: add an agent to the workspace, its permissions named by tool name
 - update_agent: change an agent of the workspace, naming it as it is named now
-- task_start: start a task in this conversation, naming its goal, the roster of the first round with what each agent is asked for and what it will be judged against, the director, and the round cap when it differs from WORKSPACE_TASK_ROUNDS
-- task_add: name an agent to act in the next round of the running task, with what it is asked for and what it will be judged against
-- task_done: end the running task as done, with the verdict that closes it
-- task_block: end the running task with the specific question that stopped it
 - git_status: show what changed on a git mount, and how far its branch is ahead of or behind the remote
 - git_diff: show a git mount's changes
 - git_log: show recent history of a git mount's branch
@@ -418,8 +351,8 @@ Features of the app around the model above.
 - An agent's message is rendered as markdown, which is how models write. A user's message stays as typed, with its @mentions highlighted. A link opens in the browser rather than in AgentOS.
 - A pending call is decided in the entry itself: approve it, or deny it with a message for the agent alongside.
 - A conversation opens on what it has in flight as well as on what its file holds: a call that is pending or running is nowhere but in memory until it settles, and it is shown all the same. So a decision that arrived while you were reading another conversation is waiting in this one when you come back, rather than appearing only once something ends it.
-- The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn; while a task runs it cancels the task, so one press ends a run of any length.
-- A task reads as its rounds: the goal once where it started, each round naming the agents it ran and what each was asked for, the turns of that round beneath it, and the end naming which of the four ways it stopped, with the director's verdict or its question. A round that ended on a failed turn says which agents it carried into the next one.
+- The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn.
+- A thread that ran a task before tasks were removed still reads as its rounds: the goal where it started, each round naming the agents it ran, and the end that closed it.
 - The composer completes what can be named in it: / at the start of a message lists the tools, the arguments of that tool once it is named, and @ anywhere lists the agents, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
 - An argument's value completes too, wherever what it can hold is known: a fixed set of choices lists them, a yes or no lists true and false, and an argument that names a mount source lists the workspace's sources. An accepted value that contains spaces arrives quoted, the way such a value has to be written. A value that can be anything, such as a path or a piece of text, completes to nothing and stays the caller's to write.
 - What is typed in the composer and not sent belongs to the conversation it was typed in: leaving for another conversation, another workspace or a pane that replaces the thread, and coming back, finds it exactly as it was, with the caret at its end. A new conversation keeps what was typed in it the same way, for as long as that draft is in the interface. None of this is recorded, so it lives as long as AgentOS is running and a draft that never receives an entry still leaves no trace.

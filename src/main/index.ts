@@ -29,8 +29,7 @@ import { sandboxDiff } from "./tools/diff";
 import { mountStates } from "./tools/mountState";
 import { viewSandboxPath } from "./tools/viewer";
 import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
-import { cancelTurn, isTurnRunning, runMentionedTurns, runQueuedTask } from "./turns/run";
-import { forgetQueuedTask } from "./turns/task";
+import { cancelTurn, isTurnRunning, runMentionedTurns } from "./turns/run";
 import { parseSlashCommand } from "../shared/slash";
 import type { Entry } from "../shared/types";
 import type { MemoryDraft } from "../shared/api";
@@ -108,7 +107,6 @@ void app.whenReady().then(async () => {
 		const started = await startConversationWithTool(root, workspaceId, content, command, (conversationId) =>
 			broadcast(workspaceId, conversationId),
 		);
-		startTask(root, workspaceId, started.conversation.id);
 
 		return started;
 	});
@@ -125,8 +123,7 @@ void app.whenReady().then(async () => {
 		// Archiving is never blocked: it cancels whatever is in flight, as canceling the turn would.
 		cancelTurn(conversationId);
 		cancelRulings(conversationId);
-		// A task that never began has nothing to cancel, and a closed conversation is no place to start.
-		forgetQueuedTask(conversationId);
+
 		return archiveConversation(root, workspaceId, conversationId);
 	});
 	ipcMain.handle("conversations:openSandbox", async (_event, workspaceId: string, conversationId: string) => {
@@ -192,10 +189,7 @@ void app.whenReady().then(async () => {
 		"tools:invoke",
 		(_event, workspaceId: string, conversationId: string, toolId: string, input: Record<string, unknown>) => {
 			refuseWhileBusy(conversationId);
-			const call = invokeTool(root, workspaceId, conversationId, toolId, input, broadcast(workspaceId, conversationId));
-			void call.then(() => startTask(root, workspaceId, conversationId));
-
-			return call;
+			return invokeTool(root, workspaceId, conversationId, toolId, input, broadcast(workspaceId, conversationId));
 		},
 	);
 
@@ -224,14 +218,7 @@ function broadcast(workspaceId: string, conversationId: string) {
 function startTurns(root: string, workspaceId: string, conversationId: string, mentions?: string[]): void {
 	if (mentions === undefined || mentions.length === 0) return;
 
-	void runMentionedTurns(root, workspaceId, conversationId, mentions, broadcast(workspaceId, conversationId)).then(
-		() => startTask(root, workspaceId, conversationId),
-	);
-}
-
-/** Whoever called task_start held the thread while they did, so the task begins as they let go. */
-function startTask(root: string, workspaceId: string, conversationId: string): void {
-	void runQueuedTask(root, workspaceId, conversationId, broadcast(workspaceId, conversationId));
+	void runMentionedTurns(root, workspaceId, conversationId, mentions, broadcast(workspaceId, conversationId));
 }
 
 app.on("window-all-closed", () => {

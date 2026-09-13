@@ -10,19 +10,13 @@ export interface Setting {
 
 export const settings: Setting[] = [
 	{
-		key: "WORKSPACE_TASK_ROUNDS",
-		decides: "How many rounds a task may run when it does not name a cap of its own",
-		fallback: 12,
-	},
-	{
 		key: "WORKSPACE_MEMORY_LIMIT",
 		decides: "How long a memory body may be, in characters",
 		fallback: 2000,
 	},
 ];
 
-export const taskRounds = settings[0];
-export const memoryLimit = settings[1];
+export const memoryLimit = settings[0];
 
 /** Anything but a positive whole number leaves the default in force, rather than failing the work. */
 export function settingIn(env: Record<string, string>, setting: Setting): number {
