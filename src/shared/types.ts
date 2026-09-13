@@ -4,6 +4,7 @@ export interface Workspace {
 	createdAt: string;
 	agents: Agent[];
 	tools: ScriptTool[];
+	workflows: Workflow[];
 	env: Record<string, string>;
 	sources: MountSource[];
 	memories: Memory[];
@@ -64,6 +65,15 @@ export interface ScriptTool {
 	env: string[];
 	inputSchema: Record<string, unknown>;
 	outputSchema: Record<string, unknown>;
+}
+
+/** What a workflow does, kept as the text it was written in and read when it runs. */
+export interface Workflow {
+	id: string;
+	name: string;
+	createdAt: string;
+	description: string;
+	definition: string;
 }
 
 export interface MountSource {

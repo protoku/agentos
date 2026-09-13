@@ -15,6 +15,13 @@ import {
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
 import { createSource, listSources, updateSource, type SourceDraft } from "./storage/sources";
+import {
+	createWorkflow,
+	deleteWorkflow,
+	listWorkflows,
+	updateWorkflow,
+	type WorkflowDraft,
+} from "./storage/workflows";
 import { createMemory, deleteMemory, listMemories, updateMemory } from "./storage/memories";
 import { readEnv, setEnv } from "./storage/env";
 import {
@@ -33,7 +40,7 @@ import { cancelTurn, isTurnRunning, runMentionedTurns } from "./turns/run";
 import { parseSlashCommand } from "../shared/slash";
 import type { Entry } from "../shared/types";
 import type { MemoryDraft } from "../shared/api";
-import type { Agent, Memory, ScriptTool } from "../shared/types";
+import type { Agent, Memory, ScriptTool, Workflow } from "../shared/types";
 
 const rendererUrl = process.env["ELECTRON_RENDERER_URL"];
 
@@ -175,6 +182,16 @@ void app.whenReady().then(async () => {
 		updateSource(root, workspaceId, sourceId, description),
 	);
 	ipcMain.handle("tools:list", () => builtinToolMetadata());
+	ipcMain.handle("workflows:list", (_event, workspaceId: string) => listWorkflows(root, workspaceId));
+	ipcMain.handle("workflows:create", (_event, workspaceId: string, draft: WorkflowDraft) =>
+		createWorkflow(root, workspaceId, draft),
+	);
+	ipcMain.handle("workflows:update", (_event, workspaceId: string, workflow: Workflow) =>
+		updateWorkflow(root, workspaceId, workflow),
+	);
+	ipcMain.handle("workflows:delete", (_event, workspaceId: string, workflowId: string) =>
+		deleteWorkflow(root, workspaceId, workflowId),
+	);
 	ipcMain.handle("tools:listScripts", (_event, workspaceId: string) => listScriptTools(root, workspaceId));
 	ipcMain.handle("tools:createScript", (_event, workspaceId: string, draft: ScriptToolDraft) =>
 		createScriptTool(root, workspaceId, draft),

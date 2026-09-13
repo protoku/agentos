@@ -5,6 +5,7 @@ import type {
 	Entry,
 	Memory,
 	MountSource,
+	Workflow,
 	ScriptTool,
 	ToolCall,
 	UserMessage,
@@ -23,6 +24,9 @@ export type MemoryDraft = Pick<Memory, "title" | "body" | "tags">;
 export interface ConversationSummary extends Conversation {
 	lastActivityAt: string;
 }
+
+/** A workflow as the pane edits it: what it is called, what it is for, and how it is written. */
+export type WorkflowDraft = Pick<Workflow, "name" | "description" | "definition">;
 
 /** What the viewer found at a path, which is never something it can change. */
 export type SandboxView =
@@ -92,6 +96,10 @@ export interface AgentOSApi {
 	): Promise<MountSource>;
 	updateSource(workspaceId: string, sourceId: string, description: string): Promise<MountSource>;
 	listTools(): Promise<BuiltinTool[]>;
+	listWorkflows(workspaceId: string): Promise<Workflow[]>;
+	createWorkflow(workspaceId: string, draft: WorkflowDraft): Promise<Workflow>;
+	updateWorkflow(workspaceId: string, workflow: Workflow): Promise<Workflow>;
+	deleteWorkflow(workspaceId: string, workflowId: string): Promise<Workflow>;
 	listScriptTools(workspaceId: string): Promise<ScriptTool[]>;
 	createScriptTool(workspaceId: string, draft: ScriptToolDraft): Promise<ScriptTool>;
 	updateScriptTool(workspaceId: string, tool: ScriptTool): Promise<ScriptTool>;

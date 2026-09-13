@@ -27,6 +27,7 @@ export async function createWorkspace(root: string, name: string): Promise<Works
 		createdAt: new Date().toISOString(),
 		agents: [],
 		tools: [],
+		workflows: [],
 		env: {},
 		sources: [],
 		memories: [],
@@ -89,6 +90,7 @@ function asWorkspace(text: string): Workspace {
 	return {
 		...workspace,
 		memories: workspace.memories ?? [],
+		workflows: workspace.workflows ?? [],
 		agents: workspace.agents.map((agent) => ({ ...agent, carries: agent.carries ?? [] })),
 	};
 }

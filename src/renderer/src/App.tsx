@@ -1,5 +1,19 @@
 import { useEffect, useState } from "react";
-import { Bot, Boxes, Brain, ChevronsUpDown, Database, KeyRound, MessageSquare, MessagesSquare, Plus, Trash2, TriangleAlert, Wrench } from "lucide-react";
+import {
+	Bot,
+	Boxes,
+	Brain,
+	ChevronsUpDown,
+	Database,
+	KeyRound,
+	MessageSquare,
+	MessagesSquare,
+	Plus,
+	Route,
+	Trash2,
+	TriangleAlert,
+	Wrench,
+} from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import {
 	AlertDialog,
@@ -41,6 +55,7 @@ import { Conversations } from "./Conversations";
 import { Env } from "./Env";
 import { Sources } from "./Sources";
 import { Tools } from "./Tools";
+import { Workflows } from "./Workflows";
 import { Memories } from "./Memories";
 import { Thread } from "./Thread";
 import { pathOf } from "../../shared/render";
@@ -50,7 +65,7 @@ import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary, MountState } from "../../shared/api";
 import type { Agent, Entry, MountSource, Tool, ToolCall, Workspace } from "../../shared/types";
 
-const sections = ["conversations", "agents", "tools", "sources", "memories", "env"] as const;
+const sections = ["conversations", "agents", "tools", "workflows", "sources", "memories", "env"] as const;
 
 type Section = (typeof sections)[number];
 
@@ -402,6 +417,13 @@ export function App() {
 										<SidebarMenu>
 											<Pane section="agents" label="Agents" icon={<Bot />} open={section} onOpen={setSection} />
 											<Pane section="tools" label="Tools" icon={<Wrench />} open={section} onOpen={setSection} />
+											<Pane
+												section="workflows"
+												label="Workflows"
+												icon={<Route />}
+												open={section}
+												onOpen={setSection}
+											/>
 											<Pane section="sources" label="Sources" icon={<Database />} open={section} onOpen={setSection} />
 											<Pane section="memories" label="Memories" icon={<Brain />} open={section} onOpen={setSection} />
 											<Pane section="env" label="Env" icon={<KeyRound />} open={section} onOpen={setSection} />
@@ -435,6 +457,8 @@ export function App() {
 				<Memories workspaceId={workspace.id} />
 			) : section === "tools" ? (
 				<Tools workspaceId={workspace.id} />
+			) : section === "workflows" ? (
+				<Workflows workspaceId={workspace.id} />
 			) : drafting || openConversation ? (
 				<Thread
 					// Each conversation composes on its own: what is typed here never follows you to another.

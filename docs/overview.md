@@ -6,7 +6,7 @@ The goal of AgentOS is to offer a unified, purpose-built interface to interact w
 
 A workspace is the top-level container and a hard boundary. What it represents is up to the user: a project, one environment of a project, or any other context.
 
-It owns its agents, tools, mount sources, memories, and conversations, and its env holds the credentials and configuration its tools use.
+It owns its agents, tools, workflows, mount sources, memories, and conversations, and its env holds the credentials and configuration its tools use.
 
 The env also holds the workspace's own settings, which are the keys prefixed WORKSPACE_: WORKSPACE_MEMORY_LIMIT, how long a memory body may be. AgentOS reads these itself rather than handing them to a tool, so how much the workspace may remember at once is a property of the workspace rather than of whoever wrote the memory. A key that is absent, or holds anything but a positive whole number, leaves the built-in default in force rather than failing anything.
 
@@ -19,6 +19,7 @@ interface Workspace {
 	createdAt: string;
 	agents: Agent[];
 	tools: ScriptTool[];
+	workflows: Workflow[];
 	env: Record<string, string>;
 	sources: MountSource[];
 	memories: Memory[];
@@ -211,6 +212,38 @@ interface ScriptTool {
 }
 ```
 
+## Workflow
+
+A workflow is a run written down before it happens: the steps it takes, in the order it takes them,
+each one either a tool call or a turn by a named agent. It exists because the same jobs come back,
+and a job that is written down is repeatable, readable before it runs, and the same every time.
+
+A workflow is kept as the text it was written in rather than as a structure AgentOS rebuilt from it,
+so what you read in its pane is what runs, comments and all. The text is YAML, which accepts JSON as
+it stands, and it is read when it is saved and again when it runs: a definition that does not read as
+a workflow is refused rather than stored. What it names is not resolved when it is saved, since a
+workflow is often written before the tool it will call exists, so a missing tool or agent is a
+failure of the run rather than of the writing.
+
+A workflow is named as a tool is, in one word, and the two share one namespace: a workflow may not
+take the name of a tool and a tool may not take the name of a workflow, since a name in the composer
+means one thing to run. It is started from the composer by that name, with the arguments its input
+declares.
+
+Unlike everything else a workspace owns, a workflow can be deleted. One that is wrong keeps offering
+to run, which is worse than an agent nobody mentions, and deleting one changes no history: the runs
+it already took stay in the threads that ran them, exactly as they happened.
+
+```ts
+interface Workflow {
+	id: string;
+	name: string;
+	createdAt: string;
+	description: string;
+	definition: string;
+}
+```
+
 ## Mount
 
 A mount attaches a data source from the workspace into a conversation's sandbox, at the given path. An isolated mount gives the conversation its own checkout, so parallel conversations never conflict; a shared mount points at one checkout common to all conversations of the workspace. Isolated mounts require a git source.
@@ -290,7 +323,7 @@ A conversation archives and a workspace is deleted; nothing else ends. Archiving
 
 Deleting a workspace destroys the whole boundary at once: its conversations and their threads, its sandboxes, base clones and isolated worktrees, its agents, tools, mount sources, memories, and env. Like archiving, it is never blocked: it cancels whatever call is pending or running and whatever turn is acting, in every conversation of the workspace. What it never touches is data AgentOS does not own: a directory source's directory and a git source's remote stay exactly as they were, and only the workspace's own clone of a repository goes, so work that was never pushed is gone with it. Nothing survives to say it happened, and the workspace's threads stop being renderable: that is the cost of deleting, which is why it asks first and says what goes.
 
-Deletion is whole or not at all, with one exception: nothing else inside a workspace can be removed piecemeal, so its agents, tools, and mount sources simply persist for as long as it does, and since records never disappear while their workspace exists, its history stays renderable, save for a kind of entry AgentOS itself has stopped keeping. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery. The exception is a memory, which can be forgotten: an agent nobody mentions costs a line in a picker, while a memory that is wrong is handed to agents at the start of every turn, so forgetting it is a correction rather than tidying. Nothing points at a memory, so nothing stops being renderable when one goes, and the calls that wrote it stay in their threads saying what happened.
+Deletion is whole or not at all, with two exceptions: nothing else inside a workspace can be removed piecemeal, so its agents, tools, and mount sources simply persist for as long as it does, and since records never disappear while their workspace exists, its history stays renderable, save for a kind of entry AgentOS itself has stopped keeping. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery. The exceptions are a workflow, which is deleted where it is written, and a memory, which can be forgotten: an agent nobody mentions costs a line in a picker, while a memory that is wrong is handed to agents at the start of every turn, so forgetting it is a correction rather than tidying. Nothing points at a memory, so nothing stops being renderable when one goes, and the calls that wrote it stay in their threads saying what happened.
 
 ## Auditability
 
@@ -369,7 +402,8 @@ Features of the app around the model above.
 - A conversation's header names it, with a way to rename it while it is open and a closed lock once it is archived, and carries beneath that what the conversation is bound to: what it has mounted, a git mount naming its source with the branch and commit it currently sits on, the agents that have taken part in it, and its sandbox, which opens in the file manager.
 - After the agents, the header shows the conversation's size as an approximate token count, rounded to a readable figure such as ~12.4k or ~1.2m, and it grows with the thread. A conversation with nothing in it yet shows ~0 tokens.
 - Beside the size the header shows what the conversation has cost so far, added up from what its turns reported: the tokens sent and written back, how much of what was sent the model had already cached, and the money. Unlike the size that is a measurement rather than an estimate, and turns that recorded nothing add nothing to it.
-- Conversations, agents, script tools, mount sources, memories and env each open in a pane that replaces the thread.
+- Conversations, agents, script tools, workflows, mount sources, memories and env each open in a pane that replaces the thread.
+- The workflows pane lists them by name and writes one as its steps, coloured as what it is. A workflow is deleted there, confirming first and saying that its past runs stay where they ran.
 - The sources pane writes a source's description when it is added and rewrites it in place afterwards, which is the one thing about a source that changes after it exists.
 - The env pane says what the workspace's own settings are before it lists what is set: each WORKSPACE_ key by name, what it decides, and the default in force when it is absent, so the settings a workspace has are readable there rather than only in this document. They are edited as any other env key is.
 - Memories open in a pane listing them with the newest change first: what each says, the tags it is filed under, who wrote it and when it last changed, and which agents carry it. Writing, correcting, retagging and forgetting all happen there, and forgetting asks first, since nothing is left afterwards to say the workspace ever knew it.
