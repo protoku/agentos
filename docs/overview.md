@@ -50,7 +50,7 @@ interface Conversation {
 	archivedAt?: string;
 	sandbox?: string;
 	mounts: Mount[];
-	entries: (Message | ToolCall | TurnStart | TurnEnd | TaskStart | TaskRound | TaskEnd)[];
+	entries: (Message | ToolCall | TurnStart | TurnEnd)[];
 }
 ```
 
@@ -290,13 +290,13 @@ A conversation archives and a workspace is deleted; nothing else ends. Archiving
 
 Deleting a workspace destroys the whole boundary at once: its conversations and their threads, its sandboxes, base clones and isolated worktrees, its agents, tools, mount sources, memories, and env. Like archiving, it is never blocked: it cancels whatever call is pending or running and whatever turn is acting, in every conversation of the workspace. What it never touches is data AgentOS does not own: a directory source's directory and a git source's remote stay exactly as they were, and only the workspace's own clone of a repository goes, so work that was never pushed is gone with it. Nothing survives to say it happened, and the workspace's threads stop being renderable: that is the cost of deleting, which is why it asks first and says what goes.
 
-Deletion is whole or not at all, with one exception: nothing else inside a workspace can be removed piecemeal, so its agents, tools, and mount sources simply persist for as long as it does, and since records never disappear while their workspace exists, its history always stays renderable. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery. The exception is a memory, which can be forgotten: an agent nobody mentions costs a line in a picker, while a memory that is wrong is handed to agents at the start of every turn, so forgetting it is a correction rather than tidying. Nothing points at a memory, so nothing stops being renderable when one goes, and the calls that wrote it stay in their threads saying what happened.
+Deletion is whole or not at all, with one exception: nothing else inside a workspace can be removed piecemeal, so its agents, tools, and mount sources simply persist for as long as it does, and since records never disappear while their workspace exists, its history stays renderable, save for a kind of entry AgentOS itself has stopped keeping. That these accumulate in pickers and lists over time is accepted: AgentOS chooses a simple lifecycle over retirement machinery. The exception is a memory, which can be forgotten: an agent nobody mentions costs a line in a picker, while a memory that is wrong is handed to agents at the start of every turn, so forgetting it is a correction rather than tidying. Nothing points at a memory, so nothing stops being renderable when one goes, and the calls that wrote it stay in their threads saying what happened.
 
 ## Auditability
 
 Every record carries createdAt; tool calls record decidedAt when the user rules on a pending call and completedAt when they reach a terminal status, a turn's timing is carried by its start and end entries, and a conversation's archiving is recorded as archivedAt rather than a flag, so closing it is itself an audited event.
 
-Built-in tools carry no timestamps: they are part of the app, not records. All timestamps are ISO 8601. Together with append-only conversations and a lifecycle that only archives or deletes a workspace whole, every action in AgentOS is traceable to a moment in time, for as long as its workspace exists.
+Built-in tools carry no timestamps: they are part of the app, not records. All timestamps are ISO 8601. Together with append-only conversations and a lifecycle that only archives or deletes a workspace whole, every action in AgentOS is traceable to a moment in time, for as long as its workspace exists. What a line holds is never rewritten, but a line of a kind this version no longer knows is skipped when the thread is read, so it counts for nothing and shows as nothing: the file keeps it, the app has forgotten how to read it.
 
 The scope is deliberately actions, not definitions. Agent prompts, permissions, script tool code, and memories are edited in place without version history: a past entry tells you exactly what happened and when, while the agent or tool it points at is whatever that definition is today.
 
@@ -352,7 +352,6 @@ Features of the app around the model above.
 - A pending call is decided in the entry itself: approve it, or deny it with a message for the agent alongside.
 - A conversation opens on what it has in flight as well as on what its file holds: a call that is pending or running is nowhere but in memory until it settles, and it is shown all the same. So a decision that arrived while you were reading another conversation is waiting in this one when you come back, rather than appearing only once something ends it.
 - The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn.
-- A thread that ran a task before tasks were removed still reads as its rounds: the goal where it started, each round naming the agents it ran, and the end that closed it.
 - The composer completes what can be named in it: / at the start of a message lists the tools, the arguments of that tool once it is named, and @ anywhere lists the agents, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
 - An argument's value completes too, wherever what it can hold is known: a fixed set of choices lists them, a yes or no lists true and false, and an argument that names a mount source lists the workspace's sources. An accepted value that contains spaces arrives quoted, the way such a value has to be written. A value that can be anything, such as a path or a piece of text, completes to nothing and stays the caller's to write.
 - What is typed in the composer and not sent belongs to the conversation it was typed in: leaving for another conversation, another workspace or a pane that replaces the thread, and coming back, finds it exactly as it was, with the caret at its end. A new conversation keeps what was typed in it the same way, for as long as that draft is in the interface. None of this is recorded, so it lives as long as AgentOS is running and a draft that never receives an entry still leaves no trace.

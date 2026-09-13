@@ -3,7 +3,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { appendEntry, readEntries, recoverInterruptedTurns } from "./conversationFile";
-import type { TurnEnd, TurnStart, UserMessage } from "../../shared/types";
+import type { Entry, TurnEnd, TurnStart, UserMessage } from "../../shared/types";
 
 let directory: string;
 let file: string;
@@ -86,27 +86,18 @@ describe("recoverInterruptedTurns", () => {
 		expect(await readEntries(file)).toHaveLength(2);
 	});
 
-	it("closes a task the restart interrupted, along with the turn it was in", async () => {
+	it("skips a line of a kind it no longer knows, so every reader sees the same thread", async () => {
 		await appendEntry(file, {
 			type: "taskStart",
 			id: "k1",
-			directorId: "agent-2",
 			goal: "Write the launch note",
-			roster: [{ agentId: "agent-1", ask: "draft it", criterion: "it reads" }],
-			rounds: 6,
 			createdAt: "2026-08-15T10:00:00.000Z",
-		});
+		} as unknown as Entry);
 		await appendEntry(file, turnStart("t1", "2026-08-15T10:00:01.000Z"));
+		await appendEntry(file, turnEnd("t1", "2026-08-15T10:00:02.000Z"));
 
-		const ends = await recoverInterruptedTurns(file);
-
-		expect(ends).toHaveLength(2);
-		expect(ends[1]).toMatchObject({
-			type: "taskEnd",
-			taskId: "k1",
-			status: "canceled",
-			error: "Interrupted by an AgentOS restart.",
-		});
+		expect((await readEntries(file)).map((entry) => entry.type)).toEqual(["turnStart", "turnEnd"]);
+		expect(await recoverInterruptedTurns(file)).toEqual([]);
 	});
 
 	it("has nothing left to close when it runs again", async () => {
