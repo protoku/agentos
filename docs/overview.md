@@ -240,6 +240,12 @@ says what is about to happen rather than what happened; and the end, saying whet
 failed, or was canceled, and on which step. What a step actually did is whatever it left beneath it,
 the tool call it made or the turn it took, so nothing is recorded twice.
 
+Any step may carry a condition, written as when. It is read as whether what came before amounts to
+anything: nothing, false, zero, an empty line and an empty list are no, everything else is yes. A
+step whose condition does not hold is skipped, which the thread records as a step that ran nothing,
+and a later step that reads what a skipped step would have produced fails the run rather than
+reading an emptiness. This is how a run branches.
+
 A step reads what the steps before it produced. A value written as {{ step.field }} and nothing else
 is that value, whatever its type; a reference inside a sentence reads as text. What the run was
 started with is read the same way, under input. A step that reads something no step before it

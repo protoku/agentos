@@ -1,6 +1,9 @@
 /** What a run has produced so far: what it was started with, under input, and each step by its id. */
 export type Results = Record<string, unknown>;
 
+/** A step whose condition did not hold ran nothing, which is not the same as producing nothing. */
+export const skipped = Symbol("skipped");
+
 /** A value that is nothing but one reference keeps its type; anywhere else a reference reads as text. */
 const whole = /^\{\{\s*([\w-]+)(?:\.([\w.-]+))?\s*\}\}$/;
 const anywhere = /\{\{\s*([\w-]+)(?:\.([\w.-]+))?\s*\}\}/g;
@@ -34,6 +37,7 @@ function resolved(text: string, results: Results): unknown {
 
 function read(step: string, field: string | undefined, results: Results): unknown {
 	if (!(step in results)) throw new Error(`Nothing here is called ${step}`);
+	if (results[step] === skipped) throw new Error(`${step} was skipped, so it produced nothing to read`);
 
 	const held = results[step];
 	if (field === undefined) return held;

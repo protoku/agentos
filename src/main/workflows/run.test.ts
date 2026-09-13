@@ -145,6 +145,50 @@ describe("runWorkflow", () => {
 		expect(await recoverInterruptedTurns(file)).toEqual([]);
 	});
 
+	it("skips a step whose condition does not hold, and records that it did", async () => {
+		const maybe = `steps:
+  - id: write
+    tool: write_file
+    input: { path: notes.md, content: "" }
+  - id: shout
+    when: "{{ write.bytes }}"
+    tool: write_file
+    input: { path: shout.md, content: loud }
+  - id: quiet
+    tool: write_file
+    input: { path: quiet.md, content: soft }
+`;
+
+		await run(await workflowOf(maybe));
+
+		const entries = await readConversation(root, workspaceId, conversationId);
+		expect(entries.at(-1)).toMatchObject({ type: "workflowEnd", status: "done" });
+		expect(entries.filter((entry) => entry.type === "workflowStep")).toMatchObject([
+			{ stepId: "write" },
+			{ stepId: "shout", skipped: true },
+			{ stepId: "quiet" },
+		]);
+	});
+
+	it("fails a step that reads what a skipped step would have produced", async () => {
+		const after = `steps:
+  - id: maybe
+    when: "{{ input.never }}"
+    tool: write_file
+    input: { path: a.md, content: a }
+  - id: reads
+    tool: write_file
+    input: { path: b.md, content: "{{ maybe.path }}" }
+`;
+
+		await run(await workflowOf(after), { never: false });
+
+		expect((await readConversation(root, workspaceId, conversationId)).at(-1)).toMatchObject({
+			status: "failed",
+			error: "maybe was skipped, so it produced nothing to read",
+		});
+	});
+
 	it("holds the conversation while it runs and lets go when it ends", async () => {
 		const workflow = await workflowOf(notes);
 		const running = run(workflow, { what: "Ship it" });

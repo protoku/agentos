@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { parseDefinition, type Step } from "./definition";
-import { resolve, type Results } from "./steps";
+import { holds, resolve, skipped, type Results } from "./steps";
 import { appendEntry } from "../storage/conversationFile";
 import { asking, declared, resultTools } from "./result";
 import { zodObjectFrom } from "../tools/schema";
@@ -121,6 +121,21 @@ async function taken(
 	emit: EntrySink,
 	write: (entry: WorkflowStep) => Promise<void>,
 ): Promise<string | undefined> {
+	// A condition is read before anything else of the step, since a skipped step resolves nothing.
+	if (step.when !== undefined && !holds(step.when, results)) {
+		await write({
+			type: "workflowStep",
+			id: randomUUID(),
+			runId,
+			stepId: step.id,
+			skipped: true,
+			createdAt: now(),
+		});
+		results[step.id] = skipped;
+
+		return undefined;
+	}
+
 	const runInput = step.input === undefined ? {} : (resolve(step.input, results) as Record<string, unknown>);
 
 	await write({
