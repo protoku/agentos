@@ -94,7 +94,7 @@ export interface Mount {
 	createdAt: string;
 }
 
-export type Entry = Message | ToolCall | TurnStart | TurnEnd;
+export type Entry = Message | ToolCall | TurnStart | TurnEnd | WorkflowStart | WorkflowStep | WorkflowEnd;
 
 export type Message = UserMessage | AgentMessage;
 
@@ -147,6 +147,43 @@ export interface TurnEnd {
 	error?: string;
 	/** What the model reported this turn cost, absent when it never answered. */
 	spent?: Spend;
+	createdAt: string;
+}
+
+/** A run of a workflow, opened by the user starting it and carrying what it was started with. */
+export interface WorkflowStart {
+	type: "workflowStart";
+	id: string;
+	workflowId: string;
+	name: string;
+	input: Record<string, unknown>;
+	createdAt: string;
+}
+
+/** One step, written before it runs, so it says what is about to happen rather than what happened. */
+export interface WorkflowStep {
+	type: "workflowStep";
+	id: string;
+	runId: string;
+	stepId: string;
+	/** A tool step names its tool and what it resolved to; an agent step names its agent and its ask. */
+	tool?: string;
+	input?: Record<string, unknown>;
+	agent?: string;
+	ask?: string;
+	/** Set when the step's condition was not met, so nothing of it ran. */
+	skipped?: boolean;
+	createdAt: string;
+}
+
+export interface WorkflowEnd {
+	type: "workflowEnd";
+	id: string;
+	runId: string;
+	status: "done" | "failed" | "canceled";
+	/** The step it stopped on, and why, when it did not simply finish. */
+	stepId?: string;
+	error?: string;
 	createdAt: string;
 }
 

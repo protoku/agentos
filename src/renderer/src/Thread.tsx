@@ -9,6 +9,7 @@ import {
 	Archive,
 	FolderOpen,
 	FolderTree,
+	Route,
 	Coins,
 	Gauge,
 	GitCompare,
@@ -57,7 +58,17 @@ import { findMentions } from "../../shared/mentions";
 import { fieldsOf, pathOf, type Field } from "../../shared/render";
 import { spentOn, tokens } from "../../shared/transcript";
 import type { MountState } from "../../shared/api";
-import type { Agent, Entry, MountSource, Tool, ToolCall } from "../../shared/types";
+import type {
+	Agent,
+	Entry,
+	MountSource,
+	Tool,
+	ToolCall,
+	Workflow,
+	WorkflowEnd,
+	WorkflowStart,
+	WorkflowStep,
+} from "../../shared/types";
 
 /** A copy in the thread waits for the entry it belongs to to be under the pointer. */
 const hidden = "opacity-0 group-hover:opacity-100";
@@ -68,6 +79,7 @@ export function Thread({
 	agents,
 	tools,
 	sources,
+	workflows,
 	mounts,
 	sandbox,
 	archivedAt,
@@ -87,6 +99,7 @@ export function Thread({
 	agents: Agent[];
 	tools: Tool[];
 	sources: MountSource[];
+	workflows: Workflow[];
 	mounts: MountState[];
 	sandbox?: string;
 	archivedAt?: string;
@@ -111,13 +124,16 @@ export function Thread({
 	// A start with no end is a turn running right now, and the thread belongs to that agent.
 	const endedTurns = new Set(entries.filter((entry) => entry.type === "turnEnd").map((entry) => entry.turnId));
 	const acting = entries.some((entry) => entry.type === "turnStart" && !endedTurns.has(entry.id));
+	// A run holds the thread between its steps as well, since the next one is still to come.
+	const endedRuns = new Set(entries.filter((entry) => entry.type === "workflowEnd").map((entry) => entry.runId));
+	const running = entries.some((entry) => entry.type === "workflowStart" && !endedRuns.has(entry.id));
 	// A call of the user's own occupies the thread the same way, and is canceled on its entry.
 	const calling = entries.some(
 		(entry) => entry.type === "toolCall" && (entry.status === "running" || entry.status === "pending"),
 	);
-	const busy = acting || calling;
+	const busy = acting || calling || running;
 
-	const completion = dismissed ? undefined : completionAt(draft, caret, tools, agents, sources);
+	const completion = dismissed ? undefined : completionAt(draft, caret, tools, agents, sources, workflows);
 	// Who has taken part, which is not the same as who the workspace has.
 	const present = agents.filter((agent) =>
 		entries.some(
@@ -317,7 +333,10 @@ export function Thread({
 						<MessageScrollerContent className="flex flex-col px-6 py-5">
 							{blocksOf(entries, endedTurns).map((block, index) => (
 								<MessageScrollerItem key={block.entries[0].id} messageId={block.entries[0].id}>
-									<Block
+									{block.run ? (
+										<RunRow entry={block.entries[0] as WorkflowStart | WorkflowStep | WorkflowEnd} first={index === 0} />
+									) : (
+										<Block
 										block={block}
 										first={index === 0}
 										agents={agents}
@@ -325,6 +344,7 @@ export function Thread({
 										sources={sources}
 										onOpenPath={onOpenPath}
 									/>
+									)}
 								</MessageScrollerItem>
 							))}
 						</MessageScrollerContent>
@@ -387,7 +407,9 @@ export function Thread({
 							value={draft}
 							disabled={busy}
 							placeholder={
-								acting
+								running
+									? "A workflow is running in this conversation"
+									: acting
 									? "An agent is acting in this conversation"
 									: calling
 										? "A tool call is running in this conversation"
@@ -464,7 +486,13 @@ interface ActorBlock {
 	/** The agent whose doing this is, or nothing at all when it is the user's. */
 	agentId?: string;
 	working: boolean;
+	/** A run's own markers stand alone, bracketing the steps they opened. */
+	run?: boolean;
 	entries: Entry[];
+}
+
+function isRunEntry(entry: Entry): entry is WorkflowStart | WorkflowStep | WorkflowEnd {
+	return entry.type === "workflowStart" || entry.type === "workflowStep" || entry.type === "workflowEnd";
 }
 
 /** One person or agent acts, then another: the thread reads as their turns at it, not as entries. */
@@ -472,9 +500,14 @@ function blocksOf(entries: Entry[], endedTurns: Set<string>): ActorBlock[] {
 	const blocks: ActorBlock[] = [];
 
 	for (const entry of entries) {
+		if (isRunEntry(entry)) {
+			blocks.push({ working: false, run: true, entries: [entry] });
+			continue;
+		}
+
 		const agentId = entry.type === "userMessage" ? undefined : "agentId" in entry ? entry.agentId : undefined;
 		const last = blocks.at(-1);
-		const block = last?.agentId === agentId && last !== undefined ? last : undefined;
+		const block = last?.run === undefined && last?.agentId === agentId && last !== undefined ? last : undefined;
 
 		if (block === undefined) blocks.push({ agentId, working: false, entries: [] });
 		const current = blocks.at(-1) as ActorBlock;
@@ -485,6 +518,57 @@ function blocksOf(entries: Entry[], endedTurns: Set<string>): ActorBlock[] {
 	}
 
 	return blocks.filter((block) => block.entries.length > 0);
+}
+
+/** Colour stays semantic: a run that finished is success, one that stopped short is not. */
+const runColors: Record<WorkflowEnd["status"], string> = {
+	done: "border-success text-success",
+	failed: "border-destructive text-destructive",
+	canceled: "border-border text-muted-foreground",
+};
+
+/**
+ * A run reads as its steps: the workflow where it started, each step naming what it is about to do,
+ * whatever that step did beneath it, and the end saying how it stopped.
+ */
+function RunRow({ entry, first }: { entry: WorkflowStart | WorkflowStep | WorkflowEnd; first: boolean }) {
+	return (
+		<section className={cn("flex flex-col gap-2 py-4", !first && "border-t border-border")}>
+			<div className="flex items-center gap-2 text-sm">
+				<Medallion
+					className={cn(
+						"size-7 [&_svg]:size-4",
+						entry.type === "workflowEnd" ? runColors[entry.status] : "text-muted-foreground",
+					)}
+				>
+					<Route />
+				</Medallion>
+				<span className="font-medium">
+					{entry.type === "workflowStart" ? entry.name : entry.type === "workflowStep" ? entry.stepId : "Workflow"}
+				</span>
+				{entry.type === "workflowStep" && (
+					<span className="text-xs text-muted-foreground">
+						{entry.skipped ? "skipped" : (entry.tool ?? `@${entry.agent ?? ""}`)}
+					</span>
+				)}
+				{entry.type === "workflowEnd" && (
+					<Badge variant="outline" className={runColors[entry.status]}>
+						{entry.status}
+					</Badge>
+				)}
+				<time className="text-xs text-muted-foreground" dateTime={entry.createdAt}>
+					{time(entry.createdAt)}
+				</time>
+			</div>
+
+			{entry.type === "workflowStep" && entry.ask !== undefined && (
+				<p className="pl-7 text-sm whitespace-pre-wrap">{entry.ask}</p>
+			)}
+			{entry.type === "workflowEnd" && entry.error !== undefined && (
+				<p className="pl-7 text-sm text-destructive">{entry.error}</p>
+			)}
+		</section>
+	);
 }
 
 function Block({

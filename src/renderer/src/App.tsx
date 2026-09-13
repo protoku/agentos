@@ -63,7 +63,7 @@ import { Diff } from "./Diff";
 import { SidePane, Viewer } from "./Viewer";
 import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary, MountState } from "../../shared/api";
-import type { Agent, Entry, MountSource, Tool, ToolCall, Workspace } from "../../shared/types";
+import type { Agent, Entry, MountSource, Tool, ToolCall, Workflow, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "workflows", "sources", "memories", "env"] as const;
 
@@ -116,6 +116,7 @@ export function App() {
 	const [runtime, setRuntime] = useState<{ found: boolean; missing: string }>();
 	const [viewing, setViewing] = useState<{ kind: "file" | "diff"; path: string }>();
 	const [sources, setSources] = useState<MountSource[]>([]);
+	const [workflows, setWorkflows] = useState<Workflow[]>([]);
 	const [mounts, setMounts] = useState<MountState[]>([]);
 	// What was typed and not sent, kept here so leaving a thread and coming back finds it.
 	const [drafts, setDrafts] = useState<Record<string, string>>({});
@@ -135,6 +136,7 @@ export function App() {
 
 		void window.agentOS.listAgents(workspaceId).then(setAgents);
 		void window.agentOS.listSources(workspaceId).then(setSources);
+		void window.agentOS.listWorkflows(workspaceId).then(setWorkflows);
 		void Promise.all([window.agentOS.listTools(), window.agentOS.listScriptTools(workspaceId)]).then(
 			([builtin, scripts]) => setTools([...builtin, ...scripts]),
 		);
@@ -248,6 +250,27 @@ export function App() {
 		if (workspaceId === undefined) return;
 
 		const command = parseSlashCommand(content);
+		const workflow = workflows.find((candidate) => candidate.name === command?.toolId);
+
+		// A run is started rather than called: nothing holds the thread but the run itself.
+		if (command && workflow && conversationId !== undefined) {
+			await window.agentOS.startWorkflow(workspaceId, conversationId, workflow.name, command.input);
+			return setConversations(await window.agentOS.listConversations(workspaceId));
+		}
+
+		if (command && workflow) {
+			const conversation = await window.agentOS.startConversationWithWorkflow(
+				workspaceId,
+				content,
+				workflow.name,
+				command.input,
+			);
+			setDrafting(false);
+			setConversationId(conversation.id);
+			setEntries([]);
+			return setConversations(await window.agentOS.listConversations(workspaceId));
+		}
+
 		if (command && conversationId !== undefined) {
 			// The call reaches the thread as it runs and again once final, so it is not added here.
 			await window.agentOS.invokeTool(workspaceId, conversationId, command.toolId, command.input);
@@ -468,6 +491,7 @@ export function App() {
 					agents={agents}
 					tools={tools}
 					sources={sources}
+					workflows={workflows}
 					mounts={mounts}
 					sandbox={openConversation?.sandbox}
 					archivedAt={openConversation?.archivedAt}

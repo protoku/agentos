@@ -6,7 +6,16 @@ import type { Entry, TurnEnd, TurnStart } from "../../shared/types";
 const interruptionError = "Interrupted by an AgentOS restart.";
 
 /** What a thread may hold. Anything else was written by a version that knew more than this one. */
-const kinds = new Set(["userMessage", "agentMessage", "toolCall", "turnStart", "turnEnd"]);
+const kinds = new Set([
+	"userMessage",
+	"agentMessage",
+	"toolCall",
+	"turnStart",
+	"turnEnd",
+	"workflowStart",
+	"workflowStep",
+	"workflowEnd",
+]);
 
 /** Only ever call this with a final entry: a line, once written, is never touched again. */
 export async function appendEntry(file: string, entry: Entry): Promise<void> {

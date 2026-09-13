@@ -12,9 +12,11 @@ import {
 	sendMessage,
 	startConversation,
 	startConversationWithTool,
+	startConversationWithWorkflow,
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
 import { createSource, listSources, updateSource, type SourceDraft } from "./storage/sources";
+import { isWorkflowRunning, runWorkflow } from "./workflows/run";
 import {
 	createWorkflow,
 	deleteWorkflow,
@@ -183,6 +185,22 @@ void app.whenReady().then(async () => {
 	);
 	ipcMain.handle("tools:list", () => builtinToolMetadata());
 	ipcMain.handle("workflows:list", (_event, workspaceId: string) => listWorkflows(root, workspaceId));
+	ipcMain.handle(
+		"workflows:start",
+		(_event, workspaceId: string, conversationId: string, name: string, input: Record<string, unknown>) => {
+			refuseWhileBusy(conversationId);
+			void started(root, workspaceId, conversationId, name, input);
+		},
+	);
+	ipcMain.handle(
+		"workflows:startConversation",
+		async (_event, workspaceId: string, content: string, name: string, input: Record<string, unknown>) => {
+			const conversation = await startConversationWithWorkflow(root, workspaceId, content);
+			void started(root, workspaceId, conversation.id, name, input);
+
+			return conversation;
+		},
+	);
 	ipcMain.handle("workflows:create", (_event, workspaceId: string, draft: WorkflowDraft) =>
 		createWorkflow(root, workspaceId, draft),
 	);
@@ -225,6 +243,21 @@ void app.whenReady().then(async () => {
 function refuseWhileBusy(conversationId: string): void {
 	if (isTurnRunning(conversationId)) throw new Error("An agent is acting in this conversation");
 	if (isCallRunning(conversationId)) throw new Error("A tool call is running in this conversation");
+	if (isWorkflowRunning(conversationId)) throw new Error("A workflow is running in this conversation");
+}
+
+/** The run itself is what holds the conversation, so starting it hands the thread over. */
+async function started(
+	root: string,
+	workspaceId: string,
+	conversationId: string,
+	name: string,
+	input: Record<string, unknown>,
+): Promise<void> {
+	const workflow = (await listWorkflows(root, workspaceId)).find((candidate) => candidate.name === name);
+	if (workflow === undefined) throw new Error(`No workflow ${name}`);
+
+	await runWorkflow(root, workspaceId, conversationId, workflow, input, broadcast(workspaceId, conversationId));
 }
 
 function broadcast(workspaceId: string, conversationId: string) {

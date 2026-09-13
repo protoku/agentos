@@ -97,6 +97,20 @@ export interface AgentOSApi {
 	updateSource(workspaceId: string, sourceId: string, description: string): Promise<MountSource>;
 	listTools(): Promise<BuiltinTool[]>;
 	listWorkflows(workspaceId: string): Promise<Workflow[]>;
+	/** Starts a run in this conversation, which then holds the thread until it ends. */
+	startWorkflow(
+		workspaceId: string,
+		conversationId: string,
+		name: string,
+		input: Record<string, unknown>,
+	): Promise<void>;
+	/** The same from a draft, where the run is what creates the conversation. */
+	startConversationWithWorkflow(
+		workspaceId: string,
+		content: string,
+		name: string,
+		input: Record<string, unknown>,
+	): Promise<Conversation>;
 	createWorkflow(workspaceId: string, draft: WorkflowDraft): Promise<Workflow>;
 	updateWorkflow(workspaceId: string, workflow: Workflow): Promise<Workflow>;
 	deleteWorkflow(workspaceId: string, workflowId: string): Promise<Workflow>;

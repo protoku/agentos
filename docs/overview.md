@@ -51,7 +51,7 @@ interface Conversation {
 	archivedAt?: string;
 	sandbox?: string;
 	mounts: Mount[];
-	entries: (Message | ToolCall | TurnStart | TurnEnd)[];
+	entries: (Message | ToolCall | TurnStart | TurnEnd | WorkflowStart | WorkflowStep | WorkflowEnd)[];
 }
 ```
 
@@ -234,6 +234,27 @@ Unlike everything else a workspace owns, a workflow can be deleted. One that is 
 to run, which is worse than an agent nobody mentions, and deleting one changes no history: the runs
 it already took stay in the threads that ran them, exactly as they happened.
 
+A run happens in a conversation and reads as three kinds of entry: the start, naming the workflow and
+what it was started with; a step for each one the run takes, written before that step runs, so it
+says what is about to happen rather than what happened; and the end, saying whether the run finished,
+failed, or was canceled, and on which step. What a step actually did is whatever it left beneath it,
+the tool call it made or the turn it took, so nothing is recorded twice.
+
+A step reads what the steps before it produced. A value written as {{ step.field }} and nothing else
+is that value, whatever its type; a reference inside a sentence reads as text. What the run was
+started with is read the same way, under input. A step that reads something no step before it
+produced is refused when the workflow is saved; one that reads a field that is not there fails the
+run and says so.
+
+A tool step is a call like any other and carries the authority of whoever started the run, which is
+the user: permissions belong to agents, and a run is not one. What it does is in the thread as an
+ordinary tool call, so a run hides nothing. A step that fails ends the run there, and the end names
+the step it stopped on.
+
+While a run is going the conversation belongs to it exactly as it belongs to an acting agent: no
+messages, no slash commands, and a run cannot start where a turn, a call or another run is already
+going.
+
 ```ts
 interface Workflow {
 	id: string;
@@ -241,6 +262,38 @@ interface Workflow {
 	createdAt: string;
 	description: string;
 	definition: string;
+}
+
+interface WorkflowStart {
+	type: "workflowStart";
+	id: string;
+	workflowId: string;
+	name: string;
+	input: Record<string, unknown>;
+	createdAt: string;
+}
+
+interface WorkflowStep {
+	type: "workflowStep";
+	id: string;
+	runId: string;
+	stepId: string;
+	tool?: string;
+	input?: Record<string, unknown>;
+	agent?: string;
+	ask?: string;
+	skipped?: boolean;
+	createdAt: string;
+}
+
+interface WorkflowEnd {
+	type: "workflowEnd";
+	id: string;
+	runId: string;
+	status: "done" | "failed" | "canceled";
+	stepId?: string;
+	error?: string;
+	createdAt: string;
 }
 ```
 
@@ -412,6 +465,8 @@ Features of the app around the model above.
 - Memories open in a pane listing them with the newest change first: what each says, the tags it is filed under, who wrote it and when it last changed, and which agents carry it. Writing, correcting, retagging and forgetting all happen there, and forgetting asks first, since nothing is left afterwards to say the workspace ever knew it.
 - An agent's editor names the tags it carries, and says how many memories that is and roughly what they cost it on every turn.
 - A script tool's editor writes its function and its two schemas as code rather than as plain text: lines are numbered, the function is coloured as JavaScript and each schema as JSON, and Tab indents instead of leaving the box. A box grows with what is in it, so the way to save stays below the code.
+- A workflow is started in the composer by its name, exactly as a tool is invoked, and the composer completes both from the one list of names. Starting one in a draft creates the conversation, as sending a message does.
+- A run reads as its steps: the workflow where it started, each step naming what it is about to do, whatever that step did beneath it, and the end saying how it stopped.
 - A tool is invoked in the composer as a slash command with key=value arguments, quoting any value that contains spaces: /write_file path=notes/todo.md content="Ship it". Invoking one in a draft creates the conversation, exactly as sending a message does, and the call is its first entry.
 - The sidebar lists the twenty conversations with the most recent activity, archived ones left out; a conversation's activity is the time of its last entry. The conversations pane lists every conversation, archived included, in that same order.
 

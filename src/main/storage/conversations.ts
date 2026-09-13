@@ -49,6 +49,15 @@ export async function startConversationWithTool(
 	return { conversation, call };
 }
 
+/** A run can be what creates a conversation, exactly as a message or a call can. */
+export async function startConversationWithWorkflow(
+	root: string,
+	workspaceId: string,
+	content: string,
+): Promise<Conversation> {
+	return createConversation(root, workspaceId, content);
+}
+
 async function createConversation(root: string, workspaceId: string, content: string): Promise<Conversation> {
 	const workspace = await loadWorkspace(root, workspaceId);
 	const conversation: Conversation = {

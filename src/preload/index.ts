@@ -42,6 +42,10 @@ const api: AgentOSApi = {
 		ipcRenderer.invoke("sources:update", workspaceId, sourceId, description),
 	listTools: () => ipcRenderer.invoke("tools:list"),
 	listWorkflows: (workspaceId) => ipcRenderer.invoke("workflows:list", workspaceId),
+	startWorkflow: (workspaceId, conversationId, name, input) =>
+		ipcRenderer.invoke("workflows:start", workspaceId, conversationId, name, input),
+	startConversationWithWorkflow: (workspaceId, content, name, input) =>
+		ipcRenderer.invoke("workflows:startConversation", workspaceId, content, name, input),
 	createWorkflow: (workspaceId, draft) => ipcRenderer.invoke("workflows:create", workspaceId, draft),
 	updateWorkflow: (workspaceId, workflow) => ipcRenderer.invoke("workflows:update", workspaceId, workflow),
 	deleteWorkflow: (workspaceId, workflowId) => ipcRenderer.invoke("workflows:delete", workspaceId, workflowId),

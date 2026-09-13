@@ -1,4 +1,4 @@
-import type { Agent, MountSource, Tool } from "./types";
+import type { Agent, MountSource, Tool, Workflow } from "./types";
 
 export interface Candidate {
 	id: string;
@@ -33,11 +33,14 @@ export function completionAt(
 	tools: Tool[],
 	agents: Pick<Agent, "id" | "name">[],
 	sources: Sources,
+	workflows: Pick<Workflow, "id" | "name" | "description">[] = [],
 ): Completion | undefined {
 	// A slash command names its tool in the first token, then its arguments, and carries no mentions.
 	if (draft.startsWith("/")) {
 		const name = draft.slice(1).split(/\s/)[0];
-		if (caret <= name.length + 1) return matching(tools, draft.slice(1, caret), 1, nameEnd(draft, caret), " ");
+		// One namespace: what a slash names is a tool of the workspace or a workflow of it.
+		const runnable = [...tools, ...workflows];
+		if (caret <= name.length + 1) return matching(runnable, draft.slice(1, caret), 1, nameEnd(draft, caret), " ");
 
 		return argumentsOf(draft, caret, tools.find((tool) => tool.name === name), sources);
 	}

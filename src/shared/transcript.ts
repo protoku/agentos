@@ -64,6 +64,19 @@ function threadLines(entries: Entry[], agents: Agent[]): string[] {
 						(entry.error ? ` and it failed: ${entry.error}` : ""),
 				);
 				break;
+			case "workflowStart":
+				lines.push(`the user started the workflow ${entry.name} with ${JSON.stringify(entry.input)}`);
+				break;
+			// A step is where an agent reads what it was asked for, so it is written out in full.
+			case "workflowStep":
+				if (entry.skipped) lines.push(`step ${entry.stepId} was skipped`);
+				// A step names its agent as the definition wrote it, which is a name rather than an id.
+				else if (entry.agent !== undefined) lines.push(`step ${entry.stepId}, @${entry.agent} is asked to: ${entry.ask ?? ""}`);
+				else lines.push(`step ${entry.stepId} runs ${entry.tool ?? ""}`);
+				break;
+			case "workflowEnd":
+				lines.push(`the workflow ended as ${entry.status}` + (entry.error === undefined ? "" : `: ${entry.error}`));
+				break;
 		}
 	}
 
