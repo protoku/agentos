@@ -246,6 +246,12 @@ started with is read the same way, under input. A step that reads something no s
 produced is refused when the workflow is saved; one that reads a field that is not there fails the
 run and says so.
 
+An agent step is an ordinary turn by the agent the step names. What it is asked for is the step
+entry, which every agent in the conversation can read, exactly as any other entry. Where the step
+declares a result, the agent is lent one tool for the length of that turn, workflow_result, and the
+step ends with what it declares: a turn that ends without declaring fails the step, as does a result
+that is not what the step asked for. A failed or canceled turn ends the run.
+
 A tool step is a call like any other and carries the authority of whoever started the run, which is
 the user: permissions belong to agents, and a run is not one. What it does is in the thread as an
 ordinary tool call, so a run hides nothing. A step that fails ends the run there, and the end names
@@ -419,6 +425,7 @@ Building agents is the same work one level up, and carries the same weight. list
 - list_agents: list the agents of the workspace, with the model and tags each one carries
 - read_agent: read one agent whole, naming it by name, its system prompt and its permissions included
 - ask_user: ask the user up to four questions, each with prepared answers, and receive what they answered
+- workflow_result: declare what the step being taken asked for, which no permission grants and no agent holds outside one
 - create_agent: add an agent to the workspace, its permissions named by tool name
 - update_agent: change an agent of the workspace, naming it as it is named now
 - git_status: show what changed on a git mount, and how far its branch is ahead of or behind the remote

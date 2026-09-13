@@ -8,6 +8,7 @@ import { transcript } from "../../shared/transcript";
 import { appendEntry, readEntries } from "../storage/conversationFile";
 import { conversationFile, loadWorkspace } from "../storage/workspaceStore";
 import { ensureSandbox } from "../tools/sandbox";
+import type { ToolImplementation } from "../tools/define";
 import type { AgentMessage, Entry, Spend, TurnEnd, TurnStart } from "../../shared/types";
 
 export type EntrySink = (entry: Entry) => void;
@@ -92,6 +93,25 @@ async function runChain(
 	}
 }
 
+/** One turn taken by something other than a mention: the chain lives as long as that turn does. */
+export async function runTurnFor(
+	root: string,
+	workspaceId: string,
+	conversationId: string,
+	agentId: string,
+	emit: EntrySink,
+	lent: ToolImplementation[] = [],
+): Promise<TurnEnd> {
+	const chain: Chain = { canceled: false };
+	chains.set(conversationId, chain);
+
+	try {
+		return await runTurn(root, workspaceId, conversationId, agentId, chain, emit, lent);
+	} finally {
+		chains.delete(conversationId);
+	}
+}
+
 async function runTurn(
 	root: string,
 	workspaceId: string,
@@ -99,6 +119,7 @@ async function runTurn(
 	agentId: string,
 	chain: Chain,
 	emit: EntrySink,
+	lent: ToolImplementation[] = [],
 ): Promise<TurnEnd> {
 	const file = conversationFile(root, workspaceId, conversationId);
 	const workspace = await loadWorkspace(root, workspaceId);
@@ -123,17 +144,21 @@ async function runTurn(
 		const prompt = transcript(await readEntries(file), workspace.agents, agent);
 		// Read as the turn starts, so an agent is handed what the workspace knows right now.
 		const carried = memoryBlock(carriedMemories(workspace.memories, agent.carries));
-		const granted = await grantedTools(agent, {
-			root,
-			workspaceId,
-			conversationId,
-			sandbox,
-			file,
-			agentId,
-			turnId: start.id,
-			emit,
-			stopped: () => chain.canceled,
-		});
+		const granted = await grantedTools(
+			agent,
+			{
+				root,
+				workspaceId,
+				conversationId,
+				sandbox,
+				file,
+				agentId,
+				turnId: start.id,
+				emit,
+				stopped: () => chain.canceled,
+			},
+			lent,
+		);
 
 		for await (const message of query({
 			prompt,

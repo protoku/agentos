@@ -2,8 +2,11 @@ import { randomUUID } from "node:crypto";
 import { parseDefinition, type Step } from "./definition";
 import { resolve, type Results } from "./steps";
 import { appendEntry } from "../storage/conversationFile";
-import { conversationFile } from "../storage/workspaceStore";
+import { asking, declared, resultTools } from "./result";
+import { zodObjectFrom } from "../tools/schema";
 import { invokeTool } from "../tools/invoke";
+import { runTurnFor } from "../turns/run";
+import { conversationFile, loadWorkspace } from "../storage/workspaceStore";
 import { cancelRulings } from "../turns/decisions";
 import type { EntrySink } from "../turns/run";
 import type { Workflow, WorkflowEnd, WorkflowStep } from "../../shared/types";
@@ -126,16 +129,51 @@ async function taken(
 		runId,
 		stepId: step.id,
 		...(step.tool !== undefined && { tool: step.tool, input: runInput }),
-		...(step.agent !== undefined && { agent: step.agent }),
+		...(step.agent !== undefined && { agent: step.agent, ask: String(resolve(step.ask ?? "", results)) }),
 		createdAt: now(),
 	});
 
-	if (step.tool === undefined) return `${step.id} names an agent, which this AgentOS cannot run yet`;
+	if (step.agent !== undefined) return await asked(root, workspaceId, conversationId, step, results, emit);
 
-	const call = await invokeTool(root, workspaceId, conversationId, step.tool, runInput, emit);
+	const call = await invokeTool(root, workspaceId, conversationId, step.tool as string, runInput, emit);
 	if (call.status !== "success") return call.error ?? `${step.id} did not finish`;
 
 	results[step.id] = call.output ?? {};
+
+	return undefined;
+}
+
+/**
+ * An agent step is an ordinary turn. The agent reads what it was asked for in the step entry, which
+ * is already in the thread, and where the step declares a result it is lent the tool to hand one back.
+ */
+async function asked(
+	root: string,
+	workspaceId: string,
+	conversationId: string,
+	step: Step,
+	results: Results,
+	emit: EntrySink,
+): Promise<string | undefined> {
+	const workspace = await loadWorkspace(root, workspaceId);
+	const agent = workspace.agents.find((candidate) => candidate.name === step.agent);
+	if (agent === undefined) return `No agent ${step.agent}`;
+
+	const wanted = step.result !== undefined;
+	if (wanted) asking(conversationId);
+
+	const end = await runTurnFor(root, workspaceId, conversationId, agent.id, emit, wanted ? resultTools : []);
+	const result = declared(conversationId);
+
+	if (end.status !== "finished") return end.error ?? `@${agent.name} did not finish this step`;
+	if (!wanted) return undefined;
+	if (result === undefined) return `@${agent.name} ended the step without declaring what it was asked for`;
+
+	try {
+		results[step.id] = zodObjectFrom({ properties: step.result }).parse(result);
+	} catch {
+		return `@${agent.name} declared something the step did not ask for`;
+	}
 
 	return undefined;
 }

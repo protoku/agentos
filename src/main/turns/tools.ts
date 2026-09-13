@@ -31,12 +31,16 @@ export interface CallContext extends ToolTarget {
  * Ask tools are indistinguishable from allowed ones here: the wait for a decision is the only
  * difference, and to the agent that looks like a call still running.
  */
-export async function grantedTools(agent: Agent, context: CallContext) {
+export async function grantedTools(agent: Agent, context: CallContext, lent: ToolImplementation[] = []) {
 	const scripts = await listScriptTools(context.root, context.workspaceId);
 	// Listed as denied is denied, exactly as not listed at all: a tool it does not have does not exist.
-	const granted = [...builtinTools, ...scripts.map(implementationOf)].filter(
-		(tool) => agent.tools[tool.id] !== undefined && agent.tools[tool.id] !== "deny",
-	);
+	const granted = [
+		...[...builtinTools, ...scripts.map(implementationOf)].filter(
+			(tool) => agent.tools[tool.id] !== undefined && agent.tools[tool.id] !== "deny",
+		),
+		// What a workflow step lends its agent is not a permission: it exists for that step only.
+		...lent,
+	];
 
 	return {
 		server: createSdkMcpServer({
