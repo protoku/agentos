@@ -26,6 +26,7 @@ import {
 	AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { Nothing } from "./Nothing";
+import { Run } from "./Run";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -114,7 +115,7 @@ export function App() {
 	const [naming, setNaming] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [runtime, setRuntime] = useState<{ found: boolean; missing: string }>();
-	const [viewing, setViewing] = useState<{ kind: "file" | "diff"; path: string }>();
+	const [viewing, setViewing] = useState<{ kind: "file" | "diff" | "run"; path: string }>();
 	const [sources, setSources] = useState<MountSource[]>([]);
 	const [workflows, setWorkflows] = useState<Workflow[]>([]);
 	const [mounts, setMounts] = useState<MountState[]>([]);
@@ -507,6 +508,7 @@ export function App() {
 						setViewing((current) => (current?.kind === "file" ? undefined : { kind: "file", path: "" }))
 					}
 					onOpenPath={(path) => setViewing({ kind: "file", path })}
+					onOpenRun={(runId) => setViewing({ kind: "run", path: runId })}
 					onOpenDiff={(path) => setViewing({ kind: "diff", path })}
 					onRename={openConversation ? rename : undefined}
 					onArchive={openConversation ? archive : undefined}
@@ -521,7 +523,9 @@ export function App() {
 
 			{viewing !== undefined && workspaceId !== undefined && conversationId !== undefined && (
 				<SidePane>
-					{viewing.kind === "file" ? (
+					{viewing.kind === "run" ? (
+						<Run entries={entries} runId={viewing.path} onClose={() => setViewing(undefined)} />
+					) : viewing.kind === "file" ? (
 						<Viewer
 							workspaceId={workspaceId}
 							conversationId={conversationId}

@@ -86,7 +86,8 @@ describe("runWorkflow", () => {
 	});
 
 	it("stops at the step that failed, and says which one it was", async () => {
-		const missing = "steps:\n  - id: read\n    tool: read_file\n    input:\n      path: gone.md\n  - id: never\n    tool: list_files\n";
+		const missing =
+			"steps:\n  - id: read\n    tool: read_file\n    input:\n      path: gone.md\n  - id: never\n    tool: list_files\n";
 
 		await run(await workflowOf(missing));
 
@@ -96,7 +97,8 @@ describe("runWorkflow", () => {
 	});
 
 	it("fails the run where a step reads something that is not there", async () => {
-		const wrong = 'steps:\n  - id: write\n    tool: write_file\n    input:\n      path: "{{ input.gone }}"\n      content: x\n';
+		const wrong =
+			'steps:\n  - id: write\n    tool: write_file\n    input:\n      path: "{{ input.gone }}"\n      content: x\n';
 
 		await run(await workflowOf(wrong));
 

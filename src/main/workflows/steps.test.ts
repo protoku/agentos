@@ -14,7 +14,9 @@ describe("resolve", () => {
 	});
 
 	it("reads a reference inside a sentence as text", () => {
-		expect(resolve("About {{ read.what }}, {{ read.count }} places", results)).toBe("About A health check, 3 places");
+		expect(resolve("About {{ read.what }}, {{ read.count }} places", results)).toBe(
+			"About A health check, 3 places",
+		);
 	});
 
 	it("fills in everywhere a step's input holds a string", () => {

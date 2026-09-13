@@ -90,6 +90,7 @@ export function Thread({
 	onOpenSandbox,
 	onOpenFiles,
 	onOpenPath,
+	onOpenRun,
 	onOpenDiff,
 	onRename,
 	onArchive,
@@ -110,6 +111,7 @@ export function Thread({
 	onOpenSandbox: () => Promise<void>;
 	onOpenFiles: () => void;
 	onOpenPath: (path: string) => void;
+	onOpenRun: (runId: string) => void;
 	onOpenDiff: (path: string) => void;
 	onRename?: (title: string) => Promise<void>;
 	onArchive?: () => Promise<void>;
@@ -334,7 +336,11 @@ export function Thread({
 							{blocksOf(entries, endedTurns).map((block, index) => (
 								<MessageScrollerItem key={block.entries[0].id} messageId={block.entries[0].id}>
 									{block.run ? (
-										<RunRow entry={block.entries[0] as WorkflowStart | WorkflowStep | WorkflowEnd} first={index === 0} />
+										<RunRow
+											entry={block.entries[0] as WorkflowStart | WorkflowStep | WorkflowEnd}
+											first={index === 0}
+											onOpenRun={onOpenRun}
+										/>
 									) : (
 										<Block
 										block={block}
@@ -531,10 +537,25 @@ const runColors: Record<WorkflowEnd["status"], string> = {
  * A run reads as its steps: the workflow where it started, each step naming what it is about to do,
  * whatever that step did beneath it, and the end saying how it stopped.
  */
-function RunRow({ entry, first }: { entry: WorkflowStart | WorkflowStep | WorkflowEnd; first: boolean }) {
+function RunRow({
+	entry,
+	first,
+	onOpenRun,
+}: {
+	entry: WorkflowStart | WorkflowStep | WorkflowEnd;
+	first: boolean;
+	onOpenRun: (runId: string) => void;
+}) {
+	const runId = entry.type === "workflowStart" ? entry.id : entry.runId;
+
 	return (
 		<section className={cn("flex flex-col gap-2 py-4", !first && "border-t border-border")}>
-			<div className="flex items-center gap-2 text-sm">
+			<button
+				type="button"
+				title="Follow this run beside the thread"
+				onClick={() => onOpenRun(runId)}
+				className="flex items-center gap-2 text-left text-sm"
+			>
 				<Medallion
 					className={cn(
 						"size-7 [&_svg]:size-4",
@@ -559,7 +580,7 @@ function RunRow({ entry, first }: { entry: WorkflowStart | WorkflowStep | Workfl
 				<time className="text-xs text-muted-foreground" dateTime={entry.createdAt}>
 					{time(entry.createdAt)}
 				</time>
-			</div>
+			</button>
 
 			{entry.type === "workflowStep" && entry.ask !== undefined && (
 				<p className="pl-7 text-sm whitespace-pre-wrap">{entry.ask}</p>
