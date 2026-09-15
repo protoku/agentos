@@ -147,6 +147,8 @@ export interface TurnEnd {
 	error?: string;
 	/** What the model reported this turn cost, absent when it never answered. */
 	spent?: Spend;
+	/** The model that took it, absent on turns recorded before AgentOS kept this. */
+	model?: string;
 	createdAt: string;
 }
 
@@ -193,4 +195,6 @@ export interface Spend {
 	cached: number;
 	received: number;
 	usd: number;
+	/** How many times the turn asked the model, absent on turns recorded before AgentOS kept it. */
+	requests?: number;
 }

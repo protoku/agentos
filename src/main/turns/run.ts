@@ -25,15 +25,16 @@ const chains = new Map<string, Chain>();
  * Every model the turn went through, the subagents and internal calls of the SDK included, since
  * what a turn cost is what it cost. Absent numbers count as nothing rather than as a guess.
  */
-function spendOf(usage: Record<string, ModelUsage>): Spend {
+function spendOf(usage: Record<string, ModelUsage>, requests: number): Spend {
 	return Object.values(usage).reduce<Spend>(
 		(spent, model) => ({
+			...spent,
 			sent: spent.sent + model.inputTokens + model.cacheCreationInputTokens + model.cacheReadInputTokens,
 			cached: spent.cached + model.cacheReadInputTokens,
 			received: spent.received + model.outputTokens,
 			usd: spent.usd + model.costUSD,
 		}),
-		{ sent: 0, cached: 0, received: 0, usd: 0 },
+		{ sent: 0, cached: 0, received: 0, usd: 0, requests },
 	);
 }
 
@@ -187,7 +188,7 @@ async function runTurn(
 			// The abort is not instant, so nothing the agent says after the cancel joins the thread.
 			if (chain.canceled) break;
 			// The turn is one query, so its last result carries what the whole turn cost.
-			if (message.type === "result") spent = spendOf(message.modelUsage);
+			if (message.type === "result") spent = spendOf(message.modelUsage, message.num_turns);
 			if (message.type !== "assistant") continue;
 
 			const content = message.message.content
@@ -221,6 +222,8 @@ async function runTurn(
 		status,
 		...(status === "failed" && error !== undefined && { error }),
 		...(spent !== undefined && { spent }),
+		// Kept with the cost, since the agent's model is whatever it is today rather than what ran this.
+		...(agent !== undefined && { model: agent.model }),
 		createdAt: now(),
 	};
 	await appendEntry(file, end);

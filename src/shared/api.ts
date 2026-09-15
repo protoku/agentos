@@ -7,6 +7,7 @@ import type {
 	MountSource,
 	Workflow,
 	ScriptTool,
+	Spend,
 	ToolCall,
 	UserMessage,
 	Workspace,
@@ -23,6 +24,18 @@ export type MemoryDraft = Pick<Memory, "title" | "body" | "tags">;
 /** A conversation record plus the time of its last entry, which is what the lists order by. */
 export interface ConversationSummary extends Conversation {
 	lastActivityAt: string;
+}
+
+/** One finished turn, flattened for counting: whose it was, on what model, when, and what it cost. */
+export interface TurnUsage {
+	conversationId: string;
+	title: string;
+	createdAt: string;
+	spent: Spend;
+	/** Absent when the agent that took it has since been deleted. */
+	agentId?: string;
+	/** Absent on turns recorded before AgentOS kept the model. */
+	model?: string;
 }
 
 /** A workflow as the pane edits it: what it is called, what it is for, and how it is written. */
@@ -87,6 +100,7 @@ export interface AgentOSApi {
 	/** Sets a key, or drops it when given no value. */
 	setEnv(workspaceId: string, key: string, value?: string): Promise<Record<string, string>>;
 	listMemories(workspaceId: string): Promise<Memory[]>;
+	readUsage(workspaceId: string): Promise<TurnUsage[]>;
 	createMemory(workspaceId: string, draft: MemoryDraft): Promise<Memory>;
 	updateMemory(workspaceId: string, memory: Memory): Promise<Memory>;
 	deleteMemory(workspaceId: string, memoryId: string): Promise<Memory>;

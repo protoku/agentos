@@ -4,3 +4,8 @@ export function thousands(count: number): string {
 
 	return count < 1000 ? `${count}` : `${(count / 1000).toFixed(1)}k`;
 }
+
+/** Cents matter while a conversation is young, and stop mattering once it is not. */
+export function money(usd: number): string {
+	return `$${usd.toFixed(usd < 1 ? 3 : 2)}`;
+}

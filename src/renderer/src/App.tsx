@@ -3,6 +3,7 @@ import {
 	Bot,
 	Boxes,
 	Brain,
+	ChartColumn,
 	ChevronsUpDown,
 	Database,
 	KeyRound,
@@ -27,6 +28,7 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Nothing } from "./Nothing";
 import { Run } from "./Run";
+import { Sending } from "./Sending";
 import {
 	DropdownMenu,
 	DropdownMenuContent,
@@ -58,6 +60,7 @@ import { Sources } from "./Sources";
 import { Tools } from "./Tools";
 import { Workflows } from "./Workflows";
 import { Memories } from "./Memories";
+import { Usage } from "./Usage";
 import { Thread } from "./Thread";
 import { pathOf } from "../../shared/render";
 import { Diff } from "./Diff";
@@ -66,7 +69,7 @@ import { parseSlashCommand } from "../../shared/slash";
 import type { ConversationSummary, MountState } from "../../shared/api";
 import type { Agent, Entry, MountSource, Tool, ToolCall, Workflow, Workspace } from "../../shared/types";
 
-const sections = ["conversations", "agents", "tools", "workflows", "sources", "memories", "env"] as const;
+const sections = ["conversations", "agents", "tools", "workflows", "sources", "memories", "usage", "env"] as const;
 
 type Section = (typeof sections)[number];
 
@@ -115,7 +118,7 @@ export function App() {
 	const [naming, setNaming] = useState(false);
 	const [deleting, setDeleting] = useState(false);
 	const [runtime, setRuntime] = useState<{ found: boolean; missing: string }>();
-	const [viewing, setViewing] = useState<{ kind: "file" | "diff" | "run"; path: string }>();
+	const [viewing, setViewing] = useState<{ kind: "file" | "diff" | "run" | "sending"; path: string }>();
 	const [sources, setSources] = useState<MountSource[]>([]);
 	const [workflows, setWorkflows] = useState<Workflow[]>([]);
 	const [mounts, setMounts] = useState<MountState[]>([]);
@@ -455,6 +458,13 @@ export function App() {
 											/>
 											<Pane section="sources" label="Sources" icon={<Database />} open={section} onOpen={setSection} />
 											<Pane section="memories" label="Memories" icon={<Brain />} open={section} onOpen={setSection} />
+											<Pane
+												section="usage"
+												label="Usage"
+												icon={<ChartColumn />}
+												open={section}
+												onOpen={setSection}
+											/>
 											<Pane section="env" label="Env" icon={<KeyRound />} open={section} onOpen={setSection} />
 										</SidebarMenu>
 									</SidebarGroupContent>
@@ -482,6 +492,8 @@ export function App() {
 				<Sources workspaceId={workspace.id} />
 			) : section === "env" ? (
 				<Env workspaceId={workspace.id} />
+			) : section === "usage" ? (
+				<Usage workspaceId={workspace.id} agents={agents} onOpen={(id) => void openThread(id)} />
 			) : section === "memories" ? (
 				<Memories workspaceId={workspace.id} />
 			) : section === "tools" ? (
@@ -513,6 +525,10 @@ export function App() {
 					onOpenPath={(path) => setViewing({ kind: "file", path })}
 					onOpenRun={(runId) => setViewing({ kind: "run", path: runId })}
 					onOpenDiff={(path) => setViewing({ kind: "diff", path })}
+					// The cost in the header opens what a turn carries, and closes it again.
+					onOpenSending={() =>
+						setViewing((current) => (current?.kind === "sending" ? undefined : { kind: "sending", path: "" }))
+					}
 					onRename={openConversation ? rename : undefined}
 					onArchive={openConversation ? archive : undefined}
 				/>
@@ -528,6 +544,14 @@ export function App() {
 				<SidePane>
 					{viewing.kind === "run" ? (
 						<Run entries={entries} runId={viewing.path} onClose={() => setViewing(undefined)} />
+					) : viewing.kind === "sending" ? (
+						<Sending
+							workspaceId={workspaceId}
+							entries={entries}
+							agents={agents}
+							tools={tools}
+							onClose={() => setViewing(undefined)}
+						/>
 					) : viewing.kind === "file" ? (
 						<Viewer
 							workspaceId={workspaceId}

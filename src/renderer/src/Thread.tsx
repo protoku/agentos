@@ -50,7 +50,7 @@ import { labelOf, summarise } from "./calls";
 import { CopyButton } from "./Copy";
 import { Questions, questionsOf } from "./Questions";
 import { FieldRow } from "./Fields";
-import { thousands } from "./format";
+import { money, thousands } from "./format";
 import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
 import { completionAt, type Candidate } from "../../shared/completions";
@@ -92,6 +92,7 @@ export function Thread({
 	onOpenPath,
 	onOpenRun,
 	onOpenDiff,
+	onOpenSending,
 	onRename,
 	onArchive,
 }: {
@@ -113,6 +114,7 @@ export function Thread({
 	onOpenPath: (path: string) => void;
 	onOpenRun: (runId: string) => void;
 	onOpenDiff: (path: string) => void;
+	onOpenSending: () => void;
 	onRename?: (title: string) => Promise<void>;
 	onArchive?: () => Promise<void>;
 }) {
@@ -273,11 +275,19 @@ export function Thread({
 								{present.map((agent) => `@${agent.name}`).join(", ")}
 							</Bound>
 						)}
-						<Bound label="Conversation size" icon={<Gauge className="size-3.5" />}>
+						<Bound
+							label="Conversation size, and what a turn sends"
+							icon={<Gauge className="size-3.5" />}
+							onClick={onOpenSending}
+						>
 							{`~${thousands(size)} tokens`}
 						</Bound>
 						{spent.sent > 0 && (
-							<Bound label="What this conversation has cost" icon={<Coins className="size-3.5" />}>
+							<Bound
+								label="What this conversation has cost, and what a turn sends"
+								icon={<Coins className="size-3.5" />}
+								onClick={onOpenSending}
+							>
 								{[
 									`${thousands(spent.sent)} sent (${thousands(spent.cached)} cached)`,
 									`${thousands(spent.received)} back`,
@@ -470,12 +480,37 @@ function describeMount(mount: MountState): string {
 	return at.length > 0 ? `${mount.source} (${at}${read})` : `${mount.source}${read.replace(", ", " ")}`;
 }
 
-function Bound({ label, icon, children }: { label: string; icon: React.ReactNode; children: string }) {
-	return (
-		<span className="flex min-w-0 items-center gap-1.5" title={`${label}: ${children}`}>
+function Bound({
+	label,
+	icon,
+	onClick,
+	children,
+}: {
+	label: string;
+	icon: React.ReactNode;
+	onClick?: () => void;
+	children: string;
+}) {
+	const held = (
+		<>
 			{icon}
 			<span className="truncate">{children}</span>
+		</>
+	);
+
+	return onClick === undefined ? (
+		<span className="flex min-w-0 items-center gap-1.5" title={`${label}: ${children}`}>
+			{held}
 		</span>
+	) : (
+		<button
+			type="button"
+			title={`${label}: ${children}`}
+			onClick={onClick}
+			className="flex min-w-0 items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
+		>
+			{held}
+		</button>
 	);
 }
 
@@ -883,11 +918,6 @@ function Payload({
 			))}
 		</div>
 	);
-}
-
-/** Cents matter while a conversation is young, and stop mattering once it is not. */
-function money(usd: number): string {
-	return `$${usd.toFixed(usd < 1 ? 3 : 2)}`;
 }
 
 /** The @names are presentation: they are highlighted only where they resolved to an agent. */

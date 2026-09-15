@@ -21,18 +21,26 @@ export function tokens(entries: Entry[], agents: Agent[]): number {
 
 /** What the conversation has actually cost, added up from the turns that reported it. */
 export function spentOn(entries: Entry[]): Spend {
-	return entries.reduce<Spend>(
-		(total, entry) =>
-			entry.type !== "turnEnd" || entry.spent === undefined
-				? total
-				: {
-						sent: total.sent + entry.spent.sent,
-						cached: total.cached + entry.spent.cached,
-						received: total.received + entry.spent.received,
-						usd: total.usd + entry.spent.usd,
-					},
+	const reported = entries.filter(
+		(entry): entry is Extract<Entry, { type: "turnEnd" }> & { spent: Spend } =>
+			entry.type === "turnEnd" && entry.spent !== undefined,
+	);
+
+	const total = reported.reduce<Spend>(
+		(running, entry) => ({
+			sent: running.sent + entry.spent.sent,
+			cached: running.cached + entry.spent.cached,
+			received: running.received + entry.spent.received,
+			usd: running.usd + entry.spent.usd,
+		}),
 		{ sent: 0, cached: 0, received: 0, usd: 0 },
 	);
+
+	// Turns recorded before AgentOS counted requests report none, and a thread of those says none.
+	const counted = reported.filter((entry) => entry.spent.requests !== undefined);
+	if (counted.length === 0) return total;
+
+	return { ...total, requests: counted.reduce((sum, entry) => sum + (entry.spent.requests ?? 0), 0) };
 }
 
 /** What any text costs, by the same rule of thumb, for anything else a turn is sent. */

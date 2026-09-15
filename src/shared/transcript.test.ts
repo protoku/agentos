@@ -80,7 +80,13 @@ describe("estimateTokens", () => {
 });
 
 describe("spentOn", () => {
-	const ended = (spent?: { sent: number; cached: number; received: number; usd: number }): Entry => ({
+	const ended = (spent?: {
+		sent: number;
+		cached: number;
+		received: number;
+		usd: number;
+		requests?: number;
+	}): Entry => ({
 		type: "turnEnd",
 		id: `end-${spent?.sent ?? 0}`,
 		turnId: "turn-1",
@@ -104,5 +110,20 @@ describe("spentOn", () => {
 
 	it("costs nothing when nothing has happened", () => {
 		expect(spentOn([])).toEqual({ sent: 0, cached: 0, received: 0, usd: 0 });
+	});
+
+	it("adds up the requests, once any turn has counted them", () => {
+		const entries = [
+			ended({ sent: 1000, cached: 800, received: 120, usd: 0.01, requests: 1 }),
+			ended({ sent: 2000, cached: 1900, received: 80, usd: 0.02, requests: 12 }),
+		];
+
+		expect(spentOn(entries).requests).toBe(13);
+	});
+
+	it("says nothing about requests where no turn counted them", () => {
+		const entries = [ended({ sent: 1000, cached: 800, received: 120, usd: 0.01 })];
+
+		expect(spentOn(entries).requests).toBeUndefined();
 	});
 });

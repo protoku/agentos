@@ -26,6 +26,7 @@ import {
 } from "./storage/workflows";
 import { createMemory, deleteMemory, listMemories, updateMemory } from "./storage/memories";
 import { readEnv, setEnv } from "./storage/env";
+import { readUsage } from "./storage/usage";
 import {
 	createScriptTool,
 	listScriptTools,
@@ -176,6 +177,7 @@ void app.whenReady().then(async () => {
 		return deleteAgent(root, workspaceId, agentId);
 	});
 	ipcMain.handle("memories:list", (_event, workspaceId: string) => listMemories(root, workspaceId));
+	ipcMain.handle("usage:read", (_event, workspaceId: string) => readUsage(root, workspaceId));
 	ipcMain.handle("memories:create", (_event, workspaceId: string, draft: MemoryDraft) =>
 		createMemory(root, workspaceId, draft),
 	);
