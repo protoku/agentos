@@ -2,7 +2,8 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createScriptTool, listScriptTools, updateScriptTool } from "./scriptTools";
+import { createScriptTool, deleteScriptTool, listScriptTools, updateScriptTool } from "./scriptTools";
+import { createAgent, listAgents } from "./agents";
 import { createWorkspace } from "./workspaceStore";
 
 let root: string;
@@ -64,5 +65,33 @@ describe("updateScriptTool", () => {
 
 		await expect(updateScriptTool(root, workspaceId, tool)).resolves.toMatchObject({ name: "count_lines" });
 		await expect(updateScriptTool(root, workspaceId, { ...tool, name: "other" })).rejects.toThrow("already exists");
+	});
+});
+
+describe("deleteScriptTool", () => {
+	it("removes the tool from the workspace", async () => {
+		const tool = await createScriptTool(root, workspaceId, draft);
+
+		expect(await deleteScriptTool(root, workspaceId, tool.id)).toMatchObject({ name: "count_lines" });
+		expect(await listScriptTools(root, workspaceId)).toEqual([]);
+	});
+
+	it("takes the permission out of every agent that held it, leaving the rest", async () => {
+		const tool = await createScriptTool(root, workspaceId, draft);
+		await createAgent(root, workspaceId, {
+			name: "dev",
+			model: "claude-opus-5",
+			systemPrompt: "",
+			tools: { [tool.id]: "allow", read_file: "ask" },
+			carries: [],
+		});
+
+		await deleteScriptTool(root, workspaceId, tool.id);
+
+		expect((await listAgents(root, workspaceId))[0].tools).toEqual({ read_file: "ask" });
+	});
+
+	it("refuses one the workspace does not have", async () => {
+		await expect(deleteScriptTool(root, workspaceId, "nope")).rejects.toThrow("No tool nope");
 	});
 });

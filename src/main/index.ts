@@ -30,6 +30,7 @@ import {
 	createScriptTool,
 	listScriptTools,
 	updateScriptTool,
+	deleteScriptTool,
 	type ScriptToolDraft,
 } from "./storage/scriptTools";
 import { builtinToolMetadata } from "./tools/builtin";
@@ -223,6 +224,9 @@ void app.whenReady().then(async () => {
 	);
 	ipcMain.handle("tools:updateScript", (_event, workspaceId: string, tool: ScriptTool) =>
 		updateScriptTool(root, workspaceId, tool),
+	);
+	ipcMain.handle("tools:deleteScript", (_event, workspaceId: string, toolId: string) =>
+		deleteScriptTool(root, workspaceId, toolId),
 	);
 	ipcMain.handle("tools:decide", (_event, callId: string, decision: { allowed: boolean; denyMessage?: string }) =>
 		rule(callId, decision.allowed ? { type: "allowed" } : { type: "denied", denyMessage: decision.denyMessage }),

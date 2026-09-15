@@ -45,6 +45,22 @@ export async function updateScriptTool(root: string, workspaceId: string, tool: 
 	return tool;
 }
 
+/**
+ * The permission goes with the tool: a grant for a tool the workspace no longer has is nothing
+ * anyone could read or act on. Past calls stay in their threads, pointing at an id that is gone.
+ */
+export async function deleteScriptTool(root: string, workspaceId: string, toolId: string): Promise<ScriptTool> {
+	const workspace = await loadWorkspace(root, workspaceId);
+	const tool = workspace.tools.find((candidate) => candidate.id === toolId);
+	if (tool === undefined) throw new Error(`No tool ${toolId}`);
+
+	workspace.tools = workspace.tools.filter((candidate) => candidate !== tool);
+	for (const agent of workspace.agents) delete agent.tools[toolId];
+	await saveWorkspace(root, workspace);
+
+	return tool;
+}
+
 /** Naming a tool is how it is called, so one name means one tool in the workspace. */
 function refuseName(name: string, others: ScriptTool[], workflows: Workflow[]): void {
 	if (!/^\w+$/.test(name)) throw new Error(`${name} is not a tool name: use letters, digits and underscores`);

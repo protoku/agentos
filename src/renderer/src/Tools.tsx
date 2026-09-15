@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
-import { Plus, Wrench } from "lucide-react";
+import { Plus, Trash2, Wrench } from "lucide-react";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -30,6 +40,7 @@ export function Tools({ workspaceId }: { workspaceId: string }) {
 	const [editing, setEditing] = useState<ScriptTool>();
 	const [draft, setDraft] = useState<Draft>();
 	const [refused, setRefused] = useState<string>();
+	const [deleting, setDeleting] = useState(false);
 
 	useEffect(() => {
 		void window.agentOS.listScriptTools(workspaceId).then(setTools);
@@ -48,6 +59,16 @@ export function Tools({ workspaceId }: { workspaceId: string }) {
 			inputSchema: JSON.stringify(tool.inputSchema, null, 2),
 			outputSchema: JSON.stringify(tool.outputSchema, null, 2),
 		});
+	}
+
+	async function forget() {
+		if (editing === undefined) return;
+
+		await window.agentOS.deleteScriptTool(workspaceId, editing.id);
+		setTools(await window.agentOS.listScriptTools(workspaceId));
+		setDeleting(false);
+		setEditing(undefined);
+		setDraft(undefined);
 	}
 
 	async function save() {
@@ -186,11 +207,33 @@ export function Tools({ workspaceId }: { workspaceId: string }) {
 
 						<div className="flex items-center gap-3">
 							<Button onClick={() => void save()}>{editing ? "Save" : "Create tool"}</Button>
+							{editing && (
+								<Button variant="ghost" size="sm" onClick={() => setDeleting(true)}>
+									<Trash2 />
+									Delete it
+								</Button>
+							)}
 							{refused && <p className="text-sm text-destructive">{refused}</p>}
 						</div>
 					</div>
 				)}
 			</div>
+
+			<AlertDialog open={deleting} onOpenChange={setDeleting}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete {editing?.name}?</AlertDialogTitle>
+						<AlertDialogDescription>
+							Every agent holding it loses the permission, and a workflow calling it fails at that step.
+							Its past calls stay in the threads that made them. There is no undo.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					<AlertDialogFooter>
+						<AlertDialogCancel>Keep it</AlertDialogCancel>
+						<AlertDialogAction onClick={() => void forget()}>Delete</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</main>
 	);
 }

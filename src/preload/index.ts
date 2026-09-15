@@ -52,6 +52,7 @@ const api: AgentOSApi = {
 	listScriptTools: (workspaceId) => ipcRenderer.invoke("tools:listScripts", workspaceId),
 	createScriptTool: (workspaceId, draft) => ipcRenderer.invoke("tools:createScript", workspaceId, draft),
 	updateScriptTool: (workspaceId, tool) => ipcRenderer.invoke("tools:updateScript", workspaceId, tool),
+	deleteScriptTool: (workspaceId, toolId) => ipcRenderer.invoke("tools:deleteScript", workspaceId, toolId),
 	decideToolCall: (callId, decision) => ipcRenderer.invoke("tools:decide", callId, decision),
 	answerToolCall: (callId, answers) => ipcRenderer.invoke("tools:answer", callId, answers),
 	cancelTurn: (conversationId) => ipcRenderer.invoke("turns:cancel", conversationId),

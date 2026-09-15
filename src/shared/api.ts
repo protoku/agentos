@@ -117,6 +117,7 @@ export interface AgentOSApi {
 	listScriptTools(workspaceId: string): Promise<ScriptTool[]>;
 	createScriptTool(workspaceId: string, draft: ScriptToolDraft): Promise<ScriptTool>;
 	updateScriptTool(workspaceId: string, tool: ScriptTool): Promise<ScriptTool>;
+	deleteScriptTool(workspaceId: string, toolId: string): Promise<ScriptTool>;
 	/** Rules on a pending call, which is what an ask tool waits for. */
 	decideToolCall(callId: string, decision: { allowed: boolean; denyMessage?: string }): Promise<void>;
 	/** Answers a pending call on ask_user, which is what that call was waiting for. */
