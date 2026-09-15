@@ -174,6 +174,9 @@ async function runTurn(
 				// The machine's own Claude Code drives the turn, rather than a copy shipped with the app.
 				pathToClaudeCodeExecutable: claudeCode,
 				settingSources: [],
+				// What the machine has configured elsewhere is not this agent's: allowedTools decides what
+				// may be called, this decides what is defined at all, and a tool nobody granted is neither.
+				strictMcpConfig: true,
 				abortController: stop,
 				// Nothing but what the workspace grants: no editor tools of its own, no command runner.
 				tools: [],
