@@ -482,6 +482,7 @@ Features of the app around the model above.
 - After the agents, the header shows the conversation's size as an approximate token count, rounded to a readable figure such as ~12.4k or ~1.2m, and it grows with the thread. A conversation with nothing in it yet shows ~0 tokens.
 - Beside the size the header shows what the conversation has cost so far, added up from what its turns reported: the tokens sent and written back, how much of what was sent the model had already cached, and the money. Unlike the size that is a measurement rather than an estimate, and turns that recorded nothing add nothing to it.
 - Conversations, agents, script tools, workflows, mount sources, memories and env each open in a pane that replaces the thread.
+- The tools pane lists a workspace's script tools in name order, since a tool is looked for by the name it is called by rather than by when it happened to be written.
 - The workflows pane lists them by name and writes one as its steps, coloured as what it is. A workflow is deleted there, confirming first and saying that its past runs stay where they ran.
 - The sources pane writes a source's description when it is added and rewrites it in place afterwards, which is the one thing about a source that changes after it exists.
 - The env pane says what the workspace's own settings are before it lists what is set: each WORKSPACE_ key by name, what it decides, and the default in force when it is absent, so the settings a workspace has are readable there rather than only in this document. They are edited as any other env key is.

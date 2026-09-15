@@ -77,6 +77,8 @@ export function Tools({ workspaceId }: { workspaceId: string }) {
 		}
 	}
 
+	const listed = [...tools].sort((a, b) => a.name.localeCompare(b.name));
+
 	return (
 		<main className="flex min-w-0 flex-1 flex-col">
 			<header className="flex items-center justify-between gap-4 border-b border-border py-2 pr-2 pl-6">
@@ -97,8 +99,8 @@ export function Tools({ workspaceId }: { workspaceId: string }) {
 
 			<div className="flex min-h-0 flex-1">
 				<nav className="flex w-56 shrink-0 flex-col gap-0.5 overflow-y-auto border-r border-border p-2">
-					{tools.length === 0 && <p className="px-2 py-1.5 text-sm text-muted-foreground">No tools yet</p>}
-					{tools.map((tool) => (
+					{listed.length === 0 && <p className="px-2 py-1.5 text-sm text-muted-foreground">No tools yet</p>}
+					{listed.map((tool) => (
 						<button
 							key={tool.id}
 							type="button"
