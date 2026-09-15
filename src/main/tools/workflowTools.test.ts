@@ -28,6 +28,39 @@ function invoke(toolId: string, input: Record<string, unknown>): Promise<ToolCal
 	return invokeTool(root, workspaceId, conversationId, toolId, input, () => {});
 }
 
+describe("list_workflows", () => {
+	it("lists what the workspace holds, with how much each one does", async () => {
+		await invoke("define_workflow", { name: "intake", description: "Requests", definition });
+
+		expect(await invoke("list_workflows", {})).toMatchObject({
+			status: "success",
+			output: { workflows: [{ name: "intake", description: "Requests", steps: 1 }] },
+		});
+	});
+
+	it("says a workspace with none has none", async () => {
+		expect(await invoke("list_workflows", {})).toMatchObject({ status: "success", output: { workflows: [] } });
+	});
+});
+
+describe("read_workflow", () => {
+	it("gives back the definition exactly as it was written", async () => {
+		await invoke("define_workflow", { name: "intake", description: "Requests", definition });
+
+		expect(await invoke("read_workflow", { name: "intake" })).toMatchObject({
+			status: "success",
+			output: { name: "intake", description: "Requests", definition },
+		});
+	});
+
+	it("refuses one the workspace does not have", async () => {
+		expect(await invoke("read_workflow", { name: "nope" })).toMatchObject({
+			status: "error",
+			error: "No workflow nope",
+		});
+	});
+});
+
 describe("define_workflow", () => {
 	it("writes the workflow the workspace then holds", async () => {
 		const call = await invoke("define_workflow", { name: "intake", description: "Requests", definition });

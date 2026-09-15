@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { define, type BuiltinToolImplementation } from "./define";
 import { createWorkflow, deleteWorkflow, listWorkflows, updateWorkflow } from "../storage/workflows";
+import { parseDefinition } from "../workflows/definition";
 
 const definition = z
 	.string()
@@ -15,6 +16,60 @@ const written = {
 
 /** The tools for building workflows: what the user runs is written here, and read before it runs. */
 export const workflowTools: BuiltinToolImplementation[] = [
+	define({
+		id: "list_workflows",
+		description: "List the workflows of this workspace.",
+		input: z.object({}),
+		outputSchema: {
+			type: "object",
+			properties: {
+				workflows: {
+					type: "array",
+					render: "table",
+					items: {
+						type: "object",
+						properties: {
+							name: { type: "string" },
+							description: { type: "string" },
+							steps: { type: "number" },
+						},
+						required: ["name", "description", "steps"],
+					},
+				},
+			},
+			required: ["workflows"],
+		},
+		async run(_input, context) {
+			const workflows = await listWorkflows(context.root, context.workspaceId);
+
+			return {
+				workflows: workflows.map((workflow) => ({
+					name: workflow.name,
+					description: workflow.description,
+					steps: parseDefinition(workflow.definition).steps.length,
+				})),
+			};
+		},
+	}),
+	define({
+		id: "read_workflow",
+		description: "Read one workflow of this workspace whole, its definition as it was written.",
+		input: z.object({ name: z.string().describe("The workflow to read") }),
+		outputSchema: {
+			type: "object",
+			properties: {
+				name: { type: "string" },
+				description: { type: "string" },
+				definition: { type: "string", render: "text" },
+			},
+			required: ["name", "description", "definition"],
+		},
+		async run({ name }, context) {
+			const workflow = await named(context.root, context.workspaceId, name);
+
+			return { name: workflow.name, description: workflow.description, definition: workflow.definition };
+		},
+	}),
 	define({
 		id: "define_workflow",
 		description:

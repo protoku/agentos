@@ -412,7 +412,7 @@ The exception is the work of building tools, which cannot be done blind: finding
 
 Building agents is the same work one level up, and carries the same weight. list_agents and read_agent say who the workspace has and how one is configured, create_agent adds one, and update_agent changes what is already there. An agent that may write agents can grant permissions it was never given itself, and may rewrite its own prompt and its own permissions, both of which are allowed rather than quietly refused: the guard is the pending call, which carries the exact prompt and the exact permission list for the user to read before that agent exists or changes. Permissions are named there by tool name rather than by tool id, since ids are what the workspace generated and names are what a caller can know, and a name matching no tool of the workspace refuses the call. The model is named as one of the models AgentOS offers, anything else refuses the call, and a create that leaves it out gets the default. There is no tool for removing an agent, since nothing inside a workspace is removed piecemeal but a memory or a workflow.
 
-Building workflows is lighter than either, because a workflow does nothing by itself: define_workflow, update_workflow and delete_workflow write down what a run would do, and only the user starts one. What that costs is worth saying plainly: a workflow an agent wrote will run with the user's authority when the user runs it, so what makes it safe is that its steps are readable in its pane before it is started, not a permission around it.
+Building workflows is lighter than either, because a workflow does nothing by itself: list_workflows and read_workflow say what the workspace already runs, define_workflow, update_workflow and delete_workflow write down what a run would do, and only the user starts one. Reading one comes before changing it, since an update replaces a definition rather than merging into it. What that costs is worth saying plainly: a workflow an agent wrote will run with the user's authority when the user runs it, so what makes it safe is that its steps are readable in its pane before it is started, not a permission around it.
 
 - read_file: read a file
 - write_file: create a file
@@ -426,6 +426,8 @@ Building workflows is lighter than either, because a workflow does nothing by it
 - unmount: detach a mount, discarding an isolated mount's worktree
 - define_tool: add a script tool to the workspace
 - update_tool: change a script tool of the workspace
+- list_workflows: list the workflows of the workspace, with what each one is for and how many steps it takes
+- read_workflow: read one workflow whole, naming it by name, its definition exactly as it was written
 - define_workflow: add a workflow to the workspace
 - update_workflow: change a workflow of the workspace
 - delete_workflow: remove a workflow from the workspace
