@@ -45,6 +45,21 @@ export async function updateAgent(root: string, workspaceId: string, agent: Agen
 	return agent;
 }
 
+/**
+ * Deleting keeps nothing, not even the name: entries that point at this id read as unknown from
+ * here on, and stay exactly as they were written.
+ */
+export async function deleteAgent(root: string, workspaceId: string, agentId: string): Promise<Agent> {
+	const workspace = await loadWorkspace(root, workspaceId);
+	const agent = workspace.agents.find((candidate) => candidate.id === agentId);
+	if (agent === undefined) throw new Error(`No agent ${agentId}`);
+
+	workspace.agents = workspace.agents.filter((candidate) => candidate !== agent);
+	await saveWorkspace(root, workspace);
+
+	return agent;
+}
+
 /** A mention resolves by name, so one name means one agent in the workspace. */
 function refuseName(name: string, others: Agent[]): void {
 	const taken = others.find((candidate) => candidate.name.toLowerCase() === name.toLowerCase());

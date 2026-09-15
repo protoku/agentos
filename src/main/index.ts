@@ -14,7 +14,7 @@ import {
 	startConversationWithTool,
 	startConversationWithWorkflow,
 } from "./storage/conversations";
-import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
+import { createAgent, listAgents, updateAgent, deleteAgent, type AgentDraft } from "./storage/agents";
 import { createSource, listSources, updateSource, deleteSource, type SourceDraft } from "./storage/sources";
 import { cancelWorkflow, isWorkflowRunning, runWorkflow, whenWorkflowSettles } from "./workflows/run";
 import {
@@ -39,7 +39,7 @@ import { sandboxDiff } from "./tools/diff";
 import { mountStates } from "./tools/mountState";
 import { viewSandboxPath } from "./tools/viewer";
 import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
-import { cancelTurn, isTurnRunning, runMentionedTurns } from "./turns/run";
+import { cancelTurn, isAgentActing, isTurnRunning, runMentionedTurns } from "./turns/run";
 import { parseSlashCommand } from "../shared/slash";
 import type { Entry } from "../shared/types";
 import type { MemoryDraft } from "../shared/api";
@@ -169,6 +169,12 @@ void app.whenReady().then(async () => {
 	ipcMain.handle("agents:update", (_event, workspaceId: string, agent: Agent) =>
 		updateAgent(root, workspaceId, agent),
 	);
+	ipcMain.handle("agents:delete", (_event, workspaceId: string, agentId: string) => {
+		// Nothing is deleted out of its own turn; what it is doing finishes or is canceled first.
+		if (isAgentActing(agentId)) throw new Error("This agent is acting right now");
+
+		return deleteAgent(root, workspaceId, agentId);
+	});
 	ipcMain.handle("memories:list", (_event, workspaceId: string) => listMemories(root, workspaceId));
 	ipcMain.handle("memories:create", (_event, workspaceId: string, draft: MemoryDraft) =>
 		createMemory(root, workspaceId, draft),

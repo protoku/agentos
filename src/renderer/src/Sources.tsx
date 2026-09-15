@@ -36,6 +36,7 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 	const [describing, setDescribing] = useState<{ id: string; text: string }>();
 	const [refused, setRefused] = useState<string>();
 	const [deleting, setDeleting] = useState<MountSource>();
+	const [blocked, setBlocked] = useState<string>();
 
 	useEffect(() => {
 		void window.agentOS.listSources(workspaceId).then(setSources);
@@ -76,7 +77,7 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 			setDeleting(undefined);
 		} catch (failure) {
 			// A source a conversation is standing on stays, and the dialog says which conversations.
-			setRefused(failure instanceof Error ? failure.message : String(failure));
+			setBlocked(failure instanceof Error ? failure.message : String(failure));
 		}
 	}
 
@@ -217,7 +218,7 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 									size="icon-sm"
 									title="Delete this source"
 									onClick={() => {
-										setRefused(undefined);
+										setBlocked(undefined);
 										setDeleting(source);
 									}}
 								>
@@ -240,7 +241,7 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 							Past mount calls stay in the threads that made them. There is no undo.
 						</AlertDialogDescription>
 					</AlertDialogHeader>
-					{refused && <p className="text-sm text-destructive">{refused}</p>}
+					{blocked && <p className="text-sm text-destructive">{blocked}</p>}
 					<AlertDialogFooter>
 						<AlertDialogCancel>Keep it</AlertDialogCancel>
 						<AlertDialogAction

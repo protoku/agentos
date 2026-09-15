@@ -2,7 +2,7 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createAgent, listAgents, updateAgent } from "./agents";
+import { createAgent, deleteAgent, listAgents, updateAgent } from "./agents";
 import { createWorkspace } from "./workspaceStore";
 
 let root: string;
@@ -86,5 +86,26 @@ describe("updateAgent", () => {
 describe("listAgents", () => {
 	it("returns nothing for a workspace without agents", async () => {
 		expect(await listAgents(root, workspaceId)).toEqual([]);
+	});
+});
+
+describe("deleteAgent", () => {
+	it("removes the agent and leaves the others", async () => {
+		const going = await createAgent(root, workspaceId, draft);
+		const staying = await createAgent(root, workspaceId, { ...draft, name: "reviewer" });
+
+		expect(await deleteAgent(root, workspaceId, going.id)).toMatchObject({ id: going.id });
+		expect(await listAgents(root, workspaceId)).toEqual([staying]);
+	});
+
+	it("frees the name it was holding", async () => {
+		const agent = await createAgent(root, workspaceId, draft);
+		await deleteAgent(root, workspaceId, agent.id);
+
+		await expect(createAgent(root, workspaceId, draft)).resolves.toMatchObject({ name: draft.name });
+	});
+
+	it("refuses one the workspace does not have", async () => {
+		await expect(deleteAgent(root, workspaceId, "nope")).rejects.toThrow("No agent nope");
 	});
 });

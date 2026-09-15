@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
-import { Bot, Code, Plus, Wrench } from "lucide-react";
+import { Bot, Code, Plus, Trash2, Wrench } from "lucide-react";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -177,6 +187,8 @@ export function Agents({ workspaceId }: { workspaceId: string }) {
 	const [editing, setEditing] = useState<Agent>();
 	const [draft, setDraft] = useState<Draft>();
 	const [refused, setRefused] = useState<string>();
+	const [deleting, setDeleting] = useState(false);
+	const [blocked, setBlocked] = useState<string>();
 
 	useEffect(() => {
 		void Promise.all([window.agentOS.listTools(), window.agentOS.listScriptTools(workspaceId)]).then(
@@ -200,6 +212,21 @@ export function Agents({ workspaceId }: { workspaceId: string }) {
 			tools: agent.tools,
 			carries: agent.carries,
 		});
+	}
+
+	async function forget() {
+		if (editing === undefined) return;
+
+		try {
+			await window.agentOS.deleteAgent(workspaceId, editing.id);
+			setAgents(await window.agentOS.listAgents(workspaceId));
+			setDeleting(false);
+			setEditing(undefined);
+			setDraft(undefined);
+		} catch (failure) {
+			// An agent in the middle of a turn stays, and the dialog says so.
+			setBlocked(failure instanceof Error ? failure.message : String(failure));
+		}
 	}
 
 	async function save() {
@@ -342,11 +369,48 @@ export function Agents({ workspaceId }: { workspaceId: string }) {
 
 						<div className="flex items-center gap-3">
 							<Button onClick={() => void save()}>{editing ? "Save" : "Create agent"}</Button>
+							{editing && (
+								<Button
+									variant="ghost"
+									size="sm"
+									onClick={() => {
+										setBlocked(undefined);
+										setDeleting(true);
+									}}
+								>
+									<Trash2 />
+									Delete it
+								</Button>
+							)}
 							{refused && <p className="text-sm text-destructive">{refused}</p>}
 						</div>
 					</div>
 				)}
 			</div>
+
+			<AlertDialog open={deleting} onOpenChange={setDeleting}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete {editing?.name}?</AlertDialogTitle>
+						<AlertDialogDescription>
+							Nothing is kept, not even the name: every turn it has taken stays in the thread it took it
+							in, read from here on as unknown. There is no undo.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					{blocked && <p className="text-sm text-destructive">{blocked}</p>}
+					<AlertDialogFooter>
+						<AlertDialogCancel>Keep it</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={(event) => {
+								event.preventDefault();
+								void forget();
+							}}
+						>
+							Delete
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</main>
 	);
 }

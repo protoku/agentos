@@ -16,7 +16,7 @@ export type EntrySink = (entry: Entry) => void;
 interface Chain {
 	canceled: boolean;
 	settled?: Promise<void>;
-	turn?: { id: string; stop: AbortController };
+	turn?: { id: string; agentId: string; stop: AbortController };
 }
 
 const chains = new Map<string, Chain>();
@@ -39,6 +39,11 @@ function spendOf(usage: Record<string, ModelUsage>): Spend {
 
 export function isTurnRunning(conversationId: string): boolean {
 	return chains.has(conversationId);
+}
+
+/** Who is acting anywhere in the app, so that an agent is never deleted out of its own turn. */
+export function isAgentActing(agentId: string): boolean {
+	return [...chains.values()].some((chain) => chain.turn?.agentId === agentId);
 }
 
 /** Cancel stops the acting agent and skips every later mention, and is safe when nothing runs. */
@@ -129,7 +134,7 @@ async function runTurn(
 	const stop = new AbortController();
 	await appendEntry(file, start);
 	emit(start);
-	chain.turn = { id: start.id, stop };
+	chain.turn = { id: start.id, agentId, stop };
 
 	let error: string | undefined;
 	let spent: Spend | undefined;

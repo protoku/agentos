@@ -30,6 +30,7 @@ const api: AgentOSApi = {
 	listAgents: (workspaceId) => ipcRenderer.invoke("agents:list", workspaceId),
 	createAgent: (workspaceId, draft) => ipcRenderer.invoke("agents:create", workspaceId, draft),
 	updateAgent: (workspaceId, agent) => ipcRenderer.invoke("agents:update", workspaceId, agent),
+	deleteAgent: (workspaceId, agentId) => ipcRenderer.invoke("agents:delete", workspaceId, agentId),
 	listMemories: (workspaceId) => ipcRenderer.invoke("memories:list", workspaceId),
 	createMemory: (workspaceId, draft) => ipcRenderer.invoke("memories:create", workspaceId, draft),
 	updateMemory: (workspaceId, memory) => ipcRenderer.invoke("memories:update", workspaceId, memory),
