@@ -113,7 +113,8 @@ const templates: { label: string; icon: React.ReactNode; draft: Draft }[] = [
 				"A tool is one narrowly scoped capability, never a broad escape hatch. Its inputSchema is how a caller knows",
 				"what to pass, and its outputSchema gives the result a known shape the thread can render, so describe every",
 				"property rather than leaving an open object. Pass input values as command arguments, never interpolated into",
-				"a line to be split.",
+				"a line to be split. Read what is there with list_tools and read_tool before you add or change one, so",
+				"you neither write a second tool for a job the workspace already does nor take a name a built-in holds.",
 				"",
 				"Say how a field reads, so a call is worth opening: a property may carry render, one of table for an array of",
 				"objects, text, markdown, diff, path for a place in the sandbox, or link for an address. Declare a listing as",
@@ -158,6 +159,8 @@ const templates: { label: string; icon: React.ReactNode; draft: Draft }[] = [
 			tools: {
 				ask_user: "allow",
 				run_command: "ask",
+				list_tools: "allow",
+				read_tool: "allow",
 				define_tool: "ask",
 				update_tool: "ask",
 				list_workflows: "allow",

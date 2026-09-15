@@ -1,9 +1,11 @@
 import { spawn } from "node:child_process";
 import { z } from "zod";
-import { define, sandboxPath, type BuiltinToolImplementation } from "./define";
+import { builtinTools } from "./builtin";
+import { define, sandboxPath, type BuiltinToolImplementation, type ToolContext } from "./define";
 import { resolveInSandbox } from "./sandbox";
 import { listAgents, updateAgent } from "../storage/agents";
 import { createScriptTool, listScriptTools, updateScriptTool } from "../storage/scriptTools";
+import type { BuiltinTool, ScriptTool } from "../../shared/types";
 
 const argumentsSchema = z
 	.record(z.string(), z.unknown())
@@ -21,6 +23,73 @@ const readable = 4000;
  * which is why they are the largest permission here and why ask is the sensible way to hold them.
  */
 export const authoringTools: BuiltinToolImplementation[] = [
+	define({
+		id: "list_tools",
+		description: "List the tools of this workspace, built-in and script alike.",
+		input: z.object({}),
+		outputSchema: {
+			type: "object",
+			properties: {
+				tools: {
+					type: "array",
+					render: "table",
+					items: {
+						type: "object",
+						properties: {
+							name: { type: "string" },
+							type: { type: "string" },
+							description: { type: "string" },
+						},
+						required: ["name", "type", "description"],
+					},
+				},
+			},
+			required: ["tools"],
+		},
+		async run(_input, context) {
+			const tools = await knownTools(context);
+
+			return {
+				tools: tools.map((tool) => ({
+					name: tool.name,
+					type: tool.type,
+					description: tool.description,
+				})),
+			};
+		},
+	}),
+	define({
+		id: "read_tool",
+		description: "Read one tool of this workspace whole, its schemas included.",
+		input: z.object({ name: z.string().describe("The tool to read") }),
+		outputSchema: {
+			type: "object",
+			properties: {
+				name: { type: "string" },
+				type: { type: "string" },
+				description: { type: "string" },
+				env: { type: "array", items: { type: "string" } },
+				code: { type: "string", render: "text" },
+				inputSchema: { type: "object" },
+				outputSchema: { type: "object" },
+			},
+			required: ["name", "type", "description", "inputSchema", "outputSchema"],
+		},
+		async run({ name }, context) {
+			const tool = (await knownTools(context)).find((candidate) => candidate.name === name);
+			if (tool === undefined) throw new Error(`No tool ${name}`);
+
+			return {
+				name: tool.name,
+				type: tool.type,
+				description: tool.description,
+				inputSchema: tool.inputSchema,
+				outputSchema: tool.outputSchema,
+				// A built-in is part of the app rather than a definition: there is no code to read.
+				...(tool.type === "script" && { code: tool.code, env: tool.env }),
+			};
+		},
+	}),
 	define({
 		id: "define_tool",
 		description:
@@ -135,3 +204,8 @@ export const authoringTools: BuiltinToolImplementation[] = [
 		},
 	}),
 ];
+
+/** Both kinds under one name, since one name means one thing to call wherever a caller names it. */
+async function knownTools(context: ToolContext): Promise<(BuiltinTool | ScriptTool)[]> {
+	return [...builtinTools, ...(await listScriptTools(context.root, context.workspaceId))];
+}

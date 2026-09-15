@@ -46,6 +46,45 @@ afterEach(async () => {
 	await rm(root, { recursive: true, force: true });
 });
 
+describe("list_tools", () => {
+	it("lists both kinds, the workspace's own among the built-ins", async () => {
+		await invoke("define_tool", shout);
+
+		const call = await invoke("list_tools", {});
+		const tools = (call.output?.tools ?? []) as { name: string; type: string }[];
+
+		expect(call.status).toBe("success");
+		expect(tools).toContainEqual({ name: "shout", type: "script", description: "Shout a word back." });
+		expect(tools.filter((tool) => tool.type === "builtin").map((tool) => tool.name)).toContain("read_file");
+	});
+});
+
+describe("read_tool", () => {
+	it("gives a script tool back whole, its code and schemas as written", async () => {
+		await invoke("define_tool", shout);
+
+		expect(await invoke("read_tool", { name: "shout" })).toMatchObject({
+			status: "success",
+			output: { ...shout, type: "script" },
+		});
+	});
+
+	it("gives a built-in its schemas, and no code, since there is none to read", async () => {
+		const call = await invoke("read_tool", { name: "read_file" });
+
+		expect(call).toMatchObject({ status: "success", output: { name: "read_file", type: "builtin" } });
+		expect(call.output).not.toHaveProperty("code");
+		expect(call.output?.inputSchema).toMatchObject({ type: "object" });
+	});
+
+	it("refuses a name the workspace does not have", async () => {
+		expect(await invoke("read_tool", { name: "nope" })).toMatchObject({
+			status: "error",
+			error: "No tool nope",
+		});
+	});
+});
+
 describe("define_tool", () => {
 	it("adds a tool the workspace can then call", async () => {
 		const call = await invoke("define_tool", shout);
