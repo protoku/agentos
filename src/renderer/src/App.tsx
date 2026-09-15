@@ -154,7 +154,10 @@ export function App() {
 					? current.map((existing) => (existing.id === entry.id ? entry : existing))
 					: [...current, entry],
 			);
-			if (entry.type === "turnEnd" || entry.type === "workflowEnd") {
+			// A rename is in the list at once, rather than waiting for the turn that did it to end.
+			const renamed =
+				entry.type === "toolCall" && entry.toolId === "rename_conversation" && entry.status === "success";
+			if (entry.type === "turnEnd" || entry.type === "workflowEnd" || renamed) {
 				void window.agentOS.listConversations(forWorkspace).then(setConversations);
 			}
 		});
