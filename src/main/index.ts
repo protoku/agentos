@@ -15,7 +15,7 @@ import {
 	startConversationWithWorkflow,
 } from "./storage/conversations";
 import { createAgent, listAgents, updateAgent, type AgentDraft } from "./storage/agents";
-import { createSource, listSources, updateSource, type SourceDraft } from "./storage/sources";
+import { createSource, listSources, updateSource, deleteSource, type SourceDraft } from "./storage/sources";
 import { cancelWorkflow, isWorkflowRunning, runWorkflow, whenWorkflowSettles } from "./workflows/run";
 import {
 	createWorkflow,
@@ -190,6 +190,9 @@ void app.whenReady().then(async () => {
 	);
 	ipcMain.handle("sources:update", (_event, workspaceId: string, sourceId: string, description: string) =>
 		updateSource(root, workspaceId, sourceId, description),
+	);
+	ipcMain.handle("sources:delete", (_event, workspaceId: string, sourceId: string) =>
+		deleteSource(root, workspaceId, sourceId),
 	);
 	ipcMain.handle("tools:list", () => builtinToolMetadata());
 	ipcMain.handle("workflows:list", (_event, workspaceId: string) => listWorkflows(root, workspaceId));

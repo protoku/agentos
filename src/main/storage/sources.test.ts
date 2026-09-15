@@ -1,9 +1,11 @@
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdir, mkdtemp, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
-import { createSource, listSources, updateSource } from "./sources";
-import { createWorkspace } from "./workspaceStore";
+import { createSource, deleteSource, listSources, updateSource } from "./sources";
+import { baseClonePath } from "../git/clone";
+import { startConversation } from "./conversations";
+import { createWorkspace, loadWorkspace, saveWorkspace } from "./workspaceStore";
 
 let root: string;
 let workspaceId: string;
@@ -80,3 +82,56 @@ describe("listSources", () => {
 		expect(await listSources(root, workspaceId)).toEqual([]);
 	});
 });
+
+describe("deleteSource", () => {
+	it("removes the source from the workspace", async () => {
+		const source = await createSource(root, workspaceId, notes);
+
+		expect(await deleteSource(root, workspaceId, source.id)).toMatchObject({ name: "notes" });
+		expect(await listSources(root, workspaceId)).toEqual([]);
+	});
+
+	it("refuses one a conversation is standing on, naming the conversation", async () => {
+		const source = await createSource(root, workspaceId, notes);
+		const { conversation } = await startConversation(root, workspaceId, "Reading the notes");
+		await mount(conversation.id, source.id);
+
+		await expect(deleteSource(root, workspaceId, source.id)).rejects.toThrow(
+			"notes is mounted in Reading the notes: unmount it there first",
+		);
+		expect(await listSources(root, workspaceId)).toHaveLength(1);
+	});
+
+	it("takes the workspace's own clone with it", async () => {
+		const source = await createSource(root, workspaceId, {
+			name: "api",
+			type: "git",
+			config: { remote: "git@example.com:acme/api.git", defaultBranch: "main" },
+		});
+		const clone = baseClonePath(root, workspaceId, source.id);
+		await mkdir(clone, { recursive: true });
+
+		await deleteSource(root, workspaceId, source.id);
+
+		await expect(stat(clone)).rejects.toThrow();
+	});
+
+	it("refuses one the workspace does not have", async () => {
+		await expect(deleteSource(root, workspaceId, "nope")).rejects.toThrow("No source nope");
+	});
+});
+
+/** A mount as the mount tool would leave it, which is what stands in the way of deleting a source. */
+async function mount(conversationId: string, sourceId: string): Promise<void> {
+	const workspace = await loadWorkspace(root, workspaceId);
+	const conversation = workspace.conversations.find((candidate) => candidate.id === conversationId);
+
+	conversation?.mounts.push({
+		sourceId,
+		path: "notes",
+		mode: "shared",
+		readOnly: false,
+		createdAt: new Date().toISOString(),
+	});
+	await saveWorkspace(root, workspace);
+}

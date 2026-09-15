@@ -1,5 +1,15 @@
 import { useEffect, useState } from "react";
-import { Database, FolderOpen, GitBranch, MessagesSquare, Pencil, Plus } from "lucide-react";
+import { Database, FolderOpen, GitBranch, MessagesSquare, Pencil, Plus, Trash2 } from "lucide-react";
+import {
+	AlertDialog,
+	AlertDialogAction,
+	AlertDialogCancel,
+	AlertDialogContent,
+	AlertDialogDescription,
+	AlertDialogFooter,
+	AlertDialogHeader,
+	AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemMedia, ItemTitle } from "@/components/ui/item";
@@ -25,6 +35,7 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 	const [draft, setDraft] = useState<Draft>();
 	const [describing, setDescribing] = useState<{ id: string; text: string }>();
 	const [refused, setRefused] = useState<string>();
+	const [deleting, setDeleting] = useState<MountSource>();
 
 	useEffect(() => {
 		void window.agentOS.listSources(workspaceId).then(setSources);
@@ -54,6 +65,19 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 		await window.agentOS.updateSource(workspaceId, describing.id, describing.text);
 		setSources(await window.agentOS.listSources(workspaceId));
 		setDescribing(undefined);
+	}
+
+	async function forget() {
+		if (deleting === undefined) return;
+
+		try {
+			await window.agentOS.deleteSource(workspaceId, deleting.id);
+			setSources(await window.agentOS.listSources(workspaceId));
+			setDeleting(undefined);
+		} catch (failure) {
+			// A source a conversation is standing on stays, and the dialog says which conversations.
+			setRefused(failure instanceof Error ? failure.message : String(failure));
+		}
 	}
 
 	function start(type: Draft["type"]) {
@@ -188,11 +212,48 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 								>
 									<Pencil />
 								</Button>
+								<Button
+									variant="ghost"
+									size="icon-sm"
+									title="Delete this source"
+									onClick={() => {
+										setRefused(undefined);
+										setDeleting(source);
+									}}
+								>
+									<Trash2 />
+								</Button>
 							</ItemActions>
 						</Item>
 					))}
 				</ItemGroup>
 			</div>
+
+			<AlertDialog open={deleting !== undefined} onOpenChange={(open) => !open && setDeleting(undefined)}>
+				<AlertDialogContent>
+					<AlertDialogHeader>
+						<AlertDialogTitle>Delete {deleting?.name}?</AlertDialogTitle>
+						<AlertDialogDescription>
+							{deleting?.type === "git"
+								? "This workspace's clone of the repository goes with it, and every commit in it that was never pushed. The remote is untouched."
+								: "Only the source goes: what it points at is not this workspace's to remove."}{" "}
+							Past mount calls stay in the threads that made them. There is no undo.
+						</AlertDialogDescription>
+					</AlertDialogHeader>
+					{refused && <p className="text-sm text-destructive">{refused}</p>}
+					<AlertDialogFooter>
+						<AlertDialogCancel>Keep it</AlertDialogCancel>
+						<AlertDialogAction
+							onClick={(event) => {
+								event.preventDefault();
+								void forget();
+							}}
+						>
+							Delete
+						</AlertDialogAction>
+					</AlertDialogFooter>
+				</AlertDialogContent>
+			</AlertDialog>
 		</main>
 	);
 }

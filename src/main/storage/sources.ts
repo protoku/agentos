@@ -1,5 +1,7 @@
 import { randomUUID } from "node:crypto";
+import { rm } from "node:fs/promises";
 import { loadWorkspace, saveWorkspace } from "./workspaceStore";
+import { baseClonePath } from "../git/clone";
 import type { MountSource } from "../../shared/types";
 
 export type SourceDraft = Pick<MountSource, "name" | "type" | "config" | "description">;
@@ -46,6 +48,31 @@ export async function updateSource(
 	else source.description = written;
 
 	await saveWorkspace(root, workspace);
+
+	return source;
+}
+
+/**
+ * A source goes only once nothing mounts it, so no conversation loses the ground it is standing on.
+ * What goes with it is the workspace's own clone, and with that whatever was never pushed; the
+ * remote and a directory source's directory are not the workspace's to remove.
+ */
+export async function deleteSource(root: string, workspaceId: string, sourceId: string): Promise<MountSource> {
+	const workspace = await loadWorkspace(root, workspaceId);
+	const source = workspace.sources.find((candidate) => candidate.id === sourceId);
+	if (source === undefined) throw new Error(`No source ${sourceId}`);
+
+	const mounting = workspace.conversations.filter((conversation) =>
+		conversation.mounts.some((mount) => mount.sourceId === sourceId),
+	);
+	if (mounting.length > 0) {
+		const titles = mounting.map((conversation) => conversation.title).join(", ");
+		throw new Error(`${source.name} is mounted in ${titles}: unmount it there first`);
+	}
+
+	workspace.sources = workspace.sources.filter((candidate) => candidate !== source);
+	await saveWorkspace(root, workspace);
+	await rm(baseClonePath(root, workspaceId, source.id), { recursive: true, force: true });
 
 	return source;
 }

@@ -95,6 +95,7 @@ export interface AgentOSApi {
 		draft: Pick<MountSource, "name" | "type" | "config" | "description">,
 	): Promise<MountSource>;
 	updateSource(workspaceId: string, sourceId: string, description: string): Promise<MountSource>;
+	deleteSource(workspaceId: string, sourceId: string): Promise<MountSource>;
 	listTools(): Promise<BuiltinTool[]>;
 	listWorkflows(workspaceId: string): Promise<Workflow[]>;
 	/** Starts a run in this conversation, which then holds the thread until it ends. */
