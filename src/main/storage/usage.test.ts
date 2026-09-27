@@ -102,6 +102,18 @@ describe("readUsage", () => {
 		expect(await readUsage(root, workspaceId)).toEqual([]);
 	});
 
+	it("leaves out a turn recorded with zeros, which the model refused", async () => {
+		const id = await conversation("Scratch work");
+		const refused: Spend = { sent: 0, cached: 0, received: 0, usd: 0, requests: 1 };
+		await write(
+			id,
+			took("t1", "agent-dev", "2026-09-10T12:00:00.000Z"),
+			cost("t1", "2026-09-10T12:00:01.000Z", { spent: refused }),
+		);
+
+		expect(await readUsage(root, workspaceId)).toEqual([]);
+	});
+
 	it("keeps a turn recorded before the model was kept, with no model on it", async () => {
 		const id = await conversation("Scratch work");
 		await write(

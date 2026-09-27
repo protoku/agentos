@@ -1,6 +1,7 @@
 import { readEntries } from "./conversationFile";
 import { conversationFile, loadWorkspace } from "./workspaceStore";
 import type { TurnUsage } from "../../shared/api";
+import { spentAnything } from "../../shared/transcript";
 import type { Entry, TurnEnd, TurnStart } from "../../shared/types";
 
 /**
@@ -38,6 +39,6 @@ function starts(entries: Entry[]): TurnStart[] {
 function ends(entries: Entry[]): (TurnEnd & { spent: NonNullable<TurnEnd["spent"]> })[] {
 	return entries.filter(
 		(entry): entry is TurnEnd & { spent: NonNullable<TurnEnd["spent"]> } =>
-			entry.type === "turnEnd" && entry.spent !== undefined,
+			entry.type === "turnEnd" && spentAnything(entry.spent),
 	);
 }

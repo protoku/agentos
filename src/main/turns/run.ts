@@ -4,7 +4,7 @@ import { cancelRulings } from "./decisions";
 import { claudeCodeMissing, claudeCodePath } from "../agents/claudeCode";
 import { grantedTools } from "./tools";
 import { carriedMemories, memoryBlock } from "../../shared/memory";
-import { transcript } from "../../shared/transcript";
+import { spentAnything, transcript } from "../../shared/transcript";
 import { appendEntry, readEntries } from "../storage/conversationFile";
 import { conversationFile, loadWorkspace } from "../storage/workspaceStore";
 import { ensureSandbox } from "../tools/sandbox";
@@ -221,7 +221,7 @@ async function runTurn(
 		turnId: start.id,
 		status,
 		...(status === "failed" && error !== undefined && { error }),
-		...(spent !== undefined && { spent }),
+		...(spentAnything(spent) && { spent }),
 		// Kept with the cost, since the agent's model is whatever it is today rather than what ran this.
 		...(agent !== undefined && { model: agent.model }),
 		createdAt: now(),

@@ -149,6 +149,14 @@ describe("sending", () => {
 		expect(what.unaccounted).toBeUndefined();
 	});
 
+	it("ignores a turn the model refused, which was recorded as a row of zeros", () => {
+		const refused = withSpend({ sent: 0, cached: 0, received: 0, usd: 0, requests: 1 });
+		const what = sending(refused, [dev], tools, memories, dev);
+
+		expect(what.measured).toBeUndefined();
+		expect(what.unaccounted).toBeUndefined();
+	});
+
 	it("never reports a negative remainder, since an estimate can overshoot", () => {
 		const cheap = withSpend({ sent: 1, cached: 0, received: 1, usd: 0, requests: 1 });
 

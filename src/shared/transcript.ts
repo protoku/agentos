@@ -19,11 +19,16 @@ export function tokens(entries: Entry[], agents: Agent[]): number {
 	return estimateTokens(threadLines(entries.filter(settled), agents).join("\n"));
 }
 
+/** Whether a turn recorded a cost, since a refused turn reports zeros and older ones stored them. */
+export function spentAnything(spent: Spend | undefined): spent is Spend {
+	return spent !== undefined && (spent.sent > 0 || spent.received > 0 || spent.usd > 0);
+}
+
 /** What the conversation has actually cost, added up from the turns that reported it. */
 export function spentOn(entries: Entry[]): Spend {
 	const reported = entries.filter(
 		(entry): entry is Extract<Entry, { type: "turnEnd" }> & { spent: Spend } =>
-			entry.type === "turnEnd" && entry.spent !== undefined,
+			entry.type === "turnEnd" && spentAnything(entry.spent),
 	);
 
 	const total = reported.reduce<Spend>(

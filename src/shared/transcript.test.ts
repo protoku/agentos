@@ -108,6 +108,15 @@ describe("spentOn", () => {
 		expect(spentOn([ended()])).toEqual({ sent: 0, cached: 0, received: 0, usd: 0 });
 	});
 
+	it("leaves out a turn recorded with zeros, including its request", () => {
+		const entries = [
+			ended({ sent: 1000, cached: 800, received: 120, usd: 0.01, requests: 1 }),
+			ended({ sent: 0, cached: 0, received: 0, usd: 0, requests: 1 }),
+		];
+
+		expect(spentOn(entries)).toEqual({ sent: 1000, cached: 800, received: 120, usd: 0.01, requests: 1 });
+	});
+
 	it("costs nothing when nothing has happened", () => {
 		expect(spentOn([])).toEqual({ sent: 0, cached: 0, received: 0, usd: 0 });
 	});

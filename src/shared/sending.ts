@@ -1,5 +1,5 @@
 import { carriedMemories, memoryBlock } from "./memory";
-import { estimateTokens, tokens } from "./transcript";
+import { estimateTokens, spentAnything, tokens } from "./transcript";
 import type { Agent, Entry, Memory, Tool, TurnEnd, TurnStart } from "./types";
 
 /** What a turn carries, one part at a time, each priced the way the conversation's size is. */
@@ -63,7 +63,8 @@ export function sending(entries: Entry[], agents: Agent[], tools: Tool[], memori
 	parts.push({ name: "This conversation", kind: "thread", tokens: tokens(entries, agents) });
 
 	const estimated = parts.reduce((total, part) => total + part.tokens, 0);
-	const last = lastTurnOf(entries, acting.id)?.spent;
+	const recorded = lastTurnOf(entries, acting.id)?.spent;
+	const last = spentAnything(recorded) ? recorded : undefined;
 	// A turn that never recorded its count cannot claim to be one, so it says nothing rather than guess.
 	const single = last?.requests === 1;
 
