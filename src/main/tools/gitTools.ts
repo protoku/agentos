@@ -2,7 +2,9 @@ import { z } from "zod";
 import { define, sandboxPath, type BuiltinToolImplementation, type ToolTarget } from "./define";
 import { mountedAt } from "./mounts";
 import { createBranchTool } from "../git/branches";
+import { gitConfigOf } from "../git/clone";
 import { git } from "../git/git";
+import type { MountSource } from "../../shared/types";
 
 const mountPath = sandboxPath.describe("Sandbox path of the git mount this acts on");
 const logLimit = 20;
@@ -103,18 +105,34 @@ export const gitTools: BuiltinToolImplementation[] = [
 	}),
 	define({
 		id: createBranchTool,
-		description: "Create a branch on an isolated git mount and switch the mount onto it.",
+		description:
+			"Create a branch on an isolated git mount, starting from the tip of the remote's default branch, and switch the mount onto it.",
 		input: z.object({ path: mountPath, name: z.string().describe("Branch to create") }),
 		outputSchema: {
 			type: "object",
-			properties: { path: { type: "string", render: "path" }, branch: { type: "string" } },
-			required: ["path", "branch"],
+			properties: {
+				path: { type: "string", render: "path" },
+				branch: { type: "string" },
+				startedFrom: { type: "string", description: "Which tip the branch began at" },
+			},
+			required: ["path", "branch", "startedFrom"],
 		},
 		async run({ path, name }, context) {
-			const { directory } = await gitMount(context, path, { writable: true, isolated: true });
-			await git(["checkout", "-b", name], directory);
+			const { directory, source } = await gitMount(context, path, { writable: true, isolated: true });
+			if ((await git(["status", "--porcelain"], directory)).trim() !== "") {
+				throw new Error(`${path} has uncommitted changes: commit them before creating a branch`);
+			}
 
-			return { path, branch: name };
+			const { defaultBranch } = gitConfigOf(source);
+			const fetched = await git(["fetch", "origin"], directory).then(
+				() => true,
+				() => false,
+			);
+			const startedFrom = fetched ? `origin/${defaultBranch}` : defaultBranch;
+			// Not tracking the default branch, so the first push still sets the branch's own upstream.
+			await git(["checkout", "--no-track", "-b", name, startedFrom], directory);
+
+			return { path, branch: name, startedFrom };
 		},
 	}),
 	define({
@@ -216,7 +234,7 @@ async function gitMount(
 	context: ToolTarget,
 	path: string,
 	needs: Needs = {},
-): Promise<{ directory: string; branch?: string }> {
+): Promise<{ directory: string; source: MountSource; branch?: string }> {
 	const found = await mountedAt(context, path);
 	if (found === undefined) throw new Error(`Nothing is mounted at ${path}`);
 	if (found.source?.type !== "git") throw new Error(`${path} is not a git mount`);
@@ -229,7 +247,7 @@ async function gitMount(
 	const branch = await found.branch();
 	if (needs.branch === true && branch === undefined) throw new Error(`${path} is on no branch: create one first`);
 
-	return { directory: found.directory, branch };
+	return { directory: found.directory, source: found.source, branch };
 }
 
 /** How far this branch has drifted from what it tracks, when it tracks anything at all. */

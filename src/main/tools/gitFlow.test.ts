@@ -59,7 +59,7 @@ describe("branch, commit, push", () => {
 		const committed = await invoke("git_commit", { path: "api", message: "Add notes" });
 		const pushed = await invoke("git_push", { path: "api" });
 
-		expect(branched.output).toEqual({ path: "api", branch: "work" });
+		expect(branched.output).toEqual({ path: "api", branch: "work", startedFrom: "origin/main" });
 		expect(committed).toMatchObject({ status: "success", output: { branch: "work", message: "Add notes" } });
 		expect(pushed).toMatchObject({ status: "success", output: { branch: "work" } });
 		expect(await git(["log", "--pretty=%s", "-n1", "work"], remote)).toContain("Add notes");
@@ -106,6 +106,48 @@ describe("branch, commit, push", () => {
 		await invoke("unmount", { path: "api" });
 
 		expect(await git(["branch", "--list", "work"], clone())).toBe("");
+	});
+});
+
+describe("git_create_branch", () => {
+	it("starts the next branch from the remote's default branch, not from the branch before it", async () => {
+		await invoke("git_create_branch", { path: "api", name: "first" });
+		await invoke("write_file", { path: "api/first.md", content: "First" });
+		await invoke("git_commit", { path: "api", message: "First service" });
+		await invoke("git_push", { path: "api" });
+
+		const next = await invoke("git_create_branch", { path: "api", name: "second" });
+		const log = await invoke("git_log", { path: "api" });
+
+		expect(next).toMatchObject({ status: "success", output: { branch: "second", startedFrom: "origin/main" } });
+		expect(JSON.stringify(log.output)).not.toContain("First service");
+	});
+
+	it("starts from what the remote has now, including work pushed after mounting", async () => {
+		const elsewhere = await mkdtemp(join(tmpdir(), "agentos-elsewhere-"));
+		await git(["clone", remote, elsewhere]);
+		await git(["config", "user.email", "test@example.com"], elsewhere);
+		await git(["config", "user.name", "Test"], elsewhere);
+		await writeFile(join(elsewhere, "later.md"), "Later", "utf8");
+		await git(["add", "."], elsewhere);
+		await git(["commit", "-m", "Pushed later"], elsewhere);
+		await git(["push", "origin", "main"], elsewhere);
+		await rm(elsewhere, { recursive: true, force: true });
+
+		await invoke("git_create_branch", { path: "api", name: "work" });
+		const log = await invoke("git_log", { path: "api" });
+
+		expect(JSON.stringify(log.output)).toContain("Pushed later");
+	});
+
+	it("refuses while the mount has uncommitted changes, which would follow onto the new branch", async () => {
+		await invoke("git_create_branch", { path: "api", name: "first" });
+		await invoke("write_file", { path: "api/draft.md", content: "Unfinished" });
+
+		expect(await invoke("git_create_branch", { path: "api", name: "second" })).toMatchObject({
+			status: "error",
+			error: "api has uncommitted changes: commit them before creating a branch",
+		});
 	});
 });
 
