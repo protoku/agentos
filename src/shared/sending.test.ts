@@ -157,6 +157,18 @@ describe("sending", () => {
 		expect(what.unaccounted).toBeUndefined();
 	});
 
+	it("measures nothing from a turn that began before the latest summary, which was sent more than later turns are", () => {
+		const summarized: Entry[] = [
+			turn[1],
+			{ type: "summary", id: "s1", agentId: "agent-dev", turnId: "t1", content: "Short", createdAt: "" },
+			turn[2],
+		];
+		const what = sending(summarized, [dev], tools, memories, dev);
+
+		expect(what.measured).toBeUndefined();
+		expect(what.unaccounted).toBeUndefined();
+	});
+
 	it("never reports a negative remainder, since an estimate can overshoot", () => {
 		const cheap = withSpend({ sent: 1, cached: 0, received: 1, usd: 0, requests: 1 });
 

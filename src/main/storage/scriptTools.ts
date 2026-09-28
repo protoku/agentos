@@ -1,6 +1,7 @@
 import { randomUUID } from "node:crypto";
 import { loadWorkspace, saveWorkspace } from "./workspaceStore";
 import { builtinTools } from "../tools/builtin";
+import { summarizeCommand } from "../../shared/slash";
 import type { ScriptTool, Workflow } from "../../shared/types";
 
 export type ScriptToolDraft = Pick<
@@ -65,6 +66,7 @@ export async function deleteScriptTool(root: string, workspaceId: string, toolId
 function refuseName(name: string, others: ScriptTool[], workflows: Workflow[]): void {
 	if (!/^\w+$/.test(name)) throw new Error(`${name} is not a tool name: use letters, digits and underscores`);
 	if (builtinTools.some((builtin) => builtin.name === name)) throw new Error(`${name} is a built-in tool`);
+	if (name === summarizeCommand) throw new Error(`${name} is kept for the composer`);
 	if (others.some((tool) => tool.name === name)) throw new Error(`A tool named ${name} already exists`);
 	// One name is one thing to call, whichever kind of thing it is.
 	if (workflows.some((workflow) => workflow.name === name)) throw new Error(`${name} is a workflow of this workspace`);

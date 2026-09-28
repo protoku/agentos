@@ -60,7 +60,7 @@ function at(draft: string, caret = draft.length) {
 
 describe("completionAt", () => {
 	it("offers every tool on a bare slash, and narrows as the name is typed", () => {
-		expect(at("/")?.candidates).toHaveLength(3);
+		expect(at("/")?.candidates).toHaveLength(4);
 		expect(at("/re")?.candidates.map((candidate) => candidate.name)).toEqual(["read_file"]);
 	});
 
@@ -129,6 +129,11 @@ describe("completionAt", () => {
 
 	it("offers no agent inside a slash command, which carries no mentions", () => {
 		expect(at('/write_file content="@op')).toBeUndefined();
+	});
+
+	it("offers summarize among the tools, and the agents after it, since a summary is asked of one", () => {
+		expect(at("/sum")?.candidates.map((candidate) => candidate.name)).toEqual(["summarize"]);
+		expect(at("/summarize @op")?.candidates.map((candidate) => candidate.name)).toEqual(["ops"]);
 	});
 
 	it("offers nothing when the name matches none, or when there is no name to complete", () => {

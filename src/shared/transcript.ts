@@ -6,8 +6,15 @@ export function transcript(entries: Entry[], agents: Agent[], acting: Agent): st
 		`You are the agent @${acting.name} in a conversation with a user and possibly other agents.`,
 		"Below is everything said and done in it so far. Reply as yourself, in plain text.",
 		"",
-		...threadLines(entries, agents),
+		...threadLines(sinceSummary(entries), agents),
 	].join("\n");
+}
+
+/** The latest summary stands in for everything before it, so a thread is read from there on. */
+export function sinceSummary(entries: Entry[]): Entry[] {
+	const latest = entries.findLastIndex((entry) => entry.type === "summary");
+
+	return latest === -1 ? entries : entries.slice(latest);
 }
 
 /**
@@ -16,7 +23,7 @@ export function transcript(entries: Entry[], agents: Agent[], acting: Agent): st
  * tokenizer, and one thread can go to agents on different models, so this is approximate.
  */
 export function tokens(entries: Entry[], agents: Agent[]): number {
-	return estimateTokens(threadLines(entries.filter(settled), agents).join("\n"));
+	return estimateTokens(threadLines(sinceSummary(entries).filter(settled), agents).join("\n"));
 }
 
 /** Whether a turn recorded a cost, since a refused turn reports zeros and older ones stored them. */
@@ -64,7 +71,14 @@ function threadLines(entries: Entry[], agents: Agent[]): string[] {
 	for (const entry of entries) {
 		switch (entry.type) {
 			case "userMessage":
-				lines.push(`user: ${entry.content}`);
+				lines.push(
+					entry.summarize
+						? `user asks for a summary, written with write_summary, that later turns will be sent instead of everything before it: ${entry.content}`
+						: `user: ${entry.content}`,
+				);
+				break;
+			case "summary":
+				lines.push(`summary of the conversation before this point, by @${name(agents, entry.agentId)}:\n${entry.content}`);
 				break;
 			case "agentMessage":
 				lines.push(`@${name(agents, entry.agentId)}: ${entry.content}`);

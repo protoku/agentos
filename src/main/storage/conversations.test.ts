@@ -6,6 +6,7 @@ import {
 	archiveConversation,
 	listConversations,
 	readConversation,
+	requestSummary,
 	sendMessage,
 	startConversation,
 	startConversationWithTool,
@@ -76,6 +77,29 @@ describe("sendMessage", () => {
 		const second = await sendMessage(root, workspaceId, conversation.id, "Second");
 
 		expect(await readConversation(root, workspaceId, conversation.id)).toEqual([message, second]);
+	});
+});
+
+describe("requestSummary", () => {
+	it("records a request marked as one, naming the agent that writes it", async () => {
+		const ops = await createAgent(root, workspaceId, { name: "ops", model: "m", systemPrompt: "", tools: {}, carries: [] });
+		const { conversation } = await startConversation(root, workspaceId, "Convert the manifests");
+
+		const request = await requestSummary(root, workspaceId, conversation.id, "@ops keep the chart conventions");
+
+		expect(request).toMatchObject({ summarize: true, mentions: [ops.id], content: "@ops keep the chart conventions" });
+		expect((await readConversation(root, workspaceId, conversation.id)).at(-1)).toEqual(request);
+	});
+
+	it("refuses a request that names no agent, or more than one", async () => {
+		await createAgent(root, workspaceId, { name: "ops", model: "m", systemPrompt: "", tools: {}, carries: [] });
+		await createAgent(root, workspaceId, { name: "dev", model: "m", systemPrompt: "", tools: {}, carries: [] });
+		const { conversation, message } = await startConversation(root, workspaceId, "Convert the manifests");
+		const refusal = "Name the one agent that writes the summary, such as /summarize @dev";
+
+		await expect(requestSummary(root, workspaceId, conversation.id, "keep it short")).rejects.toThrow(refusal);
+		await expect(requestSummary(root, workspaceId, conversation.id, "@ops @dev keep it")).rejects.toThrow(refusal);
+		expect(await readConversation(root, workspaceId, conversation.id)).toEqual([message]);
 	});
 });
 

@@ -2,6 +2,7 @@ import { randomUUID } from "node:crypto";
 import { loadWorkspace, saveWorkspace } from "./workspaceStore";
 import { builtinTools } from "../tools/builtin";
 import { parseDefinition } from "../workflows/definition";
+import { summarizeCommand } from "../../shared/slash";
 import type { Workflow } from "../../shared/types";
 
 export type WorkflowDraft = Pick<Workflow, "name" | "description" | "definition">;
@@ -61,6 +62,7 @@ export async function deleteWorkflow(root: string, workspaceId: string, workflow
 export function refuseName(workflows: Workflow[], tools: { name: string }[], name: string): void {
 	if (!/^\w+$/.test(name)) throw new Error(`${name} is not a workflow name: use letters, digits and underscores`);
 	if (builtinTools.some((tool) => tool.name === name)) throw new Error(`${name} is a built-in tool`);
+	if (name === summarizeCommand) throw new Error(`${name} is kept for the composer`);
 	if (tools.some((tool) => tool.name === name)) throw new Error(`${name} is a tool of this workspace`);
 	if (workflows.some((workflow) => workflow.name === name)) {
 		throw new Error(`A workflow named ${name} already exists`);

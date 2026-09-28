@@ -9,6 +9,7 @@ const interruptionError = "Interrupted by an AgentOS restart.";
 const kinds = new Set([
 	"userMessage",
 	"agentMessage",
+	"summary",
 	"toolCall",
 	"turnStart",
 	"turnEnd",

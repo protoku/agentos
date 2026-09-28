@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseSlashCommand } from "./slash";
+import { parseSlashCommand, parseSummarize } from "./slash";
 
 describe("parseSlashCommand", () => {
 	it("leaves an ordinary message alone", () => {
@@ -26,5 +26,17 @@ describe("parseSlashCommand", () => {
 
 	it("accepts a tool with no arguments", () => {
 		expect(parseSlashCommand("/list_files")).toEqual({ toolId: "list_files", input: {} });
+	});
+});
+
+describe("parseSummarize", () => {
+	it("reads what follows /summarize as the request", () => {
+		expect(parseSummarize("/summarize @dev keep\nthe chart conventions")).toBe("@dev keep\nthe chart conventions");
+		expect(parseSummarize("/summarize")).toBe("");
+	});
+
+	it("leaves anything else alone, a tool whose name merely starts the same included", () => {
+		expect(parseSummarize("summarize this")).toBeUndefined();
+		expect(parseSummarize("/summarizer @dev")).toBeUndefined();
 	});
 });

@@ -9,6 +9,7 @@ import {
 	listConversations,
 	readConversation,
 	renameConversation,
+	requestSummary,
 	sendMessage,
 	startConversation,
 	startConversationWithTool,
@@ -40,7 +41,8 @@ import { sandboxDiff } from "./tools/diff";
 import { mountStates } from "./tools/mountState";
 import { viewSandboxPath } from "./tools/viewer";
 import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
-import { cancelTurn, isAgentActing, isTurnRunning, runMentionedTurns } from "./turns/run";
+import { cancelTurn, isAgentActing, isTurnRunning, runMentionedTurns, runTurnFor } from "./turns/run";
+import { summaryTools } from "./turns/summary";
 import { parseSlashCommand } from "../shared/slash";
 import type { Entry } from "../shared/types";
 import type { MemoryDraft } from "../shared/api";
@@ -127,6 +129,16 @@ void app.whenReady().then(async () => {
 		startTurns(root, workspaceId, conversationId, message.mentions);
 		return message;
 	});
+	ipcMain.handle(
+		"conversations:summarize",
+		async (_event, workspaceId: string, conversationId: string, content: string) => {
+			refuseWhileBusy(conversationId);
+			const request = await requestSummary(root, workspaceId, conversationId, content);
+			const [agentId] = request.mentions;
+			void runTurnFor(root, workspaceId, conversationId, agentId, broadcast(workspaceId, conversationId), summaryTools);
+			return request;
+		},
+	);
 	ipcMain.handle("conversations:rename", (_event, workspaceId: string, conversationId: string, title: string) =>
 		renameConversation(root, workspaceId, conversationId, title),
 	);

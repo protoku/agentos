@@ -94,7 +94,7 @@ export interface Mount {
 	createdAt: string;
 }
 
-export type Entry = Message | ToolCall | TurnStart | TurnEnd | WorkflowStart | WorkflowStep | WorkflowEnd;
+export type Entry = Message | Summary | ToolCall | TurnStart | TurnEnd | WorkflowStart | WorkflowStep | WorkflowEnd;
 
 export type Message = UserMessage | AgentMessage;
 
@@ -102,6 +102,18 @@ export interface UserMessage {
 	type: "userMessage";
 	id: string;
 	mentions?: string[];
+	/** Asks the one agent it mentions to write a summary, which later turns start from. */
+	summarize?: true;
+	content: string;
+	createdAt: string;
+}
+
+/** What later turns are sent in place of everything before it. */
+export interface Summary {
+	type: "summary";
+	id: string;
+	agentId: string;
+	turnId: string;
 	content: string;
 	createdAt: string;
 }

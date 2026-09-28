@@ -10,6 +10,7 @@ import {
 	FolderOpen,
 	FolderTree,
 	Route,
+	ScrollText,
 	Coins,
 	Gauge,
 	GitCompare,
@@ -62,6 +63,7 @@ import type {
 	Agent,
 	Entry,
 	MountSource,
+	Summary,
 	Tool,
 	ToolCall,
 	Workflow,
@@ -124,6 +126,7 @@ export function Thread({
 	const [dismissed, setDismissed] = useState(false);
 	const composer = useRef<HTMLTextAreaElement>(null);
 	const [naming, setNaming] = useState<string>();
+	const [refused, setRefused] = useState<string>();
 
 	// A start with no end is a turn running right now, and the thread belongs to that agent.
 	const endedTurns = new Set(entries.filter((entry) => entry.type === "turnEnd").map((entry) => entry.turnId));
@@ -209,7 +212,14 @@ export function Thread({
 		if (busy) return;
 
 		onDraft("");
-		await onSend(content);
+		try {
+			await onSend(content);
+			setRefused(undefined);
+		} catch (failure) {
+			// Refused before anything was recorded, so what was typed is given back to fix.
+			onDraft(content);
+			setRefused(failure instanceof Error ? failure.message : String(failure));
+		}
 	}
 
 	return (
@@ -351,6 +361,8 @@ export function Thread({
 											first={index === 0}
 											onOpenRun={onOpenRun}
 										/>
+									) : block.summary ? (
+										<SummaryRow entry={block.entries[0] as Summary} first={index === 0} agents={agents} />
 									) : (
 										<Block
 										block={block}
@@ -465,6 +477,7 @@ export function Thread({
 							)}
 						</div>
 					</div>
+					{refused && <p className="px-2 pt-1.5 text-sm text-destructive">{refused}</p>}
 				</div>
 			)}
 
@@ -529,6 +542,8 @@ interface ActorBlock {
 	working: boolean;
 	/** A run's own markers stand alone, bracketing the steps they opened. */
 	run?: boolean;
+	/** A summary stands alone too, as the break later turns start from. */
+	summary?: boolean;
 	entries: Entry[];
 }
 
@@ -545,10 +560,15 @@ function blocksOf(entries: Entry[], endedTurns: Set<string>): ActorBlock[] {
 			blocks.push({ working: false, run: true, entries: [entry] });
 			continue;
 		}
+		if (entry.type === "summary") {
+			blocks.push({ working: false, summary: true, entries: [entry] });
+			continue;
+		}
 
 		const agentId = entry.type === "userMessage" ? undefined : "agentId" in entry ? entry.agentId : undefined;
 		const last = blocks.at(-1);
-		const block = last?.run === undefined && last?.agentId === agentId && last !== undefined ? last : undefined;
+		const standsAlone = last?.run === true || last?.summary === true;
+		const block = !standsAlone && last?.agentId === agentId && last !== undefined ? last : undefined;
 
 		if (block === undefined) blocks.push({ agentId, working: false, entries: [] });
 		const current = blocks.at(-1) as ActorBlock;
@@ -627,6 +647,28 @@ function RunRow({
 	);
 }
 
+/** Everything above it is still here to read, but later turns are sent this in its place. */
+function SummaryRow({ entry, first, agents }: { entry: Summary; first: boolean; agents: Agent[] }) {
+	return (
+		<section className={cn("group flex flex-col gap-3 py-4", !first && "border-t border-border")}>
+			<div className="flex items-center gap-2 text-sm">
+				<Medallion className="size-7 text-muted-foreground [&_svg]:size-4">
+					<ScrollText />
+				</Medallion>
+				<span className="font-medium">Summary by @{agentName(agents, entry.agentId)}</span>
+				<time className="text-xs text-muted-foreground" dateTime={entry.createdAt}>
+					{time(entry.createdAt)}
+				</time>
+				<span className="text-xs text-muted-foreground">later turns start here</span>
+				<CopyButton label="Copy summary" text={entry.content} className={cn("ml-auto", hidden)} />
+			</div>
+			<div className="pl-7">
+				<Markdown content={entry.content} />
+			</div>
+		</section>
+	);
+}
+
 function Block({
 	block,
 	first,
@@ -697,6 +739,7 @@ function EntryView({
 		case "toolCall":
 			return <CallRow call={entry} tools={tools} sources={sources} onOpenPath={onOpenPath} />;
 		case "turnStart":
+		case "summary":
 			return null;
 		case "turnEnd":
 			return (
@@ -713,7 +756,14 @@ function EntryView({
 				<article className="group flex items-start gap-2">
 					<div className="min-w-0 flex-1">
 						{entry.type === "userMessage" ? (
-							<p className="text-sm whitespace-pre-wrap">{withMentions(entry.content, agents)}</p>
+							<p className="text-sm whitespace-pre-wrap">
+								{entry.summarize && (
+									<Badge variant="outline" className="mr-2 align-middle">
+										asks for a summary
+									</Badge>
+								)}
+								{withMentions(entry.content, agents)}
+							</p>
 						) : (
 							<Markdown content={entry.content} />
 						)}

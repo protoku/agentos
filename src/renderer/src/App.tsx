@@ -65,7 +65,7 @@ import { Thread } from "./Thread";
 import { pathOf } from "../../shared/render";
 import { Diff } from "./Diff";
 import { SidePane, Viewer } from "./Viewer";
-import { parseSlashCommand } from "../../shared/slash";
+import { parseSlashCommand, parseSummarize } from "../../shared/slash";
 import type { ConversationSummary, MountState } from "../../shared/api";
 import type { Agent, Entry, MountSource, Tool, ToolCall, Workflow, Workspace } from "../../shared/types";
 
@@ -257,6 +257,15 @@ export function App() {
 
 	async function send(content: string) {
 		if (workspaceId === undefined) return;
+
+		const summarize = parseSummarize(content);
+		if (summarize !== undefined) {
+			if (conversationId === undefined) throw new Error("A new conversation holds nothing to summarize yet");
+
+			const request = await window.agentOS.requestSummary(workspaceId, conversationId, summarize);
+			setEntries((current) => [...current, request]);
+			return setConversations(await window.agentOS.listConversations(workspaceId));
+		}
 
 		const command = parseSlashCommand(content);
 		const workflow = workflows.find((candidate) => candidate.name === command?.toolId);

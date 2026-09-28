@@ -1,3 +1,4 @@
+import { summarizeCommand } from "./slash";
 import type { Agent, MountSource, Tool, Workflow } from "./types";
 
 export interface Candidate {
@@ -27,6 +28,12 @@ interface Property {
 
 type Sources = Pick<MountSource, "id" | "name">[];
 
+const summarizing: Candidate = {
+	id: summarizeCommand,
+	name: summarizeCommand,
+	description: "Ask an agent for a summary that later turns start from",
+};
+
 export function completionAt(
 	draft: string,
 	caret: number,
@@ -38,11 +45,12 @@ export function completionAt(
 	// A slash command names its tool in the first token, then its arguments, and carries no mentions.
 	if (draft.startsWith("/")) {
 		const name = draft.slice(1).split(/\s/)[0];
-		// One namespace: what a slash names is a tool of the workspace or a workflow of it.
-		const runnable = [...tools, ...workflows];
+		// One namespace: what a slash names is a tool of the workspace, a workflow of it, or summarize.
+		const runnable = [...tools, ...workflows, summarizing];
 		if (caret <= name.length + 1) return matching(runnable, draft.slice(1, caret), 1, nameEnd(draft, caret), " ");
 
-		return argumentsOf(draft, caret, tools.find((tool) => tool.name === name), sources);
+		// A summary is asked of an agent, so what follows it is a message with its mention.
+		if (name !== summarizeCommand) return argumentsOf(draft, caret, tools.find((tool) => tool.name === name), sources);
 	}
 
 	for (let index = caret - 1; index >= 0; index--) {

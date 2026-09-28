@@ -76,6 +76,9 @@ describe("createWorkflow", () => {
 		await expect(createWorkflow(root, workspaceId, { ...intake, name: "write_file" })).rejects.toThrow(
 			"write_file is a built-in tool",
 		);
+		await expect(createWorkflow(root, workspaceId, { ...intake, name: "summarize" })).rejects.toThrow(
+			"summarize is kept for the composer",
+		);
 		await expect(createWorkflow(root, workspaceId, intake)).rejects.toThrow(
 			"A workflow named intake already exists",
 		);

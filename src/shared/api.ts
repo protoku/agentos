@@ -85,6 +85,7 @@ export interface AgentOSApi {
 		content: string,
 	): Promise<{ conversation: Conversation; call: ToolCall }>;
 	sendMessage(workspaceId: string, conversationId: string, content: string): Promise<UserMessage>;
+	requestSummary(workspaceId: string, conversationId: string, content: string): Promise<UserMessage>;
 	renameConversation(workspaceId: string, conversationId: string, title: string): Promise<Conversation>;
 	archiveConversation(workspaceId: string, conversationId: string): Promise<Conversation>;
 	/** Shows the conversation's sandbox in the file manager. */

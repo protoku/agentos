@@ -95,6 +95,31 @@ export async function sendMessage(
 	return message;
 }
 
+/** A summary is asked of exactly one agent, since one summary is what later turns start from. */
+export async function requestSummary(
+	root: string,
+	workspaceId: string,
+	conversationId: string,
+	content: string,
+): Promise<UserMessage & { mentions: [string] }> {
+	const workspace = await loadWorkspace(root, workspaceId);
+	const mentioned = [...new Set(findMentions(content, workspace.agents).map((mention) => mention.agentId))];
+	if (mentioned.length !== 1) throw new Error("Name the one agent that writes the summary, such as /summarize @dev");
+
+	const message: UserMessage & { mentions: [string] } = {
+		type: "userMessage",
+		id: randomUUID(),
+		mentions: [mentioned[0]],
+		summarize: true,
+		content,
+		createdAt: new Date().toISOString(),
+	};
+
+	await appendEntry(conversationFile(root, workspaceId, conversationId), message);
+
+	return message;
+}
+
 /** The title is a label for finding this again, so changing it changes nothing else. */
 export async function renameConversation(
 	root: string,

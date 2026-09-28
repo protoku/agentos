@@ -3,6 +3,9 @@ export interface SlashCommand {
 	input: Record<string, string>;
 }
 
+/** Not a tool: it asks an agent to write the summary later turns start from. */
+export const summarizeCommand = "summarize";
+
 const argument = /(\w+)=(?:"((?:[^"\\]|\\.)*)"|(\S+))/g;
 
 /** A message starting with / is a tool call: /write_file path=notes.md content="Ship it" */
@@ -19,4 +22,11 @@ export function parseSlashCommand(content: string): SlashCommand | undefined {
 	}
 
 	return { toolId: command, input };
+}
+
+/** What a /summarize asks for, the agent to write it and what to keep, or nothing if it is not one. */
+export function parseSummarize(content: string): string | undefined {
+	const match = /^\/summarize(?:\s+([\s\S]*))?$/.exec(content.trim());
+
+	return match === null ? undefined : (match[1] ?? "").trim();
 }

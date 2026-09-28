@@ -43,6 +43,9 @@ describe("createScriptTool", () => {
 		await expect(createScriptTool(root, workspaceId, { ...draft, name: "read_file" })).rejects.toThrow(
 			"read_file is a built-in tool",
 		);
+		await expect(createScriptTool(root, workspaceId, { ...draft, name: "summarize" })).rejects.toThrow(
+			"summarize is kept for the composer",
+		);
 
 		await createScriptTool(root, workspaceId, draft);
 		await expect(createScriptTool(root, workspaceId, draft)).rejects.toThrow("A tool named count_lines already exists");

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateTokens, spentOn, tokens, transcript } from "./transcript";
+import { estimateTokens, sinceSummary, spentOn, tokens, transcript } from "./transcript";
 import type { Agent, Entry } from "./types";
 
 const ops: Agent = {
@@ -134,5 +134,47 @@ describe("spentOn", () => {
 		const entries = [ended({ sent: 1000, cached: 800, received: 120, usd: 0.01 })];
 
 		expect(spentOn(entries).requests).toBeUndefined();
+	});
+});
+
+describe("summaries", () => {
+	const summarized: Entry[] = [
+		...entries,
+		{ type: "userMessage", id: "m3", mentions: [ops.id], summarize: true, content: "@ops keep the deploy", createdAt: "" },
+		{ type: "turnStart", id: "t2", agentId: ops.id, createdAt: "" },
+		{ type: "summary", id: "s1", agentId: ops.id, turnId: "t2", content: "Deployed a.txt", createdAt: "" },
+		{ type: "turnEnd", id: "e2", turnId: "t2", status: "finished", createdAt: "" },
+		{ type: "userMessage", id: "m4", content: "next service", createdAt: "" },
+	];
+
+	it("asks the summarizing agent for a summary, in the words of the request", () => {
+		const text = transcript(entries.concat(summarized.slice(5, 7)), [ops], ops);
+
+		expect(text).toContain("user asks for a summary, written with write_summary");
+		expect(text).toContain("@ops keep the deploy");
+	});
+
+	it("sends later turns the latest summary and what follows it, and nothing before", () => {
+		const text = transcript(summarized, [ops], ops);
+
+		expect(text).toContain("summary of the conversation before this point, by @ops:\nDeployed a.txt");
+		expect(text).toContain("user: next service");
+		expect(text).not.toContain("@ops deploy");
+		expect(text).not.toContain("keep the deploy");
+	});
+
+	it("counts the size from the latest summary on, so it drops once one is written", () => {
+		expect(tokens(summarized, [ops])).toBeLessThan(tokens(summarized.slice(0, 7), [ops]));
+		expect(tokens(summarized, [ops])).toBe(tokens(summarized.slice(7), [ops]));
+	});
+
+	it("chains, reading from the latest summary only", () => {
+		const again: Entry[] = [
+			...summarized,
+			{ type: "summary", id: "s2", agentId: ops.id, turnId: "t3", content: "Two done", createdAt: "" },
+		];
+
+		expect(sinceSummary(again).map((entry) => entry.id)).toEqual(["s2"]);
+		expect(sinceSummary(entries)).toEqual(entries);
 	});
 });

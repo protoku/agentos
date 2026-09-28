@@ -10,6 +10,7 @@ import { show } from "../tools/inflight";
 import { builtinTools } from "../tools/builtin";
 import { implementationOf } from "../tools/script";
 import { listScriptTools } from "../storage/scriptTools";
+import { writeSummary, writeSummaryId } from "./summary";
 import type { ToolImplementation, ToolTarget } from "../tools/define";
 import type { Agent, ToolCall } from "../../shared/types";
 import type { EntrySink } from "./run";
@@ -79,6 +80,12 @@ async function record(
 		call.status = "canceled";
 
 		return settle(call, context, canceledCall);
+	}
+
+	if (builtin.id === writeSummaryId) {
+		await writeSummary(String(input.summary ?? ""), context);
+
+		return { content: [{ type: "text", text: "The summary is written: later turns start from it." }], isError: false };
 	}
 
 	if (asks) {

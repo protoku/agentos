@@ -2,7 +2,9 @@ import { mkdtemp, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { summaryTools, writeSummary } from "./summary";
 import { grantedTools, type CallContext } from "./tools";
+import { readEntries } from "../storage/conversationFile";
 import { createWorkspace } from "../storage/workspaceStore";
 import type { Agent } from "../../shared/types";
 
@@ -59,5 +61,26 @@ describe("grantedTools", () => {
 
 	it("grants nothing to an agent listed for nothing", async () => {
 		expect((await grantedTools(agentWith({}), context())).allowedTools).toEqual([]);
+	});
+});
+
+describe("write_summary", () => {
+	it("is lent for the turn a summary was asked for, and held by no agent otherwise", async () => {
+		const lent = await grantedTools(agentWith({}), context(), summaryTools);
+
+		expect(lent.allowedTools).toEqual(["mcp__agentos__write_summary"]);
+		expect((await grantedTools(agentWith({ write_summary: "allow" }), context())).allowedTools).toEqual([]);
+	});
+
+	it("lands as a summary entry of the agent and its turn, rather than as a tool call", async () => {
+		const written = await writeSummary("Converted three services", context());
+
+		expect(written).toMatchObject({
+			type: "summary",
+			agentId: "agent-1",
+			turnId: "turn-1",
+			content: "Converted three services",
+		});
+		expect(await readEntries(context().file)).toEqual([written]);
 	});
 });

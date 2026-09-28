@@ -29,9 +29,13 @@ interface Workspace {
 
 ## Conversation
 
-A conversation is a thread of messages, tool calls, and turn markers between the user and one or more agents of the workspace. The user brings agents in by @-mentioning them, and every agent in the conversation sees the full thread, every entry included. A message can mention several agents: each acts on it in mention order, one at a time, so later agents see the work of earlier ones. Mentioning the same agent again queues it again: every mention is its own turn. Agents act only when mentioned.
+A conversation is a thread of messages, tool calls, and turn markers between the user and one or more agents of the workspace. The user brings agents in by @-mentioning them, and every agent in the conversation sees the full thread, every entry included, from its latest summary on. A message can mention several agents: each acts on it in mention order, one at a time, so later agents see the work of earlier ones. Mentioning the same agent again queues it again: every mention is its own turn. Agents act only when mentioned.
 
-Because every agent is sent the whole thread, a conversation has a size: the tokens that thread costs an agent. What is measured is the conversation's own content, every message and every settled tool call with its input, output and error; turn markers carry no content and add nothing, and a call still pending or running counts for nothing until it settles, since an unfinished entry is not part of what a turn is sent. What a turn adds around the thread, its framing and the acting agent's system prompt, belongs to that turn rather than to the conversation and is left out. The figure is an estimate and is shown as approximate, since the exact count depends on the tokenizer of the model being asked, and one thread can be sent to agents on different models.
+Because every agent is sent the whole thread, from its latest summary on, a conversation has a size: the tokens that thread costs an agent. What is measured is the conversation's own content, every message and every settled tool call with its input, output and error; turn markers carry no content and add nothing, and a call still pending or running counts for nothing until it settles, since an unfinished entry is not part of what a turn is sent. What a turn adds around the thread, its framing and the acting agent's system prompt, belongs to that turn rather than to the conversation and is left out. The figure is an estimate and is shown as approximate, since the exact count depends on the tokenizer of the model being asked, and one thread can be sent to agents on different models.
+
+A conversation that runs long can be summarized, so the work carries on without every turn carrying all of it. The user asks for one from the composer with /summarize, naming the agent that writes it and saying what it should keep, such as /summarize @dev we continue converting the manifests one service at a time. The request is a user message marked as one, and it names exactly one agent: without an agent, or with more than one, it is refused. A draft cannot be summarized, since it holds nothing yet. That agent then takes an ordinary turn and is lent one tool for it, write_summary, as a workflow step lends workflow_result: only the user asks for a summary, and no agent holds that tool outside the turn it was asked for. What it writes lands as a summary entry attributed to it and its turn, rather than as a tool call, since the summary is the whole of that call and nothing is recorded twice. A turn that ends without writing one changes nothing about what later turns see.
+
+From the latest summary on, the summary stands in for everything before it: every later turn is sent the summary and what follows it, and the conversation's size counts the same, so the size drops once a summary is written. A later summary is written from the one before it and what followed, so summaries chain. Nothing before a summary is rewritten or removed: the thread still shows all of it, and a reader of the conversation as a mounted source reads it whole, since that is the record.
 
 A new conversation starts as a draft: it is visible in the interface and nothing about it is recorded. Its first entry is what creates it, a message or a tool call the user invokes, and that entry gives it its title, shortened to fit the list. A draft that never receives one leaves no trace. The title can be changed afterwards, since it is a label for finding the conversation again rather than a record of anything: renaming changes nothing else, and an archived conversation cannot be renamed, being closed. An agent acting in the conversation can rename it as well as the user, through a built-in tool, so a thread that turned out to be about something else is relabeled without the user doing it.
 
@@ -51,7 +55,7 @@ interface Conversation {
 	archivedAt?: string;
 	sandbox?: string;
 	mounts: Mount[];
-	entries: (Message | ToolCall | TurnStart | TurnEnd | WorkflowStart | WorkflowStep | WorkflowEnd)[];
+	entries: (Message | Summary | ToolCall | TurnStart | TurnEnd | WorkflowStart | WorkflowStep | WorkflowEnd)[];
 }
 ```
 
@@ -68,6 +72,16 @@ interface UserMessage {
 	type: "userMessage";
 	id: string;
 	mentions?: string[];
+	summarize?: true;
+	content: string;
+	createdAt: string;
+}
+
+interface Summary {
+	type: "summary";
+	id: string;
+	agentId: string;
+	turnId: string;
 	content: string;
 	createdAt: string;
 }
@@ -233,7 +247,7 @@ failure of the run rather than of the writing.
 
 A workflow is named as a tool is, in one word, and the two share one namespace: a workflow may not
 take the name of a tool and a tool may not take the name of a workflow, since a name in the composer
-means one thing to run. It is started from the composer by that name, with the arguments its input
+means one thing to run. Neither may be named summarize, which the composer keeps for itself. It is started from the composer by that name, with the arguments its input
 declares.
 
 A workflow can be deleted, as everything else a workspace owns can. One that is wrong keeps offering
@@ -449,6 +463,7 @@ Building workflows is lighter than either, because a workflow does nothing by it
 - rename_conversation: give the conversation the call happens in a new title
 - ask_user: ask the user up to four questions, each with prepared answers, and receive what they answered
 - workflow_result: declare what the step being taken asked for, which no permission grants and no agent holds outside one
+- write_summary: write the summary the user asked for, which no permission grants and no agent holds outside the turn it was asked for
 - create_agent: add an agent to the workspace, its permissions named by tool name
 - update_agent: change an agent of the workspace, naming it as it is named now
 - git_status: show what changed on a git mount, and how far its branch is ahead of or behind the remote
@@ -475,11 +490,13 @@ Features of the app around the model above.
 - Agents run on the Claude Code installed on the machine, found wherever it put itself. When it is not there the app says so and where to get it, rather than letting every turn fail on its own.
 - The thread follows its newest entry while you are at the bottom of it, and stops following the moment you scroll away to read, offering a way back to the newest. A conversation opens at its newest entry.
 - An agent's message is rendered as markdown, which is how models write. A user's message stays as typed, with its @mentions highlighted. A link opens in the browser rather than in AgentOS.
+- A summary request reads as the user's message, marked as asking for a summary. The summary itself reads as a break across the thread: it names the agent that wrote it, is rendered as markdown, says that later turns start from it, and copies its text like a message.
 - A pending call is decided in the entry itself: approve it, or deny it with a message for the agent alongside.
 - A call that asks is answered in the entry itself rather than approved: each question shows the answers it prepared, one to pick or several where it says so, and a line to answer in your own words instead. Nothing is sent until every question has an answer, and canceling the turn ends the call unanswered.
 - A conversation opens on what it has in flight as well as on what its file holds: a call that is pending or running is nowhere but in memory until it settles, and it is shown all the same. So a decision that arrived while you were reading another conversation is waiting in this one when you come back, rather than appearing only once something ends it.
+- What the composer is refused, such as a summary that names no agent, stays in it as typed, with the reason beneath it.
 - The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn; while a workflow runs it cancels the run, so one press ends a run of any length.
-- The composer completes what can be named in it: / at the start of a message lists the tools, the arguments of that tool once it is named, and @ anywhere lists the agents, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
+- The composer completes what can be named in it: / at the start of a message lists the tools and summarize, the arguments of that tool once it is named, and @ anywhere lists the agents, after /summarize too, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open.
 - An argument's value completes too, wherever what it can hold is known: a fixed set of choices lists them, a yes or no lists true and false, and an argument that names a mount source lists the workspace's sources. An accepted value that contains spaces arrives quoted, the way such a value has to be written. A value that can be anything, such as a path or a piece of text, completes to nothing and stays the caller's to write.
 - What is typed in the composer and not sent belongs to the conversation it was typed in: leaving for another conversation, another workspace or a pane that replaces the thread, and coming back, finds it exactly as it was, with the caret at its end. A new conversation keeps what was typed in it the same way, for as long as that draft is in the interface. None of this is recorded, so it lives as long as AgentOS is running and a draft that never receives an entry still leaves no trace.
 - The window carries no application menu: everything AgentOS does is reachable in the interface itself. On macOS, where the menu bar belongs to the system rather than the window, it carries only what the platform needs to work at all, editing and quitting, and nothing of AgentOS's own.
@@ -505,7 +522,7 @@ Features of the app around the model above.
 - An agent's editor names the tags it carries, and says how many memories that is and roughly what they cost it on every turn. An agent is deleted there, confirming first and saying that its past turns will read as unknown.
 - A script tool's editor writes its function and its two schemas as code rather than as plain text: lines are numbered, the function is coloured as JavaScript and each schema as JSON, and Tab indents instead of leaving the box. A box grows with what is in it, so the way to save stays below the code.
 - A workflow is started in the composer by its name, exactly as a tool is invoked, and the composer completes both from the one list of names. Starting one in a draft creates the conversation, as sending a message does.
-- A conversation's size and what it has cost both open what a turn sends, beside the thread, so it can be read before the first turn as well as after one: the agent's system prompt, the memories it carries, every tool it holds, heaviest first, and the conversation itself, each with what it is reckoned to cost. Beneath them is what that agent's last turn was actually sent, which covers every request that turn made rather than one, and how many requests that was. Where the turn was a single request the difference between the two is shown, which is the framing Claude Code puts around it and no workspace setting reaches; where it was several the difference is not that and is not shown, since a turn that calls tools asks again each time and carries more each time. The parts are estimates and the last figure is a measurement, so the difference carries the error in the estimates as well, and the pane says so rather than implying a precision it does not have. Where several agents have acted, it opens on whoever acted last and offers the others.
+- A conversation's size and what it has cost both open what a turn sends, beside the thread, so it can be read before the first turn as well as after one: the agent's system prompt, the memories it carries, every tool it holds, heaviest first, and the conversation itself, each with what it is reckoned to cost. Beneath them is what that agent's last turn since the latest summary was actually sent, which covers every request that turn made rather than one, and how many requests that was. Where the turn was a single request the difference between the two is shown, which is the framing Claude Code puts around it and no workspace setting reaches; where it was several the difference is not that and is not shown, since a turn that calls tools asks again each time and carries more each time. The parts are estimates and the last figure is a measurement, so the difference carries the error in the estimates as well, and the pane says so rather than implying a precision it does not have. Where several agents have acted, it opens on whoever acted last and offers the others.
 - A run reads as its steps: the workflow where it started, each step naming what it is about to do, whatever that step did beneath it, and the end saying how it stopped. Any of those opens the run beside the thread, where its steps are listed with the one it is on marked, and where a step that was skipped, that failed or that was canceled says so.
 - A tool is invoked in the composer as a slash command with key=value arguments, quoting any value that contains spaces: /write_file path=notes/todo.md content="Ship it". Invoking one in a draft creates the conversation, exactly as sending a message does, and the call is its first entry.
 - The sidebar lists the twenty conversations with the most recent activity, archived ones left out; a conversation's activity is the time of its last entry. The conversations pane lists every conversation, archived included, in that same order.
