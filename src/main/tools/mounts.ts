@@ -13,16 +13,18 @@ import type { Conversation, Mount, MountSource, Workspace } from "../../shared/t
 
 const mountPath = sandboxPath.describe("Where in the sandbox the source is attached");
 
+export const mountInput = z.object({
+	source: z.string().describe("Name of the workspace mount source").meta({ values: "sources" }),
+	path: mountPath,
+	mode: z.enum(["shared", "isolated"]).optional().describe("Shared unless asked otherwise"),
+	readOnly: z.boolean().optional(),
+});
+
 export const mountTools: BuiltinToolImplementation[] = [
 	define({
 		id: "mount",
 		description: "Attach a workspace mount source into the sandbox at a path.",
-		input: z.object({
-			source: z.string().describe("Name of the workspace mount source").meta({ values: "sources" }),
-			path: mountPath,
-			mode: z.enum(["shared", "isolated"]).optional().describe("Shared unless asked otherwise"),
-			readOnly: z.boolean().optional(),
-		}),
+		input: mountInput,
 		outputSchema: {
 			type: "object",
 			properties: {

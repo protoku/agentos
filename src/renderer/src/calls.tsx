@@ -60,6 +60,12 @@ const summaries: Record<string, Summary> = {
 			.filter((term) => term !== undefined)
 			.join(", "),
 	}),
+	create_conversation: ({ title, prompt, started }) => ({
+		label: "Open conversation",
+		icon: <MessagesSquare />,
+		subject: String(title ?? prompt),
+		hint: typeof started === "string" ? `started a ${started}` : undefined,
+	}),
 	read_file: ({ path, content }) => ({
 		label: "Read file",
 		icon: <FileText />,

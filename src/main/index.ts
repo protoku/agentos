@@ -36,6 +36,7 @@ import {
 	type ScriptToolDraft,
 } from "./storage/scriptTools";
 import { builtinToolMetadata } from "./tools/builtin";
+import { showOpenedConversationsWith } from "./tools/conversationTools";
 import { invokeTool, isCallRunning } from "./tools/invoke";
 import { sandboxDiff } from "./tools/diff";
 import { mountStates } from "./tools/mountState";
@@ -95,6 +96,7 @@ void app.whenReady().then(async () => {
 
 	// Before anything can spawn a command, so tools and git hooks see the path you have in a shell.
 	await adoptShellPath();
+	showOpenedConversationsWith(broadcast);
 
 	ipcMain.handle("agents:runtime", async () => ({
 		found: (await claudeCodePath()) !== undefined,

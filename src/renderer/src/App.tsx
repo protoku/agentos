@@ -157,10 +157,13 @@ export function App() {
 					? current.map((existing) => (existing.id === entry.id ? entry : existing))
 					: [...current, entry],
 			);
-			// A rename is in the list at once, rather than waiting for the turn that did it to end.
-			const renamed =
-				entry.type === "toolCall" && entry.toolId === "rename_conversation" && entry.status === "success";
-			if (entry.type === "turnEnd" || entry.type === "workflowEnd" || renamed) {
+			// A rename or a new conversation is in the list at once, rather than waiting for the turn to end.
+			const relisted =
+				entry.type === "toolCall" &&
+				((entry.toolId === "rename_conversation" && entry.status === "success") ||
+					// One whose mount failed still opened the conversation it names.
+					(entry.toolId === "create_conversation" && entry.status !== "pending" && entry.status !== "running"));
+			if (entry.type === "turnEnd" || entry.type === "workflowEnd" || relisted) {
 				void window.agentOS.listConversations(forWorkspace).then(setConversations);
 			}
 		});
@@ -533,6 +536,7 @@ export function App() {
 					}
 					onOpenPath={(path) => setViewing({ kind: "file", path })}
 					onOpenRun={(runId) => setViewing({ kind: "run", path: runId })}
+					onOpenConversation={(id) => void openThread(id)}
 					onOpenDiff={(path) => setViewing({ kind: "diff", path })}
 					// The cost in the header opens what a turn carries, and closes it again.
 					onOpenSending={() =>

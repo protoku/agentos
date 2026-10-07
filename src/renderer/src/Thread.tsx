@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
 	ArrowUp,
+	ArrowUpRight,
 	Bot,
 	Boxes,
 	Check,
@@ -93,6 +94,7 @@ export function Thread({
 	onOpenFiles,
 	onOpenPath,
 	onOpenRun,
+	onOpenConversation,
 	onOpenDiff,
 	onOpenSending,
 	onRename,
@@ -115,6 +117,7 @@ export function Thread({
 	onOpenFiles: () => void;
 	onOpenPath: (path: string) => void;
 	onOpenRun: (runId: string) => void;
+	onOpenConversation: (conversationId: string) => void;
 	onOpenDiff: (path: string) => void;
 	onOpenSending: () => void;
 	onRename?: (title: string) => Promise<void>;
@@ -371,6 +374,7 @@ export function Thread({
 										tools={tools}
 										sources={sources}
 										onOpenPath={onOpenPath}
+										onOpenConversation={onOpenConversation}
 									/>
 									)}
 								</MessageScrollerItem>
@@ -676,6 +680,7 @@ function Block({
 	tools,
 	sources,
 	onOpenPath,
+	onOpenConversation,
 }: {
 	block: ActorBlock;
 	first: boolean;
@@ -683,6 +688,7 @@ function Block({
 	tools: Tool[];
 	sources: MountSource[];
 	onOpenPath: (path: string) => void;
+	onOpenConversation: (conversationId: string) => void;
 }) {
 	const began = block.entries[0];
 
@@ -714,6 +720,7 @@ function Block({
 							tools={tools}
 							sources={sources}
 							onOpenPath={onOpenPath}
+							onOpenConversation={onOpenConversation}
 						/>
 					</div>
 				))}
@@ -728,16 +735,26 @@ function EntryView({
 	tools,
 	sources,
 	onOpenPath,
+	onOpenConversation,
 }: {
 	entry: Entry;
 	agents: Agent[];
 	tools: Tool[];
 	sources: MountSource[];
 	onOpenPath: (path: string) => void;
+	onOpenConversation: (conversationId: string) => void;
 }) {
 	switch (entry.type) {
 		case "toolCall":
-			return <CallRow call={entry} tools={tools} sources={sources} onOpenPath={onOpenPath} />;
+			return (
+				<CallRow
+					call={entry}
+					tools={tools}
+					sources={sources}
+					onOpenPath={onOpenPath}
+					onOpenConversation={onOpenConversation}
+				/>
+			);
 		case "turnStart":
 		case "summary":
 			return null;
@@ -793,11 +810,13 @@ function CallRow({
 	tools,
 	sources,
 	onOpenPath,
+	onOpenConversation,
 }: {
 	call: ToolCall;
 	tools: Tool[];
 	sources: MountSource[];
 	onOpenPath: (path: string) => void;
+	onOpenConversation: (conversationId: string) => void;
 }) {
 	const [denyMessage, setDenyMessage] = useState("");
 	// A call that asks is answered rather than approved, and its questions are its input.
@@ -808,6 +827,10 @@ function CallRow({
 	const tool = tools.find((candidate) => candidate.id === call.toolId);
 	const fields = call.output === undefined ? [] : fieldsOf(tool?.outputSchema, call.output);
 	const path = pathOf(call, tool);
+	const opened =
+		call.toolId === "create_conversation" && typeof call.output?.conversationId === "string"
+			? call.output.conversationId
+			: undefined;
 	// A call records the tool's id, which for a script tool is nothing anybody wants to read.
 	const named = tool?.name ?? call.toolId;
 	const hint = summary?.hint ?? returned(fields);
@@ -843,6 +866,16 @@ function CallRow({
 
 				{hint !== undefined && hint.length > 0 && (
 					<span className="shrink-0 text-xs text-muted-foreground">{hint}</span>
+				)}
+				{opened !== undefined && (
+					<button
+						type="button"
+						title="Open the conversation"
+						onClick={() => onOpenConversation(opened)}
+						className="shrink-0 text-muted-foreground hover:text-foreground"
+					>
+						<ArrowUpRight className="size-3.5" />
+					</button>
 				)}
 				{path !== undefined && (
 					<button

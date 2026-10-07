@@ -58,7 +58,8 @@ export async function startConversationWithWorkflow(
 	return createConversation(root, workspaceId, content);
 }
 
-async function createConversation(root: string, workspaceId: string, content: string): Promise<Conversation> {
+/** A conversation exists from here, titled by what it was started with. */
+export async function createConversation(root: string, workspaceId: string, content: string): Promise<Conversation> {
 	const workspace = await loadWorkspace(root, workspaceId);
 	const conversation: Conversation = {
 		id: randomUUID(),
