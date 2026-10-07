@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { KeyRound, Plus, X } from "lucide-react";
+import { KeyRound, Pencil, Plus, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Item, ItemActions, ItemContent, ItemDescription, ItemGroup, ItemTitle } from "@/components/ui/item";
@@ -9,10 +9,12 @@ import { settings } from "../../shared/settings";
 export function Env({ workspaceId }: { workspaceId: string }) {
 	const [env, setEnv] = useState<Record<string, string>>({});
 	const [draft, setDraft] = useState<{ key: string; value: string }>();
+	const [editing, setEditing] = useState<{ key: string; value: string }>();
 
 	useEffect(() => {
 		void window.agentOS.readEnv(workspaceId).then(setEnv);
 		setDraft(undefined);
+		setEditing(undefined);
 	}, [workspaceId]);
 
 	async function add() {
@@ -23,6 +25,13 @@ export function Env({ workspaceId }: { workspaceId: string }) {
 
 		setEnv(await window.agentOS.setEnv(workspaceId, key, draft.value));
 		setDraft(undefined);
+	}
+
+	async function change() {
+		if (editing === undefined) return;
+
+		setEnv(await window.agentOS.setEnv(workspaceId, editing.key, editing.value));
+		setEditing(undefined);
 	}
 
 	async function drop(key: string) {
@@ -95,9 +104,41 @@ export function Env({ workspaceId }: { workspaceId: string }) {
 						<Item key={key} variant="outline">
 							<ItemContent>
 								<ItemTitle>{key}</ItemTitle>
-								<ItemDescription>{value}</ItemDescription>
+								{editing?.key === key ? (
+									<Input
+										autoFocus
+										value={editing.value}
+										aria-label={`Value of ${key}`}
+										onChange={(event) => setEditing({ key, value: event.target.value })}
+										onKeyDown={(event) => {
+											if (event.key === "Enter") void change();
+											if (event.key === "Escape") setEditing(undefined);
+										}}
+									/>
+								) : (
+									<ItemDescription>{value}</ItemDescription>
+								)}
 							</ItemContent>
 							<ItemActions>
+								{editing?.key === key ? (
+									<>
+										<Button size="sm" onClick={() => void change()}>
+											Set
+										</Button>
+										<Button variant="ghost" size="sm" onClick={() => setEditing(undefined)}>
+											Cancel
+										</Button>
+									</>
+								) : (
+									<Button
+										variant="ghost"
+										size="icon-sm"
+										aria-label={`Change ${key}`}
+										onClick={() => setEditing({ key, value })}
+									>
+										<Pencil />
+									</Button>
+								)}
 								<Button
 									variant="ghost"
 									size="icon-sm"
