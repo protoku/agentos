@@ -50,7 +50,7 @@ afterEach(async () => {
 
 describe("a shared git mount", () => {
 	it("clones the repository once for the workspace and links the conversation at it", async () => {
-		const call = await invoke(conversationId, "mount", { source: "api", path: "api" });
+		const call = await invoke(conversationId, "mount", { source: "api", path: "api", mode: "shared" });
 
 		expect(call).toMatchObject({ status: "success", output: { source: "api", mode: "shared" } });
 		expect(await readFile(join(root, "workspaces", workspaceId, "clones", sourceId, "README.md"), "utf8")).toBe(
@@ -64,8 +64,8 @@ describe("a shared git mount", () => {
 	it("is the same checkout in every conversation, which is what shared means", async () => {
 		const other = await conversationIn("Another");
 
-		await invoke(conversationId, "mount", { source: "api", path: "api" });
-		await invoke(other, "mount", { source: "api", path: "repo" });
+		await invoke(conversationId, "mount", { source: "api", path: "api", mode: "shared" });
+		await invoke(other, "mount", { source: "api", path: "repo", mode: "shared" });
 		await invoke(conversationId, "write_file", { path: "api/notes.md", content: "Shared" });
 
 		const read = await invoke(other, "read_file", { path: "repo/notes.md" });
@@ -73,7 +73,7 @@ describe("a shared git mount", () => {
 	});
 
 	it("stays on the source's default branch", async () => {
-		await invoke(conversationId, "mount", { source: "api", path: "api" });
+		await invoke(conversationId, "mount", { source: "api", path: "api", mode: "shared" });
 
 		const clone = join(root, "workspaces", workspaceId, "clones", sourceId);
 		expect((await git(["branch", "--show-current"], clone)).trim()).toBe("main");
@@ -93,7 +93,7 @@ describe("a shared git mount", () => {
 	});
 
 	it("is writable, since the shared checkout is worked on in place", async () => {
-		await invoke(conversationId, "mount", { source: "api", path: "api" });
+		await invoke(conversationId, "mount", { source: "api", path: "api", mode: "shared" });
 
 		expect(await invoke(conversationId, "write_file", { path: "api/notes.md", content: "In place" })).toMatchObject({
 			status: "success",
@@ -101,11 +101,19 @@ describe("a shared git mount", () => {
 	});
 
 	it("unmounts by dropping the link, leaving the clone in place for the next mount", async () => {
-		await invoke(conversationId, "mount", { source: "api", path: "api" });
+		await invoke(conversationId, "mount", { source: "api", path: "api", mode: "shared" });
 		await invoke(conversationId, "unmount", { path: "api" });
 
 		const clone = join(root, "workspaces", workspaceId, "clones", sourceId);
 		expect((await stat(clone)).isDirectory()).toBe(true);
+	});
+});
+
+describe("a git mount without a mode", () => {
+	it("is isolated", async () => {
+		const call = await invoke(conversationId, "mount", { source: "api" });
+
+		expect(call).toMatchObject({ status: "success", output: { path: "api", mode: "isolated" } });
 	});
 });
 
@@ -191,22 +199,22 @@ describe("mounting a git source", () => {
 	});
 
 	it("never moves a shared checkout, since other conversations are standing on it", async () => {
-		await invoke(conversationId, "mount", { source: "api", path: "api" });
+		await invoke(conversationId, "mount", { source: "api", path: "api", mode: "shared" });
 		await commitToRemote("later.md", "Written after the clone");
 
 		const other = await conversationIn("Another");
-		await invoke(other, "mount", { source: "api", path: "api" });
+		await invoke(other, "mount", { source: "api", path: "api", mode: "shared" });
 
 		expect(await invoke(conversationId, "read_file", { path: "api/later.md" })).toMatchObject({ status: "error" });
 	});
 
 	it("tells a shared checkout how far behind it has fallen", async () => {
-		await invoke(conversationId, "mount", { source: "api", path: "api" });
+		await invoke(conversationId, "mount", { source: "api", path: "api", mode: "shared" });
 		await commitToRemote("later.md", "Written after the clone");
 
 		// A second mount fetches, which is what lets status count the distance.
 		const other = await conversationIn("Another");
-		await invoke(other, "mount", { source: "api", path: "repo" });
+		await invoke(other, "mount", { source: "api", path: "repo", mode: "shared" });
 
 		expect((await invoke(conversationId, "git_status", { path: "api" })).output).toMatchObject({
 			ahead: 0,
@@ -224,7 +232,7 @@ describe("searching a checkout", () => {
 		await git(["add", "."], remote);
 		await git(["commit", "-m", "Ignore some things"], remote);
 
-		await invoke(conversationId, "mount", { source: "api", path: "api" });
+		await invoke(conversationId, "mount", { source: "api", path: "api", mode: "shared" });
 		const clone = join(root, "workspaces", workspaceId, "clones", sourceId);
 		await mkdir(join(clone, "node_modules", "left-pad"), { recursive: true });
 		await writeFile(join(clone, "node_modules", "left-pad", "index.js"), "const needle = 2;", "utf8");
@@ -244,7 +252,7 @@ describe("searching a checkout", () => {
 
 describe("the git inspection tools", () => {
 	beforeEach(async () => {
-		await invoke(conversationId, "mount", { source: "api", path: "api" });
+		await invoke(conversationId, "mount", { source: "api", path: "api", mode: "shared" });
 	});
 
 	it("report the branch and what changed on the mount", async () => {

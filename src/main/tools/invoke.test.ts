@@ -171,6 +171,15 @@ describe("invokeTool", () => {
 		});
 	});
 
+	it("searches a single file when the path names one", async () => {
+		await invoke("write_file", { path: "a.txt", content: "alpha\nbeta" });
+		await invoke("write_file", { path: "b.txt", content: "beta again" });
+
+		const call = await invoke("search_files", { pattern: "beta", path: "a.txt" });
+
+		expect(call.output).toEqual({ pattern: "beta", truncated: false, matches: [{ path: "a.txt", line: 2, text: "beta" }] });
+	});
+
 	it("records a call whose input does not match the tool's schema as failed, in words", async () => {
 		const call = await invoke("write_file", { path: "a.txt" });
 
@@ -179,9 +188,9 @@ describe("invokeTool", () => {
 	});
 
 	it("says what a call typed without its arguments is missing", async () => {
-		const call = await invoke("mount", {});
+		const call = await invoke("write_file", {});
 
-		expect(call.error).toBe("mount was called with source is required, path is required");
+		expect(call.error).toBe("write_file was called with path is required, content is required");
 	});
 
 	it("shows the call while it runs, and again once it is final", async () => {

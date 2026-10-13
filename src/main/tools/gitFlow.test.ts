@@ -181,7 +181,7 @@ describe("git_checkout", () => {
 
 	it("is not for a shared mount, which never leaves its default branch", async () => {
 		const other = (await startConversation(root, workspaceId, "Shared")).conversation.id;
-		await invoke("mount", { source: "api", path: "api" }, other);
+		await invoke("mount", { source: "api", path: "api", mode: "shared" }, other);
 
 		expect(await invoke("git_checkout", { path: "api", name: "main" }, other)).toMatchObject({
 			error: "api is a shared mount, which never leaves its default branch",
@@ -207,7 +207,7 @@ describe("git_checkout", () => {
 describe("what a mount's mode and readOnly allow", () => {
 	it("keeps a shared mount on its default branch, so it never branches", async () => {
 		const other = (await startConversation(root, workspaceId, "Shared work")).conversation.id;
-		await invoke("mount", { source: "api", path: "api" }, other);
+		await invoke("mount", { source: "api", path: "api", mode: "shared" }, other);
 
 		expect(await invoke("git_create_branch", { path: "api", name: "work" }, other)).toMatchObject({
 			error: "api is a shared mount, which never leaves its default branch",
@@ -216,7 +216,7 @@ describe("what a mount's mode and readOnly allow", () => {
 
 	it("commits on a shared mount directly, which is what choosing shared means", async () => {
 		const other = (await startConversation(root, workspaceId, "Shared work")).conversation.id;
-		await invoke("mount", { source: "api", path: "api" }, other);
+		await invoke("mount", { source: "api", path: "api", mode: "shared" }, other);
 		await invoke("write_file", { path: "api/shared.md", content: "In place" }, other);
 
 		expect(await invoke("git_commit", { path: "api", message: "Straight to main" }, other)).toMatchObject({
@@ -227,7 +227,7 @@ describe("what a mount's mode and readOnly allow", () => {
 
 	it("leaves the mutating tools unavailable on a read-only mount", async () => {
 		const other = (await startConversation(root, workspaceId, "Reading only")).conversation.id;
-		await invoke("mount", { source: "api", path: "api", readOnly: true }, other);
+		await invoke("mount", { source: "api", path: "api", mode: "shared", readOnly: true }, other);
 
 		expect(await invoke("git_commit", { path: "api", message: "No" }, other)).toMatchObject({
 			error: "api is mounted read-only",

@@ -128,6 +128,8 @@ export function Thread({
 	const [highlight, setHighlight] = useState(0);
 	const [dismissed, setDismissed] = useState(false);
 	const composer = useRef<HTMLTextAreaElement>(null);
+	// Disabling the composer while what it sent runs takes the focus, so it is given back after.
+	const returning = useRef(false);
 	const [naming, setNaming] = useState<string>();
 	const [refused, setRefused] = useState<string>();
 
@@ -154,6 +156,13 @@ export function Thread({
 	// Measuring walks every entry and stringifies every call, which no keystroke should redo.
 	const size = useMemo(() => tokens(entries, agents), [entries, agents]);
 	const spent = useMemo(() => spentOn(entries), [entries]);
+
+	useEffect(() => {
+		if (busy || !returning.current) return;
+
+		returning.current = false;
+		composer.current?.focus();
+	}, [busy]);
 
 	// A different list starts at its first name, never at wherever the last one was left.
 	useEffect(() => {
@@ -215,12 +224,21 @@ export function Thread({
 		if (busy) return;
 
 		onDraft("");
+		returning.current = true;
 		try {
 			await onSend(content);
 			setRefused(undefined);
 		} catch (failure) {
 			// Refused before anything was recorded, so what was typed is given back to fix.
 			onDraft(content);
+			setRefused(failure instanceof Error ? failure.message : String(failure));
+		}
+	}
+
+	async function unmount(path: string) {
+		try {
+			await onSend(`/unmount path=${asValue(path)}`);
+		} catch (failure) {
 			setRefused(failure instanceof Error ? failure.message : String(failure));
 		}
 	}
@@ -264,25 +282,37 @@ export function Thread({
 					</div>
 
 					<div className="flex min-w-0 items-center gap-4 text-xs text-muted-foreground">
-						{mounts.map((mount) =>
-							mount.commit === undefined ? (
-								<Bound key={mount.path} label="Mounted" icon={<Boxes className="size-3.5" />}>
-									{describeMount(mount)}
-								</Bound>
-							) : (
-								// A git mount is where the work is, so it opens what has changed in it.
-								<button
-									key={mount.path}
-									type="button"
-									title={`What has changed in ${mount.path}`}
-									onClick={() => onOpenDiff(mount.path)}
-									className="flex min-w-0 items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
-								>
-									<GitCompare className="size-3.5" />
-									<span className="truncate">{describeMount(mount)}</span>
-								</button>
-							),
-						)}
+						{mounts.map((mount) => (
+							<span key={mount.path} className="flex min-w-0 items-center gap-1">
+								{mount.commit === undefined ? (
+									<Bound label="Mounted" icon={<Boxes className="size-3.5" />}>
+										{describeMount(mount)}
+									</Bound>
+								) : (
+									// A git mount is where the work is, so it opens what has changed in it.
+									<button
+										type="button"
+										title={`What has changed in ${mount.path}`}
+										onClick={() => onOpenDiff(mount.path)}
+										className="flex min-w-0 items-center gap-1.5 underline-offset-4 hover:text-foreground hover:underline"
+									>
+										<GitCompare className="size-3.5" />
+										<span className="truncate">{describeMount(mount)}</span>
+									</button>
+								)}
+								{archivedAt === undefined && !busy && (
+									<button
+										type="button"
+										aria-label={`Unmount ${mount.path}`}
+										title={`Unmount ${mount.path}`}
+										onClick={() => void unmount(mount.path)}
+										className="shrink-0 hover:text-foreground"
+									>
+										<X className="size-3" />
+									</button>
+								)}
+							</span>
+						))}
 						{present.length > 0 && (
 							<Bound label="In this conversation" icon={<Users className="size-3.5" />}>
 								{present.map((agent) => `@${agent.name}`).join(", ")}
@@ -490,6 +520,11 @@ export function Thread({
 }
 
 /** A git mount says where it stands, since that is what moves while a conversation works. */
+/** A value is written bare while it is one token, and quoted once it cannot be. */
+function asValue(value: string): string {
+	return /^[^\s"\\]+$/.test(value) ? value : `"${value.replace(/["\\]/g, "\\$&")}"`;
+}
+
 function describeMount(mount: MountState): string {
 	const at = [mount.branch, mount.commit].filter((part) => part !== undefined).join(" • ");
 	const read = mount.readOnly ? ", read-only" : "";

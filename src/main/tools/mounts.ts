@@ -15,8 +15,8 @@ const mountPath = sandboxPath.describe("Where in the sandbox the source is attac
 
 export const mountInput = z.object({
 	source: z.string().describe("Name of the workspace mount source").meta({ values: "sources" }),
-	path: mountPath,
-	mode: z.enum(["shared", "isolated"]).optional().describe("Shared unless asked otherwise"),
+	path: mountPath.optional().describe("Where in the sandbox the source is attached, the source's name when omitted"),
+	mode: z.enum(["shared", "isolated"]).optional().describe("Isolated for a git source unless asked otherwise"),
 	readOnly: z.boolean().optional(),
 });
 
@@ -37,10 +37,11 @@ export const mountTools: BuiltinToolImplementation[] = [
 			},
 			required: ["source", "path", "mode", "readOnly"],
 		},
-		async run({ source: name, path, ...asked }, context) {
+		async run({ source: name, path: askedPath, ...asked }, context) {
 			const { workspace, conversation } = await open(context);
 			const source = workspace.sources.find((candidate) => candidate.name === name);
 			if (source === undefined) throw new Error(`No source ${name}`);
+			const path = askedPath ?? name;
 
 			const { mode, readOnly } = settle(source, asked);
 
@@ -169,7 +170,9 @@ function settle(
 	// Only a git source has branching to build an isolated checkout from.
 	if (asked.mode === "isolated" && source.type !== "git") throw new Error("An isolated mount needs a git source");
 
-	return { mode: asked.mode ?? "shared", readOnly: asked.readOnly ?? false };
+	const fallback = source.type === "git" ? "isolated" : "shared";
+
+	return { mode: asked.mode ?? fallback, readOnly: asked.readOnly ?? false };
 }
 
 /** Mount paths may neither repeat nor nest: one path in the sandbox belongs to one mount. */

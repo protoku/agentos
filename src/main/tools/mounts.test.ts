@@ -48,7 +48,14 @@ describe("mount", () => {
 		expect(await mountsOf()).toMatchObject([{ path: "notes", mode: "shared", readOnly: false }]);
 	});
 
-	it("hands back what the workspace says the source is, and says nothing where it says nothing", async () => {
+	it("mounts at the source's name when no path is given", async () => {
+		const call = await invoke("mount", { source: "notes" });
+
+		expect(call).toMatchObject({ status: "success", output: { path: "notes" } });
+		expect(await readFile(join(sandbox, "notes", "todo.md"), "utf8")).toBe("Ship it");
+	});
+
+	it("hands back what the workspace says the source is,and says nothing where it says nothing", async () => {
 		expect(await invoke("mount", { source: "notes", path: "notes" })).toMatchObject({
 			output: { source: "notes" },
 		});

@@ -244,9 +244,12 @@ export function builtinTool(toolId: string): BuiltinToolImplementation {
 /**
  * What a search is allowed to see. Inside a checkout that is whatever git would show you, which
  * is the one definition of ignored that a repository already agrees on; anywhere else it is
- * everything, minus the two directories nobody means to search.
+ * everything, minus the two directories nobody means to search. A file named on its own is searched
+ * as asked, ignored or not.
  */
 async function searchable(root: string): Promise<string[]> {
+	if ((await stat(root)).isFile()) return [root];
+
 	const listed = await git(["ls-files", "--cached", "--others", "--exclude-standard", "-z"], root).catch(
 		() => undefined,
 	);

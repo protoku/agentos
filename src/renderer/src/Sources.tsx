@@ -172,7 +172,7 @@ export function Sources({ workspaceId }: { workspaceId: string }) {
 				)}
 
 				<ItemGroup>
-					{sources.map((source) => (
+					{[...sources].sort((a, b) => a.name.localeCompare(b.name)).map((source) => (
 						<Item key={source.id} variant="outline">
 							<ItemMedia variant="icon">{icons[source.type]}</ItemMedia>
 							<ItemContent>
