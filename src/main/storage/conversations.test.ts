@@ -52,6 +52,24 @@ describe("startConversation", () => {
 
 		expect(conversation.title).toBe("Deploy the API and then check that every worker picked up…");
 	});
+
+	it("keeps the images a message carries in the entry itself", async () => {
+		const image = { mediaType: "image/png" as const, data: "iVBORw0KGgo=", width: 800, height: 600 };
+
+		const { conversation, message } = await startConversation(root, workspaceId, "What is this?", [image]);
+
+		expect(message.images).toEqual([image]);
+		expect(await readConversation(root, workspaceId, conversation.id)).toEqual([message]);
+	});
+
+	it("titles a message of images alone Image", async () => {
+		const image = { mediaType: "image/png" as const, data: "iVBORw0KGgo=", width: 800, height: 600 };
+
+		const { conversation, message } = await startConversation(root, workspaceId, "", [image]);
+
+		expect(conversation.title).toBe("Image");
+		expect(message.content).toBe("");
+	});
 });
 
 describe("mentions", () => {

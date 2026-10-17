@@ -29,9 +29,9 @@ interface Workspace {
 
 ## Conversation
 
-A conversation is a thread of messages, tool calls, and turn markers between the user and one or more agents of the workspace. The user brings agents in by @-mentioning them, and every agent in the conversation sees the full thread, every entry included, from its latest summary on. A message can mention several agents: each acts on it in mention order, one at a time, so later agents see the work of earlier ones. Mentioning the same agent again queues it again: every mention is its own turn. Agents act only when mentioned.
+A conversation is a thread of messages, tool calls, and turn markers between the user and one or more agents of the workspace. The user brings agents in by @-mentioning them, and every agent in the conversation sees the full thread, every entry included, from its latest summary on. That includes the images a message carries, which are sent with it on every turn until a summary stands in for them. A message can mention several agents: each acts on it in mention order, one at a time, so later agents see the work of earlier ones. Mentioning the same agent again queues it again: every mention is its own turn. Agents act only when mentioned.
 
-Because every agent is sent the whole thread, from its latest summary on, a conversation has a size: the tokens that thread costs an agent. What is measured is the conversation's own content, every message and every settled tool call with its input, output and error; turn markers carry no content and add nothing, and a call still pending or running counts for nothing until it settles, since an unfinished entry is not part of what a turn is sent. What a turn adds around the thread, its framing and the acting agent's system prompt, belongs to that turn rather than to the conversation and is left out. The figure is an estimate and is shown as approximate, since the exact count depends on the tokenizer of the model being asked, and one thread can be sent to agents on different models.
+Because every agent is sent the whole thread, from its latest summary on, a conversation has a size: the tokens that thread costs an agent. What is measured is the conversation's own content, every message and every settled tool call with its input, output and error, an image counting as what the model charges for it, its width times its height over 750 tokens, never its bytes; turn markers carry no content and add nothing, and a call still pending or running counts for nothing until it settles, since an unfinished entry is not part of what a turn is sent. What a turn adds around the thread, its framing and the acting agent's system prompt, belongs to that turn rather than to the conversation and is left out. The figure is an estimate and is shown as approximate, since the exact count depends on the tokenizer of the model being asked, and one thread can be sent to agents on different models.
 
 A conversation that runs long can be summarized, so the work carries on without every turn carrying all of it. The user asks for one from the composer with /summarize, naming the agent that writes it and saying what it should keep, such as /summarize @dev we continue converting the manifests one service at a time. The request is a user message marked as one, and it names exactly one agent: without an agent, or with more than one, it is refused. A draft cannot be summarized, since it holds nothing yet. That agent then takes an ordinary turn and is lent one tool for it, write_summary, as a workflow step lends workflow_result: only the user asks for a summary, and no agent holds that tool outside the turn it was asked for. What it writes lands as a summary entry attributed to it and its turn, rather than as a tool call, since the summary is the whole of that call and nothing is recorded twice. A turn that ends without writing one changes nothing about what later turns see.
 
@@ -63,7 +63,7 @@ interface Conversation {
 
 ## Message
 
-A message is a single contribution to the conversation and comes in two kinds. An agent message carries agentId, so a thread with multiple agents stays attributable. A user message carries mentions, the ids of the @-mentioned agents in mention order: the @names in the content are presentation, and the ids are resolved when the message is sent, so renaming an agent never changes history. A user message without mentions is allowed: it adds to the thread and triggers no turns, and an @name matching no agent of the workspace is ordinary text that resolves to nothing.
+A message is a single contribution to the conversation and comes in two kinds. An agent message carries agentId, so a thread with multiple agents stays attributable. A user message carries mentions, the ids of the @-mentioned agents in mention order: the @names in the content are presentation, and the ids are resolved when the message is sent, so renaming an agent never changes history. A user message without mentions is allowed: it adds to the thread and triggers no turns, and an @name matching no agent of the workspace is ordinary text that resolves to nothing. A user message may also carry images pasted into the composer, held in the entry itself, so a message is text, images, or both. A message of images alone is titled Image when it starts a conversation.
 
 Every entry in a conversation names its kind in a type field, which is how the entry kinds are told apart. Tool activity is never embedded in a message: tool calls are their own entries.
 
@@ -76,7 +76,15 @@ interface UserMessage {
 	mentions?: string[];
 	summarize?: true;
 	content: string;
+	images?: MessageImage[];
 	createdAt: string;
+}
+
+interface MessageImage {
+	mediaType: "image/png" | "image/jpeg";
+	data: string; // base64
+	width: number;
+	height: number;
 }
 
 interface Summary {
@@ -504,7 +512,9 @@ Features of the app around the model above.
 - The composer is one box with its send button inside it. While a turn runs the composer sends nothing, and that button becomes a stop that cancels the turn; while a workflow runs it cancels the run, so one press ends a run of any length.
 - The composer completes what can be named in it: / at the start of a message lists the tools and summarize, the arguments of that tool once it is named, and @ anywhere lists the agents, after /summarize too, all narrowing to what is typed so far. Up and down move through the list, Enter or Tab accepts the highlighted name, and Escape closes the list without accepting. Enter sends only when no list is open. Once what the composer sent is done, the caret is back in the composer, ready for the next.
 - An argument's value completes too, wherever what it can hold is known: a fixed set of choices lists them, a yes or no lists true and false, and an argument that names a mount source lists the workspace's sources. An accepted value that contains spaces arrives quoted, the way such a value has to be written. A value that can be anything, such as a path or a piece of text, completes to nothing and stays the caller's to write.
-- What is typed in the composer and not sent belongs to the conversation it was typed in: leaving for another conversation, another workspace or a pane that replaces the thread, and coming back, finds it exactly as it was, with the caret at its end. A new conversation keeps what was typed in it the same way, for as long as that draft is in the interface. None of this is recorded, so it lives as long as AgentOS is running and a draft that never receives an entry still leaves no trace.
+- Pasting an image into the composer adds it beneath the text as a thumbnail with a way to remove it. One larger than 1568 pixels on its long edge, which is as much as the model looks at, is scaled down to that as it is pasted. Images belong to a plain message: a slash command or a summary request carrying images is refused, and stays in the composer with the reason beneath it.
+- A message shows its images as thumbnails beneath its text, and one opens full size over the thread. Copying a message still copies its text alone.
+- What is typed in the composer and not sent, its images included, belongs to the conversation it was typed in: leaving for another conversation, another workspace or a pane that replaces the thread, and coming back, finds it exactly as it was, with the caret at its end. A new conversation keeps what was typed in it the same way, for as long as that draft is in the interface. None of this is recorded, so it lives as long as AgentOS is running and a draft that never receives an entry still leaves no trace.
 - The window carries no application menu: everything AgentOS does is reachable in the interface itself. On macOS, where the menu bar belongs to the system rather than the window, it carries only what the platform needs to work at all, editing and quitting, and nothing of AgentOS's own.
 - The sidebar header holds the workspace picker: it names the workspace in view and switches to any other. It also deletes the workspace in view, confirming first like archiving does and naming what goes with it. After deleting, the picker falls back to the first workspace it lists, and when the deleted one was the last there is no workspace in view.
 - The window is two panes, the sidebar with the workspace picker and the conversation list, and the thread beside it, and a third while a file, a run, or what a turn sends is open beside it. One of those at a time: opening any of them closes whichever was there. The sidebar slides out of the way and back, and stays as you left it.

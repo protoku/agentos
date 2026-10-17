@@ -1,10 +1,10 @@
 import { randomUUID } from "node:crypto";
-import { query, type ModelUsage } from "@anthropic-ai/claude-agent-sdk";
+import { query, type ModelUsage, type SDKUserMessage } from "@anthropic-ai/claude-agent-sdk";
 import { cancelRulings } from "./decisions";
 import { claudeCodeMissing, claudeCodePath } from "../agents/claudeCode";
 import { grantedTools } from "./tools";
 import { carriedMemories, memoryBlock } from "../../shared/memory";
-import { spentAnything, transcript } from "../../shared/transcript";
+import { spentAnything, transcriptBlocks, type PromptBlock } from "../../shared/transcript";
 import { appendEntry, readEntries } from "../storage/conversationFile";
 import { conversationFile, loadWorkspace } from "../storage/workspaceStore";
 import { ensureSandbox } from "../tools/sandbox";
@@ -118,6 +118,18 @@ export async function runTurnFor(
 	}
 }
 
+/**
+ * A thread of text alone goes as a string; one carrying images goes as a single user message of
+ * content blocks, which is the only way the SDK takes an image.
+ */
+function promptOf(blocks: PromptBlock[]): string | AsyncIterable<SDKUserMessage> {
+	if (blocks.length === 1 && blocks[0].type === "text") return blocks[0].text;
+
+	return (async function* () {
+		yield { type: "user", message: { role: "user", content: blocks }, parent_tool_use_id: null };
+	})();
+}
+
 async function runTurn(
 	root: string,
 	workspaceId: string,
@@ -147,7 +159,7 @@ async function runTurn(
 		if (claudeCode === undefined) throw new Error(claudeCodeMissing);
 
 		const sandbox = await ensureSandbox(root, workspaceId, conversationId);
-		const prompt = transcript(await readEntries(file), workspace.agents, agent);
+		const prompt = promptOf(transcriptBlocks(await readEntries(file), workspace.agents, agent));
 		// Read as the turn starts, so an agent is handed what the workspace knows right now.
 		const carried = memoryBlock(carriedMemories(workspace.memories, agent.carries));
 		const granted = await grantedTools(

@@ -12,7 +12,7 @@ import type { EntrySink } from "../turns/run";
 import type { ConversationSummary } from "../../shared/api";
 import { findMentions } from "../../shared/mentions";
 import type { SlashCommand } from "../../shared/slash";
-import type { Conversation, Entry, ToolCall, UserMessage } from "../../shared/types";
+import type { Conversation, Entry, MessageImage, ToolCall, UserMessage } from "../../shared/types";
 
 const titleLength = 60;
 
@@ -21,9 +21,10 @@ export async function startConversation(
 	root: string,
 	workspaceId: string,
 	content: string,
+	images: MessageImage[] = [],
 ): Promise<{ conversation: Conversation; message: UserMessage }> {
-	const conversation = await createConversation(root, workspaceId, content);
-	const message = await sendMessage(root, workspaceId, conversation.id, content);
+	const conversation = await createConversation(root, workspaceId, content.trim().length > 0 ? content : "Image");
+	const message = await sendMessage(root, workspaceId, conversation.id, content, images);
 
 	return { conversation, message };
 }
@@ -79,6 +80,7 @@ export async function sendMessage(
 	workspaceId: string,
 	conversationId: string,
 	content: string,
+	images: MessageImage[] = [],
 ): Promise<UserMessage> {
 	const workspace = await loadWorkspace(root, workspaceId);
 	const mentions = findMentions(content, workspace.agents).map((mention) => mention.agentId);
@@ -88,6 +90,7 @@ export async function sendMessage(
 		id: randomUUID(),
 		...(mentions.length > 0 && { mentions }),
 		content,
+		...(images.length > 0 && { images }),
 		createdAt: new Date().toISOString(),
 	};
 

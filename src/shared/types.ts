@@ -105,7 +105,17 @@ export interface UserMessage {
 	/** Asks the one agent it mentions to write a summary, which later turns start from. */
 	summarize?: true;
 	content: string;
+	images?: MessageImage[];
 	createdAt: string;
+}
+
+/** An image pasted into a message, held in the entry itself. */
+export interface MessageImage {
+	mediaType: "image/png" | "image/jpeg";
+	/** Base64, as the model is sent it. */
+	data: string;
+	width: number;
+	height: number;
 }
 
 /** What later turns are sent in place of everything before it. */

@@ -39,6 +39,7 @@ import { Kbd, KbdGroup } from "@/components/ui/kbd";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { cn } from "@/lib/utils";
 import {
 	MessageScroller,
@@ -55,6 +56,7 @@ import { FieldRow } from "./Fields";
 import { money, thousands } from "./format";
 import { moment } from "./Conversations";
 import { Markdown } from "./Markdown";
+import { imageSource, pastedImage } from "./images";
 import { completionAt, type Candidate } from "../../shared/completions";
 import { findMentions } from "../../shared/mentions";
 import { fieldsOf, pathOf, type Field } from "../../shared/render";
@@ -63,6 +65,7 @@ import type { MountState } from "../../shared/api";
 import type {
 	Agent,
 	Entry,
+	MessageImage,
 	MountSource,
 	Summary,
 	Tool,
@@ -88,6 +91,8 @@ export function Thread({
 	archivedAt,
 	draft,
 	onDraft,
+	draftImages,
+	onDraftImages,
 	onSend,
 	onCancel,
 	onOpenSandbox,
@@ -111,7 +116,9 @@ export function Thread({
 	archivedAt?: string;
 	draft: string;
 	onDraft: (draft: string) => void;
-	onSend: (content: string) => Promise<void>;
+	draftImages: MessageImage[];
+	onDraftImages: (images: MessageImage[]) => void;
+	onSend: (content: string, images?: MessageImage[]) => Promise<void>;
 	onCancel: () => Promise<void>;
 	onOpenSandbox: () => Promise<void>;
 	onOpenFiles: () => void;
@@ -219,18 +226,34 @@ export function Thread({
 
 	async function send() {
 		const content = draft.trim();
-		if (content.length === 0) return;
+		const images = draftImages;
+		if (content.length === 0 && images.length === 0) return;
 
 		if (busy) return;
 
 		onDraft("");
+		onDraftImages([]);
 		returning.current = true;
 		try {
-			await onSend(content);
+			await onSend(content, images);
 			setRefused(undefined);
 		} catch (failure) {
 			// Refused before anything was recorded, so what was typed is given back to fix.
 			onDraft(content);
+			onDraftImages(images);
+			setRefused(failure instanceof Error ? failure.message : String(failure));
+		}
+	}
+
+	async function paste(event: React.ClipboardEvent<HTMLTextAreaElement>) {
+		const files = [...event.clipboardData.files].filter((file) => file.type.startsWith("image/"));
+		if (files.length === 0) return;
+
+		event.preventDefault();
+		try {
+			const pasted = await Promise.all(files.map(pastedImage));
+			onDraftImages([...draftImages, ...pasted]);
+		} catch (failure) {
 			setRefused(failure instanceof Error ? failure.message : String(failure));
 		}
 	}
@@ -485,7 +508,30 @@ export function Thread({
 							}}
 							onSelect={(event) => setCaret(event.currentTarget.selectionStart)}
 							onKeyDown={onKeyDown}
+							onPaste={(event) => void paste(event)}
 						/>
+
+						{draftImages.length > 0 && (
+							<div className="flex flex-wrap gap-2 px-2">
+								{draftImages.map((image, index) => (
+									<div key={index} className="relative">
+										<img
+											src={imageSource(image)}
+											alt={`Pasted image ${index + 1}`}
+											className="h-16 rounded-md border border-border object-cover"
+										/>
+										<button
+											type="button"
+											aria-label="Remove image"
+											onClick={() => onDraftImages(draftImages.filter((_, kept) => kept !== index))}
+											className="absolute -top-1.5 -right-1.5 rounded-full border border-border bg-elevated p-0.5 text-muted-foreground hover:text-foreground"
+										>
+											<X className="size-3" />
+										</button>
+									</div>
+								))}
+							</div>
+						)}
 
 						<div className="flex justify-end">
 							{acting ? (
@@ -819,11 +865,41 @@ function EntryView({
 						) : (
 							<Markdown content={entry.content} />
 						)}
+						{entry.type === "userMessage" && entry.images && <Images images={entry.images} />}
 					</div>
 					<CopyButton label="Copy message" text={entry.content} className={hidden} />
 				</article>
 			);
 	}
+}
+
+/** A message's images as thumbnails, any of which opens full size over the thread. */
+function Images({ images }: { images: MessageImage[] }) {
+	return (
+		<div className="mt-2 flex flex-wrap gap-2">
+			{images.map((image, index) => (
+				<Dialog key={index}>
+					<DialogTrigger asChild>
+						<button type="button" aria-label={`Open image ${index + 1}`}>
+							<img
+								src={imageSource(image)}
+								alt={`Image ${index + 1}`}
+								className="max-h-40 max-w-xs rounded-md border border-border object-contain"
+							/>
+						</button>
+					</DialogTrigger>
+					<DialogContent className="max-h-[90vh] max-w-[90vw] p-2">
+						<DialogTitle className="sr-only">Image {index + 1}</DialogTitle>
+						<img
+							src={imageSource(image)}
+							alt={`Image ${index + 1}`}
+							className="max-h-[calc(90vh-1rem)] max-w-[calc(90vw-1rem)] object-contain"
+						/>
+					</DialogContent>
+				</Dialog>
+			))}
+		</div>
+	);
 }
 
 function agentName(agents: Agent[], agentId: string): string {

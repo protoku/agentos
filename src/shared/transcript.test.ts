@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { estimateTokens, sinceSummary, spentOn, tokens, transcript } from "./transcript";
+import { estimateTokens, sinceSummary, spentOn, tokens, transcript, transcriptBlocks } from "./transcript";
 import type { Agent, Entry } from "./types";
 
 const ops: Agent = {
@@ -40,6 +40,49 @@ describe("transcript", () => {
 
 	it("leaves turn markers out, since they carry nothing to read", () => {
 		expect(transcript(entries, [ops], ops)).not.toContain("turnStart");
+	});
+});
+
+describe("images", () => {
+	const image = { mediaType: "image/png" as const, data: "iVBORw0KGgo=", width: 1500, height: 1000 };
+	const shown: Entry[] = [
+		{ type: "userMessage", id: "m1", content: "before", createdAt: "" },
+		{ type: "userMessage", id: "m2", mentions: [ops.id], content: "@ops what is this?", images: [image], createdAt: "" },
+		{ type: "agentMessage", id: "m3", agentId: ops.id, turnId: "t1", content: "A chart", createdAt: "" },
+	];
+
+	it("places a message's images right after the line that carries them", () => {
+		const blocks = transcriptBlocks(shown, [ops], ops);
+
+		expect(blocks).toHaveLength(3);
+		expect(blocks[0]).toMatchObject({ type: "text" });
+		expect(blocks[0].type === "text" && blocks[0].text).toMatch(/user: @ops what is this\? \(with an image, which follows\)$/);
+		expect(blocks[1]).toEqual({
+			type: "image",
+			source: { type: "base64", media_type: "image/png", data: "iVBORw0KGgo=" },
+		});
+		expect(blocks[2]).toEqual({ type: "text", text: "@ops: A chart" });
+	});
+
+	it("sends a thread without images as one text block", () => {
+		expect(transcriptBlocks(entries, [ops], ops)).toEqual([{ type: "text", text: transcript(entries, [ops], ops) }]);
+	});
+
+	it("leaves out images from before the latest summary", () => {
+		const summarized: Entry[] = [
+			...shown,
+			{ type: "summary", id: "s1", agentId: ops.id, turnId: "t2", content: "Looked at a chart", createdAt: "" },
+		];
+
+		expect(transcriptBlocks(summarized, [ops], ops).some((block) => block.type === "image")).toBe(false);
+	});
+
+	it("counts an image by its pixels, never by its bytes", () => {
+		const without: Entry[] = [{ ...shown[1], images: undefined } as Entry];
+		const textOnly = tokens([{ type: "userMessage", id: "m2", content: "@ops what is this? (with an image, which follows)", createdAt: "" }], [ops]);
+
+		expect(tokens([shown[1]], [ops])).toBe(textOnly + 2000);
+		expect(tokens(without, [ops])).toBeLessThan(tokens([shown[1]], [ops]));
 	});
 });
 

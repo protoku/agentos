@@ -67,7 +67,7 @@ import { Diff } from "./Diff";
 import { SidePane, Viewer } from "./Viewer";
 import { parseSlashCommand, parseSummarize } from "../../shared/slash";
 import type { ConversationSummary, MountState } from "../../shared/api";
-import type { Agent, Entry, MountSource, Tool, ToolCall, Workflow, Workspace } from "../../shared/types";
+import type { Agent, Entry, MessageImage, MountSource, Tool, ToolCall, Workflow, Workspace } from "../../shared/types";
 
 const sections = ["conversations", "agents", "tools", "workflows", "sources", "memories", "usage", "env"] as const;
 
@@ -124,6 +124,7 @@ export function App() {
 	const [mounts, setMounts] = useState<MountState[]>([]);
 	// What was typed and not sent, kept here so leaving a thread and coming back finds it.
 	const [drafts, setDrafts] = useState<Record<string, string>>({});
+	const [draftImages, setDraftImages] = useState<Record<string, MessageImage[]>>({});
 
 	useEffect(() => {
 		void window.agentOS.listWorkspaces().then(setWorkspaces);
@@ -258,8 +259,10 @@ export function App() {
 		setConversations(await window.agentOS.listConversations(workspaceId));
 	}
 
-	async function send(content: string) {
+	async function send(content: string, images: MessageImage[] = []) {
 		if (workspaceId === undefined) return;
+
+		if (images.length > 0 && content.startsWith("/")) throw new Error("Images go with a message, not a command");
 
 		const summarize = parseSummarize(content);
 		if (summarize !== undefined) {
@@ -307,12 +310,12 @@ export function App() {
 		}
 
 		if (conversationId === undefined) {
-			const { conversation, message } = await window.agentOS.startConversation(workspaceId, content);
+			const { conversation, message } = await window.agentOS.startConversation(workspaceId, content, images);
 			setDrafting(false);
 			setConversationId(conversation.id);
 			setEntries([message]);
 		} else {
-			const message = await window.agentOS.sendMessage(workspaceId, conversationId, content);
+			const message = await window.agentOS.sendMessage(workspaceId, conversationId, content, images);
 			setEntries((current) => [...current, message]);
 		}
 
@@ -527,6 +530,8 @@ export function App() {
 					archivedAt={openConversation?.archivedAt}
 					draft={drafts[composing] ?? ""}
 					onDraft={(draft) => setDrafts((current) => ({ ...current, [composing]: draft }))}
+					draftImages={draftImages[composing] ?? []}
+					onDraftImages={(images) => setDraftImages((current) => ({ ...current, [composing]: images }))}
 					onSend={send}
 					onCancel={cancel}
 					onOpenSandbox={openSandbox}

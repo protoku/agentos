@@ -45,7 +45,7 @@ import { cancelRuling, cancelRulings, rule } from "./turns/decisions";
 import { cancelTurn, isAgentActing, isTurnRunning, runMentionedTurns, runTurnFor } from "./turns/run";
 import { summaryTools } from "./turns/summary";
 import { parseSlashCommand } from "../shared/slash";
-import type { Entry } from "../shared/types";
+import type { Entry, MessageImage } from "../shared/types";
 import type { MemoryDraft } from "../shared/api";
 import type { Agent, Memory, ScriptTool, Workflow } from "../shared/types";
 
@@ -110,8 +110,8 @@ void app.whenReady().then(async () => {
 	ipcMain.handle("conversations:read", (_event, workspaceId: string, conversationId: string) =>
 		readConversation(root, workspaceId, conversationId),
 	);
-	ipcMain.handle("conversations:start", async (_event, workspaceId: string, content: string) => {
-		const started = await startConversation(root, workspaceId, content);
+	ipcMain.handle("conversations:start", async (_event, workspaceId: string, content: string, images?: MessageImage[]) => {
+		const started = await startConversation(root, workspaceId, content, images);
 		startTurns(root, workspaceId, started.conversation.id, started.message.mentions);
 		return started;
 	});
@@ -125,12 +125,15 @@ void app.whenReady().then(async () => {
 
 		return started;
 	});
-	ipcMain.handle("conversations:send", async (_event, workspaceId: string, conversationId: string, content: string) => {
-		refuseWhileBusy(conversationId);
-		const message = await sendMessage(root, workspaceId, conversationId, content);
-		startTurns(root, workspaceId, conversationId, message.mentions);
-		return message;
-	});
+	ipcMain.handle(
+		"conversations:send",
+		async (_event, workspaceId: string, conversationId: string, content: string, images?: MessageImage[]) => {
+			refuseWhileBusy(conversationId);
+			const message = await sendMessage(root, workspaceId, conversationId, content, images);
+			startTurns(root, workspaceId, conversationId, message.mentions);
+			return message;
+		},
+	);
 	ipcMain.handle(
 		"conversations:summarize",
 		async (_event, workspaceId: string, conversationId: string, content: string) => {

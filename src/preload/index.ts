@@ -10,11 +10,12 @@ const api: AgentOSApi = {
 	listConversations: (workspaceId) => ipcRenderer.invoke("conversations:list", workspaceId),
 	readConversation: (workspaceId, conversationId) =>
 		ipcRenderer.invoke("conversations:read", workspaceId, conversationId),
-	startConversation: (workspaceId, content) => ipcRenderer.invoke("conversations:start", workspaceId, content),
+	startConversation: (workspaceId, content, images) =>
+		ipcRenderer.invoke("conversations:start", workspaceId, content, images),
 	startConversationWithTool: (workspaceId, content) =>
 		ipcRenderer.invoke("conversations:startWithTool", workspaceId, content),
-	sendMessage: (workspaceId, conversationId, content) =>
-		ipcRenderer.invoke("conversations:send", workspaceId, conversationId, content),
+	sendMessage: (workspaceId, conversationId, content, images) =>
+		ipcRenderer.invoke("conversations:send", workspaceId, conversationId, content, images),
 	requestSummary: (workspaceId, conversationId, content) =>
 		ipcRenderer.invoke("conversations:summarize", workspaceId, conversationId, content),
 	renameConversation: (workspaceId, conversationId, title) =>

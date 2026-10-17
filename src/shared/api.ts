@@ -4,6 +4,7 @@ import type {
 	Conversation,
 	Entry,
 	Memory,
+	MessageImage,
 	MountSource,
 	Workflow,
 	ScriptTool,
@@ -78,13 +79,22 @@ export interface AgentOSApi {
 	deleteWorkspace(workspaceId: string): Promise<void>;
 	listConversations(workspaceId: string): Promise<ConversationSummary[]>;
 	readConversation(workspaceId: string, conversationId: string): Promise<Entry[]>;
-	startConversation(workspaceId: string, content: string): Promise<{ conversation: Conversation; message: UserMessage }>;
+	startConversation(
+		workspaceId: string,
+		content: string,
+		images?: MessageImage[],
+	): Promise<{ conversation: Conversation; message: UserMessage }>;
 	/** The other way a draft becomes real: its first entry is the tool call typed in the composer. */
 	startConversationWithTool(
 		workspaceId: string,
 		content: string,
 	): Promise<{ conversation: Conversation; call: ToolCall }>;
-	sendMessage(workspaceId: string, conversationId: string, content: string): Promise<UserMessage>;
+	sendMessage(
+		workspaceId: string,
+		conversationId: string,
+		content: string,
+		images?: MessageImage[],
+	): Promise<UserMessage>;
 	requestSummary(workspaceId: string, conversationId: string, content: string): Promise<UserMessage>;
 	renameConversation(workspaceId: string, conversationId: string, title: string): Promise<Conversation>;
 	archiveConversation(workspaceId: string, conversationId: string): Promise<Conversation>;

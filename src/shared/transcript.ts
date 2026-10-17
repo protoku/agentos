@@ -1,13 +1,40 @@
-import type { Agent, Entry, Spend } from "./types";
+import type { Agent, Entry, MessageImage, Spend } from "./types";
+
+/** What a turn's prompt is made of, in the shape the model's API takes content. */
+export type PromptBlock =
+	| { type: "text"; text: string }
+	| { type: "image"; source: { type: "base64"; media_type: MessageImage["mediaType"]; data: string } };
 
 /** Every agent sees the whole thread, so a turn's prompt is the thread rendered as text. */
 export function transcript(entries: Entry[], agents: Agent[], acting: Agent): string {
-	return [
+	return transcriptBlocks(entries, agents, acting)
+		.flatMap((block) => (block.type === "text" ? [block.text] : []))
+		.join("\n");
+}
+
+/** The same thread, with each message's images placed right after the line that carries them. */
+export function transcriptBlocks(entries: Entry[], agents: Agent[], acting: Agent): PromptBlock[] {
+	const blocks: PromptBlock[] = [];
+	let lines = [
 		`You are the agent @${acting.name} in a conversation with a user and possibly other agents.`,
 		"Below is everything said and done in it so far. Reply as yourself, in plain text.",
 		"",
-		...threadLines(sinceSummary(entries), agents),
-	].join("\n");
+	];
+
+	for (const entry of sinceSummary(entries)) {
+		lines.push(...threadLines([entry], agents));
+		if (entry.type !== "userMessage" || entry.images === undefined) continue;
+
+		blocks.push({ type: "text", text: lines.join("\n") });
+		for (const image of entry.images) {
+			blocks.push({ type: "image", source: { type: "base64", media_type: image.mediaType, data: image.data } });
+		}
+		lines = [];
+	}
+
+	if (lines.length > 0) blocks.push({ type: "text", text: lines.join("\n") });
+
+	return blocks;
 }
 
 /** The latest summary stands in for everything before it, so a thread is read from there on. */
@@ -23,7 +50,15 @@ export function sinceSummary(entries: Entry[]): Entry[] {
  * tokenizer, and one thread can go to agents on different models, so this is approximate.
  */
 export function tokens(entries: Entry[], agents: Agent[]): number {
-	return estimateTokens(threadLines(sinceSummary(entries).filter(settled), agents).join("\n"));
+	const thread = sinceSummary(entries).filter(settled);
+	const images = thread.flatMap((entry) => (entry.type === "userMessage" ? (entry.images ?? []) : []));
+
+	return estimateTokens(threadLines(thread, agents).join("\n")) + images.reduce((sum, image) => sum + imageTokens(image), 0);
+}
+
+/** An image costs what its pixels do, never its bytes: this is the model's own published rule. */
+export function imageTokens(image: Pick<MessageImage, "width" | "height">): number {
+	return Math.round((image.width * image.height) / 750);
 }
 
 /** Whether a turn recorded a cost, since a refused turn reports zeros and older ones stored them. */
@@ -74,7 +109,7 @@ function threadLines(entries: Entry[], agents: Agent[]): string[] {
 				lines.push(
 					entry.summarize
 						? `user asks for a summary, written with write_summary, that later turns will be sent instead of everything before it: ${entry.content}`
-						: `user: ${entry.content}`,
+						: `user: ${entry.content}${attached(entry.images)}`,
 				);
 				break;
 			case "summary":
@@ -111,6 +146,12 @@ function threadLines(entries: Entry[], agents: Agent[]): string[] {
 	}
 
 	return lines;
+}
+
+function attached(images: MessageImage[] | undefined): string {
+	if (images === undefined) return "";
+
+	return images.length === 1 ? " (with an image, which follows)" : ` (with ${images.length} images, which follow)`;
 }
 
 function name(agents: Agent[], agentId: string): string {
